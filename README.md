@@ -144,7 +144,34 @@ Type `@daily-elite-summary` or say **"run morning elite"** to generate the repor
 
 ---
 
-## More detail
+## GitHub Pages
+
+Published reports are copied to `docs/` after each HTML export.
+
+**Enable once** in the repo on GitHub:
+
+1. **Settings** → **Pages**
+2. **Build and deployment** → Source: **Deploy from a branch**
+3. Branch: **main** (or your default), folder: **/docs**
+4. Save
+
+Site URL (org repo):
+
+`https://silver-social-games.github.io/EliteDailySummary-/`
+
+- **Home:** `docs/index.html` — latest report + archive
+- **Latest:** `docs/latest.html`
+- **Archive:** `docs/reports/`
+
+After a local run, commit and push `docs/` to update the site:
+
+```bash
+git add docs/
+git commit -m "Publish latest Elite daily summary"
+git push
+```
+
+---
 
 - **Workflow:** [`daily_summary/DAILY_SUMMARY.md`](daily_summary/DAILY_SUMMARY.md)
 - **Definitions & rules:** [`Elite.MD`](Elite.MD)
