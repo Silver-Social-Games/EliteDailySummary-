@@ -1,0 +1,62 @@
+# Credentials — never commit
+key.json
+key.json.json
+*.json.json
+credentials.json
+service-account*.json
+.env
+.env.*
+
+# Generated reports & logs (regenerate on run)
+daily_summary/daily_summaries/*
+!daily_summary/daily_summaries/2026-07-07_elite_daily_summary_canvas.html
+!daily_summary/daily_summaries/2026-07-09_to_2026-07-11_elite_weekend_summary_canvas.html
+daily_summary/logs/
+decline_check/daily_summaries/
+decline_check/handoffs/
+decline_check/*.csv
+decline_check/*.sql
+decline_check/*.docx
+decline_check/*.xlsx
+decline_check/data/
+decline_check/_tmp*
+decline_check/ACTION_PLAYBOOK.md
+decline_check/DAILY_FLOW.md
+decline_check/FEEDBACK_CRO_CANVAS.md
+decline_check/ZENDESK_TICKET_RULES.md
+decline_check/generate_decline_protocol.py
+decline_check/generate_elite_feedback_cro_canvas.py
+decline_check/monday_skip_export.py
+decline_check/export_tuesday_compare.py
+decline_check/track_declines.py
+decline_check/wow_drop_player_handoff.py
+decline_check/register_daily_elite_task.ps1
+exports/
+
+# Cursor — daily-elite-summary skill only
+.cursor/*
+!.cursor/skills/
+.cursor/skills/*
+!.cursor/skills/daily-elite-summary/
+
+# Other Elite initiatives (not part of EliteDailySummary)
+ceo_h1_slide/
+last_push_60d/
+new_elite_players_adding/
+purchase_lookup/
+vip_event/
+slide_removed.png
+Elite.code-workspace
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
