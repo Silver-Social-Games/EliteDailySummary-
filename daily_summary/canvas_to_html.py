@@ -131,6 +131,12 @@ def export_for_canvas(canvas_path: Path, out_path: Path | None = None) -> Path |
     try:
         out = convert(canvas_path, out_path=out_path)
         print(f"Wrote {out}")
+        try:
+            from publish_github_pages import publish_html
+
+            publish_html(out)
+        except Exception as exc:
+            print(f"GitHub Pages publish skipped: {exc}")
         return out
     except Exception as exc:
         print(f"HTML canvas export skipped: {exc}", file=sys.stderr)
