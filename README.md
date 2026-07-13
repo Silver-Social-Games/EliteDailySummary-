@@ -1,66 +1,151 @@
 # Elite Daily Summary
 
-Elite morning reports for the managed book — same-weekday Jackpota + Elite compare, Top 20 Same Day Comparison, canvas + HTML export.
-
-**Canonical definitions:** [`Elite.MD`](Elite.MD) · **Workflow:** [`daily_summary/DAILY_SUMMARY.md`](daily_summary/DAILY_SUMMARY.md)
+Morning reports for the **Elite** managed book — platform + Elite performance, Top 20 player comparison, reasons, and agent recommendations. Runs automatically Sun–Thu at 10:00 Israel time.
 
 ---
 
-## Schedule (Sun–Thu, 10:00 Israel)
+## What you get
 
-| Generation day | Report |
-|----------------|--------|
-| **Sunday** | Prior Thu + Fri + Sat (weekend bundle) |
-| **Mon–Thu** | Yesterday (daily) |
-| **Fri/Sat** | Skip |
+Each run produces:
+
+- **Markdown** — shareable summary text
+- **HTML** — open in Chrome, same layout as the Cursor canvas
+- **Canvas** — interactive view in Cursor (search, filters, Zendesk ticket draft)
+
+**Daily** (Mon–Thu): one day vs the same weekday last week.  
+**Weekend** (Sunday): combined Thu + Fri + Sat in one report.
+
+---
+
+## Quick start
+
+### 1. Install
+
+```bash
+cd path\to\EliteDailySummary
+pip install -r requirements.txt
+```
+
+### 2. Add BigQuery credentials
+
+Either:
+
+- Set environment variable `GOOGLE_APPLICATION_CREDENTIALS` to your service account JSON path, **or**
+- Place your key at `c:\Users\Owner\Downloads\key.json.json` (default used by the scripts)
+
+You need read access to `silver-social-games-data` (EU).
+
+### 3. Run today's report
 
 ```bash
 python daily_summary/generate_morning_elite.py
 ```
 
-Register Windows task (once):
+That's it. The script picks the right report type based on today's weekday.
+
+### 4. Open the result
+
+```bash
+# Daily example (replace date)
+start daily_summary\daily_summaries\2026-07-12_elite_daily_summary_canvas.html
+
+# Weekend example
+start daily_summary\daily_summaries\2026-07-09_to_2026-07-11_elite_weekend_summary_canvas.html
+```
+
+Reports are saved under `daily_summary/daily_summaries/`.
+
+---
+
+## When does it run?
+
+| Day | What generates | Covers |
+|-----|----------------|--------|
+| **Sunday** | Weekend bundle | Prior Thu, Fri, Sat |
+| **Monday** | Daily | Sunday |
+| **Tuesday** | Daily | Monday |
+| **Wednesday** | Daily | Tuesday |
+| **Thursday** | Daily | Wednesday |
+| **Friday / Saturday** | Nothing | Thu–Sat wait for Sunday |
+
+Thursday is only in the **Sunday weekend report**, not as a standalone daily — by design.
+
+### Automate on Windows (once)
+
+Set Windows timezone to **Jerusalem**, then:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File daily_summary\register_daily_summary_task.ps1
 ```
 
+This registers a 10:00 AM daily task. Logs go to `daily_summary/logs/` if something fails.
+
 ---
 
-## Setup
+## Manual runs
+
+Override the weekday router when you need a specific date:
 
 ```bash
-pip install -r requirements.txt
+# Force daily for a specific date
+python daily_summary/generate_morning_elite.py --force daily --date 2026-07-07
+
+# Force weekend (default: last Thu–Sat)
+python daily_summary/generate_morning_elite.py --force weekend
+
+# Weekend with explicit dates
+python daily_summary/generate_weekend_summary.py --dates 2026-07-09,2026-07-10,2026-07-11
 ```
-
-**Credentials:** set `GOOGLE_APPLICATION_CREDENTIALS` to your BigQuery service account JSON, or place `key.json.json` at the default path documented in `Elite.MD`.
-
-**Warehouse:** `silver-social-games-data` (EU)
 
 ---
 
-## Output
+## Report layout (baselines)
 
-| Artifact | Path |
-|----------|------|
-| Markdown | `daily_summary/daily_summaries/YYYY-MM-DD_elite_daily_summary.md` |
-| HTML | `daily_summary/daily_summaries/*_canvas.html` |
-| Canvas | `~/.cursor/projects/<workspace>/canvases/elite-daily-summary-*.canvas.tsx` |
+Use these as the format reference — don't change layout without diffing against them.
 
-### Format baselines
+| Report | Baseline date | Reference file |
+|--------|---------------|----------------|
+| **Daily** | 2026-07-07 | `daily_summary/daily_summaries/2026-07-07_elite_daily_summary_canvas.html` |
+| **Weekend** | 2026-07-12 lock | `daily_summary/daily_summaries/2026-07-09_to_2026-07-11_elite_weekend_summary_canvas.html` |
 
-| Report | Baseline |
-|--------|----------|
-| Daily | **2026-07-07** |
-| Weekend | **2026-07-12** format lock (`2026-07-09` to `2026-07-11` data) |
+Each daily report includes:
+
+1. **{Weekday} vs last {weekday}** — Jackpota + Elite WoW
+2. **Top 20 Same Day Comparison** — purchases, hold, urgency, reason, recommendation
+3. Per-player handoffs (see `wow-drop-reason-analysis` skill for deep dives)
 
 ---
 
-## Layout
+## Folder guide
 
 ```
-daily_summary/     # Entry scripts, scheduler, HTML export
-decline_check/     # BigQuery, reason logic, canvas generators (core dependency)
-Elite.MD           # Terminology and KPI rules
+daily_summary/          Run scripts, scheduler, HTML export, outputs
+decline_check/          BigQuery queries, reason logic, canvas generators
+Elite.MD                Terminology and KPI rules (read before reporting)
+.cursor/skills/         Cursor agent skills (@daily-elite-summary)
 ```
 
-**Cursor skill:** `.cursor/skills/daily-elite-summary/` — use `@daily-elite-summary` in chat.
+---
+
+## In Cursor
+
+Type `@daily-elite-summary` or say **"run morning elite"** to generate the report from chat.
+
+---
+
+## Troubleshooting
+
+| Problem | What to check |
+|---------|----------------|
+| `git` / `python` not found | Restart terminal after install; confirm PATH |
+| BigQuery auth error | `GOOGLE_APPLICATION_CREDENTIALS` or default key path |
+| Scheduled task ran but no file | Latest log in `daily_summary/logs/morning_elite_*.log` |
+| Wrong report type | Use `--force daily` or `--force weekend` |
+
+---
+
+## More detail
+
+- **Workflow:** [`daily_summary/DAILY_SUMMARY.md`](daily_summary/DAILY_SUMMARY.md)
+- **Definitions & rules:** [`Elite.MD`](Elite.MD)
+- **Agent setup:** [`AGENTS.md`](AGENTS.md)
