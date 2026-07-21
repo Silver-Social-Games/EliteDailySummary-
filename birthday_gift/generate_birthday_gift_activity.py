@@ -1,20 +1,20 @@
 """
-Elite monthly birthday gift — 30-day before/after activity comparison.
+Elite birthday gift — before/after activity comparison.
 
-Windows are anchored to the 15th of each player's gift month (not individual gift date):
-  Before: anchor - 30 days through anchor - 1 day
-  After:  anchor + 1 day through anchor + 30 days
+AID mode (skill default): you supply AIDs and explicit checking periods.
+No month-15 anchor. Windows are exactly the dates you pass.
 
 Run from project root:
-  python birthday_gift/generate_birthday_gift_activity.py
-  python birthday_gift/generate_birthday_gift_activity.py --start 2026-06-01 --end 2026-07-31
-  python birthday_gift/generate_birthday_gift_activity.py --cohort june_2026
+  python birthday_gift/generate_birthday_gift_activity.py \\
+    --aids-file birthday_gift/cohorts/july_2026_cohort_aids.txt \\
+    --before-from 2026-06-01 --before-to 2026-06-30 \\
+    --after-from 2026-07-01 --after-to 2026-07-31 \\
+    --stem birthday_gift_activity_july_2026_cohort
 
-Output:
-  birthday_gift/exports/birthday_gift_activity_YYYY-MM-DD_to_YYYY-MM-DD.csv
-  birthday_gift/exports/birthday_gift_activity_YYYY-MM-DD_to_YYYY-MM-DD_summary.csv
-  birthday_gift/exports/birthday_gift_activity_YYYY-MM-DD_to_YYYY-MM-DD_summary_by_month.csv
-  birthday_gift/exports/birthday_gift_activity_YYYY-MM-DD_to_YYYY-MM-DD_summary_full_after.csv
+  python birthday_gift/generate_birthday_gift_activity.py --cohort june_2026
+  python birthday_gift/generate_birthday_gift_activity.py --start 2026-06-01 --end 2026-07-31
+
+Output under birthday_gift/exports/
 """
 
 from __future__ import annotations
@@ -22,15 +22,16 @@ from __future__ import annotations
 import argparse
 import csv
 import sys
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 OUTPUT_DIR = Path(__file__).resolve().parent / "exports"
 COHORTS_DIR = Path(__file__).resolve().parent / "cohorts"
+sys.path.insert(0, str(PROJECT_ROOT))
 sys.path.insert(0, str(PROJECT_ROOT / "decline_check"))
 
-from generate_daily_elite_summary import PROJECT_ID, get_client, run_query  # noqa: E402
+from elite_lib import PROJECT_ID, get_client, run_query  # noqa: E402
 
 BIRTHDAY_CAMPAIGN_ID = 1816
 WINDOW_DAYS = 30
@@ -39,8 +40,11 @@ ANCHOR_DAY = 15
 COHORT_CONFIG = {
     "june_2026": {
         "aids_file": COHORTS_DIR / "june_2026_aids.txt",
+        "before_from": "2026-05-16",
+        "before_to": "2026-06-14",
+        "after_from": "2026-06-16",
+        "after_to": "2026-07-15",
         "gift_month": "2026-06",
-        "anchor_date": "2026-06-15",
         "stem": "birthday_gift_activity_june_2026_cohort",
     },
 }
@@ -59,6 +63,10 @@ def pct_change(before: float, after: float) -> float | None:
     return round((after - before) / before * 100, 2)
 
 
+def parse_date(value: str) -> date:
+    return datetime.strptime(value, "%Y-%m-%d").date()
+
+
 def load_aids(path: Path) -> list[int]:
     aids: list[int] = []
     for line in path.read_text(encoding="utf-8").splitlines():
@@ -68,8 +76,26 @@ def load_aids(path: Path) -> list[int]:
     return aids
 
 
-def build_cohort_sql(aids: list[int], gift_month: str, anchor_date: str) -> str:
+def build_cohort_sql(
+    aids: list[int],
+    before_from: date,
+    before_to: date,
+    after_from: date,
+    after_to: date,
+    gift_month: str | None = None,
+) -> str:
     aid_list = ", ".join(str(a) for a in aids)
+    bf, bt = before_from.isoformat(), before_to.isoformat()
+    af, at = after_from.isoformat(), after_to.isoformat()
+    label_month = gift_month or after_from.strftime("%Y-%m")
+
+    if gift_month:
+        gift_filter = f"AND FORMAT_DATE('%Y-%m', DATE(br.accepted_at)) = '{gift_month}'"
+    else:
+        gift_filter = (
+            f"AND DATE(br.accepted_at) BETWEEN DATE '{bf}' AND DATE '{at}'"
+        )
+
     return f"""
 WITH cohort AS (
   SELECT AID FROM UNNEST([{aid_list}]) AS AID
@@ -83,14 +109,17 @@ gift_meta AS (
   WHERE br.campaign_id = {BIRTHDAY_CAMPAIGN_ID}
     AND br.accepted = TRUE
     AND br.account_id IN (SELECT AID FROM cohort)
-    AND FORMAT_DATE('%Y-%m', DATE(br.accepted_at)) = '{gift_month}'
+    {gift_filter}
   QUALIFY ROW_NUMBER() OVER (PARTITION BY br.account_id ORDER BY br.accepted_at) = 1
 ),
 agents AS (
   SELECT
     c.AID,
-    '{gift_month}' AS gift_month,
-    DATE '{anchor_date}' AS anchor_date,
+    '{label_month}' AS gift_month,
+    DATE '{bf}' AS before_from,
+    DATE '{bt}' AS before_to,
+    DATE '{af}' AS after_from,
+    DATE '{at}' AS after_to,
     gm.gift_date,
     gm.gift_sc,
     COALESCE(t.tag_agent_1, e.agent_name) AS agent
@@ -121,17 +150,15 @@ lifetime AS (
 daily AS (
   SELECT
     k.account_id AS AID,
-    a.anchor_date,
     k.date,
     SUM(CAST(k.purchased AS FLOAT64)) AS purchased,
     SUM(CAST(COALESCE(k.purchased_num, 0) AS FLOAT64)) AS purchase_count,
     SUM(CAST(COALESCE(k.profit, 0) AS FLOAT64)) AS sc_bets,
     MAX(CASE WHEN COALESCE(k.spins, 0) > 0 THEN 1 ELSE 0 END) AS active_day
   FROM `{PROJECT_ID}.jackpota_agg.daily_player_revenue_kpis` k
-  INNER JOIN agents a ON a.AID = k.account_id
-  WHERE k.date BETWEEN DATE_SUB(a.anchor_date, INTERVAL {WINDOW_DAYS} DAY)
-                   AND DATE_ADD(a.anchor_date, INTERVAL {WINDOW_DAYS} DAY)
-  GROUP BY 1, 2, 3
+  INNER JOIN cohort c ON c.AID = k.account_id
+  WHERE k.date BETWEEN DATE '{bf}' AND DATE '{at}'
+  GROUP BY 1, 2
 ),
 periods AS (
   SELECT
@@ -139,54 +166,42 @@ periods AS (
     a.agent,
     a.gift_date,
     a.gift_month,
-    a.anchor_date,
+    a.before_from,
+    a.before_to,
+    a.after_from,
+    a.after_to,
     a.gift_sc,
     ROUND(COALESCE(lt.lifetime_purchased, 0), 2) AS lifetime_purchased,
     ROUND(COALESCE(lt.lifetime_net_purchase, 0), 2) AS lifetime_net_purchase,
-    ROUND(SUM(CASE
-      WHEN d.date BETWEEN DATE_SUB(a.anchor_date, INTERVAL {WINDOW_DAYS} DAY)
-                      AND DATE_SUB(a.anchor_date, INTERVAL 1 DAY)
+    ROUND(SUM(CASE WHEN d.date BETWEEN a.before_from AND a.before_to
       THEN d.purchased ELSE 0 END), 2) AS before_purchase_amount,
-    ROUND(SUM(CASE
-      WHEN d.date BETWEEN DATE_SUB(a.anchor_date, INTERVAL {WINDOW_DAYS} DAY)
-                      AND DATE_SUB(a.anchor_date, INTERVAL 1 DAY)
+    ROUND(SUM(CASE WHEN d.date BETWEEN a.before_from AND a.before_to
       THEN d.purchase_count ELSE 0 END), 2) AS before_purchase_count,
-    SUM(CASE
-      WHEN d.date BETWEEN DATE_SUB(a.anchor_date, INTERVAL {WINDOW_DAYS} DAY)
-                      AND DATE_SUB(a.anchor_date, INTERVAL 1 DAY)
+    SUM(CASE WHEN d.date BETWEEN a.before_from AND a.before_to
       THEN d.active_day ELSE 0 END) AS before_active_days,
-    ROUND(SUM(CASE
-      WHEN d.date BETWEEN DATE_SUB(a.anchor_date, INTERVAL {WINDOW_DAYS} DAY)
-                      AND DATE_SUB(a.anchor_date, INTERVAL 1 DAY)
+    ROUND(SUM(CASE WHEN d.date BETWEEN a.before_from AND a.before_to
       THEN d.sc_bets ELSE 0 END), 2) AS before_sc_bets,
-    ROUND(SUM(CASE
-      WHEN d.date BETWEEN DATE_ADD(a.anchor_date, INTERVAL 1 DAY)
-                      AND DATE_ADD(a.anchor_date, INTERVAL {WINDOW_DAYS} DAY)
+    ROUND(SUM(CASE WHEN d.date BETWEEN a.after_from AND a.after_to
       THEN d.purchased ELSE 0 END), 2) AS after_purchase_amount,
-    ROUND(SUM(CASE
-      WHEN d.date BETWEEN DATE_ADD(a.anchor_date, INTERVAL 1 DAY)
-                      AND DATE_ADD(a.anchor_date, INTERVAL {WINDOW_DAYS} DAY)
+    ROUND(SUM(CASE WHEN d.date BETWEEN a.after_from AND a.after_to
       THEN d.purchase_count ELSE 0 END), 2) AS after_purchase_count,
-    SUM(CASE
-      WHEN d.date BETWEEN DATE_ADD(a.anchor_date, INTERVAL 1 DAY)
-                      AND DATE_ADD(a.anchor_date, INTERVAL {WINDOW_DAYS} DAY)
+    SUM(CASE WHEN d.date BETWEEN a.after_from AND a.after_to
       THEN d.active_day ELSE 0 END) AS after_active_days,
-    ROUND(SUM(CASE
-      WHEN d.date BETWEEN DATE_ADD(a.anchor_date, INTERVAL 1 DAY)
-                      AND DATE_ADD(a.anchor_date, INTERVAL {WINDOW_DAYS} DAY)
+    ROUND(SUM(CASE WHEN d.date BETWEEN a.after_from AND a.after_to
       THEN d.sc_bets ELSE 0 END), 2) AS after_sc_bets,
     GREATEST(
       0,
       DATE_DIFF(
-        LEAST(DATE_ADD(a.anchor_date, INTERVAL {WINDOW_DAYS} DAY), CURRENT_DATE() - 1),
-        a.anchor_date,
+        LEAST(a.after_to, CURRENT_DATE() - 1),
+        a.after_from,
         DAY
-      )
-    ) AS after_days_available
+      ) + 1
+    ) AS after_days_available,
+    DATE_DIFF(a.after_to, a.after_from, DAY) + 1 AS after_window_days
   FROM agents a
   LEFT JOIN lifetime lt ON lt.AID = a.AID
-  LEFT JOIN daily d ON d.AID = a.AID AND d.anchor_date = a.anchor_date
-  GROUP BY 1, 2, 3, 4, 5, 6, 7, 8
+  LEFT JOIN daily d ON d.AID = a.AID
+  GROUP BY 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11
 )
 SELECT *
 FROM periods
@@ -195,6 +210,7 @@ ORDER BY AID
 
 
 def build_sql(start: date, end: date) -> str:
+    """Legacy warehouse discovery (month-15 windows). Prefer AID + explicit dates."""
     return f"""
 WITH gifts AS (
   SELECT
@@ -226,7 +242,10 @@ agents AS (
     eg.AID,
     eg.gift_date,
     eg.gift_month,
-    eg.anchor_date,
+    DATE_SUB(eg.anchor_date, INTERVAL {WINDOW_DAYS} DAY) AS before_from,
+    DATE_SUB(eg.anchor_date, INTERVAL 1 DAY) AS before_to,
+    DATE_ADD(eg.anchor_date, INTERVAL 1 DAY) AS after_from,
+    DATE_ADD(eg.anchor_date, INTERVAL {WINDOW_DAYS} DAY) AS after_to,
     eg.gift_sc,
     COALESCE(t.tag_agent_1, e.agent_name) AS agent
   FROM elite_gifts eg
@@ -254,7 +273,8 @@ lifetime AS (
 daily AS (
   SELECT
     k.account_id AS AID,
-    a.anchor_date,
+    a.before_from,
+    a.after_to,
     k.date,
     SUM(CAST(k.purchased AS FLOAT64)) AS purchased,
     SUM(CAST(COALESCE(k.purchased_num, 0) AS FLOAT64)) AS purchase_count,
@@ -262,9 +282,8 @@ daily AS (
     MAX(CASE WHEN COALESCE(k.spins, 0) > 0 THEN 1 ELSE 0 END) AS active_day
   FROM `{PROJECT_ID}.jackpota_agg.daily_player_revenue_kpis` k
   INNER JOIN agents a ON a.AID = k.account_id
-  WHERE k.date BETWEEN DATE_SUB(a.anchor_date, INTERVAL {WINDOW_DAYS} DAY)
-                   AND DATE_ADD(a.anchor_date, INTERVAL {WINDOW_DAYS} DAY)
-  GROUP BY 1, 2, 3
+  WHERE k.date BETWEEN a.before_from AND a.after_to
+  GROUP BY 1, 2, 3, 4
 ),
 periods AS (
   SELECT
@@ -272,54 +291,42 @@ periods AS (
     a.agent,
     a.gift_date,
     a.gift_month,
-    a.anchor_date,
+    a.before_from,
+    a.before_to,
+    a.after_from,
+    a.after_to,
     a.gift_sc,
     ROUND(COALESCE(lt.lifetime_purchased, 0), 2) AS lifetime_purchased,
     ROUND(COALESCE(lt.lifetime_net_purchase, 0), 2) AS lifetime_net_purchase,
-    ROUND(SUM(CASE
-      WHEN d.date BETWEEN DATE_SUB(a.anchor_date, INTERVAL {WINDOW_DAYS} DAY)
-                      AND DATE_SUB(a.anchor_date, INTERVAL 1 DAY)
+    ROUND(SUM(CASE WHEN d.date BETWEEN a.before_from AND a.before_to
       THEN d.purchased ELSE 0 END), 2) AS before_purchase_amount,
-    ROUND(SUM(CASE
-      WHEN d.date BETWEEN DATE_SUB(a.anchor_date, INTERVAL {WINDOW_DAYS} DAY)
-                      AND DATE_SUB(a.anchor_date, INTERVAL 1 DAY)
+    ROUND(SUM(CASE WHEN d.date BETWEEN a.before_from AND a.before_to
       THEN d.purchase_count ELSE 0 END), 2) AS before_purchase_count,
-    SUM(CASE
-      WHEN d.date BETWEEN DATE_SUB(a.anchor_date, INTERVAL {WINDOW_DAYS} DAY)
-                      AND DATE_SUB(a.anchor_date, INTERVAL 1 DAY)
+    SUM(CASE WHEN d.date BETWEEN a.before_from AND a.before_to
       THEN d.active_day ELSE 0 END) AS before_active_days,
-    ROUND(SUM(CASE
-      WHEN d.date BETWEEN DATE_SUB(a.anchor_date, INTERVAL {WINDOW_DAYS} DAY)
-                      AND DATE_SUB(a.anchor_date, INTERVAL 1 DAY)
+    ROUND(SUM(CASE WHEN d.date BETWEEN a.before_from AND a.before_to
       THEN d.sc_bets ELSE 0 END), 2) AS before_sc_bets,
-    ROUND(SUM(CASE
-      WHEN d.date BETWEEN DATE_ADD(a.anchor_date, INTERVAL 1 DAY)
-                      AND DATE_ADD(a.anchor_date, INTERVAL {WINDOW_DAYS} DAY)
+    ROUND(SUM(CASE WHEN d.date BETWEEN a.after_from AND a.after_to
       THEN d.purchased ELSE 0 END), 2) AS after_purchase_amount,
-    ROUND(SUM(CASE
-      WHEN d.date BETWEEN DATE_ADD(a.anchor_date, INTERVAL 1 DAY)
-                      AND DATE_ADD(a.anchor_date, INTERVAL {WINDOW_DAYS} DAY)
+    ROUND(SUM(CASE WHEN d.date BETWEEN a.after_from AND a.after_to
       THEN d.purchase_count ELSE 0 END), 2) AS after_purchase_count,
-    SUM(CASE
-      WHEN d.date BETWEEN DATE_ADD(a.anchor_date, INTERVAL 1 DAY)
-                      AND DATE_ADD(a.anchor_date, INTERVAL {WINDOW_DAYS} DAY)
+    SUM(CASE WHEN d.date BETWEEN a.after_from AND a.after_to
       THEN d.active_day ELSE 0 END) AS after_active_days,
-    ROUND(SUM(CASE
-      WHEN d.date BETWEEN DATE_ADD(a.anchor_date, INTERVAL 1 DAY)
-                      AND DATE_ADD(a.anchor_date, INTERVAL {WINDOW_DAYS} DAY)
+    ROUND(SUM(CASE WHEN d.date BETWEEN a.after_from AND a.after_to
       THEN d.sc_bets ELSE 0 END), 2) AS after_sc_bets,
     GREATEST(
       0,
       DATE_DIFF(
-        LEAST(DATE_ADD(a.anchor_date, INTERVAL {WINDOW_DAYS} DAY), CURRENT_DATE() - 1),
-        a.anchor_date,
+        LEAST(a.after_to, CURRENT_DATE() - 1),
+        a.after_from,
         DAY
-      )
-    ) AS after_days_available
+      ) + 1
+    ) AS after_days_available,
+    DATE_DIFF(a.after_to, a.after_from, DAY) + 1 AS after_window_days
   FROM agents a
   LEFT JOIN lifetime lt ON lt.AID = a.AID
-  LEFT JOIN daily d ON d.AID = a.AID AND d.anchor_date = a.anchor_date
-  GROUP BY 1, 2, 3, 4, 5, 6, 7, 8
+  LEFT JOIN daily d ON d.AID = a.AID
+  GROUP BY 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11
 )
 SELECT *
 FROM periods
@@ -342,11 +349,15 @@ def row_to_export(r: dict) -> dict:
         "Agent": r.get("agent") or "",
         "LT Purchase": round(lt_purchase, 2),
         "Hold": format_hold(lt_purchase, lt_net),
-        "Gift month": r["gift_month"],
+        "Gift month": r.get("gift_month") or "",
         "Gift date": "" if gift_date is None else gift_date,
-        "Anchor date": r["anchor_date"],
+        "Before from": r["before_from"],
+        "Before to": r["before_to"],
+        "After from": r["after_from"],
+        "After to": r["after_to"],
         "Gift SC": r.get("gift_sc"),
         "After days available": r.get("after_days_available"),
+        "After window days": r.get("after_window_days"),
     }
     mapping = [
         ("purchase_amount", "before_purchase_amount", "after_purchase_amount"),
@@ -380,21 +391,22 @@ def build_summary(rows: list[dict], label: str = "") -> list[dict]:
         avg_pct = (
             round((avg_after - avg_before) / avg_before * 100, 2) if avg_before else ""
         )
-        row = {
-            "Cohort": label,
-            "Metric": metric_label,
-            "Avg before": avg_before,
-            "Avg after": avg_after,
-            "Avg diff": avg_diff,
-            "Avg % change": avg_pct,
-            "Players": len(rows),
-        }
-        summary_rows.append(row)
+        summary_rows.append(
+            {
+                "Cohort": label,
+                "Metric": metric_label,
+                "Avg before": avg_before,
+                "Avg after": avg_after,
+                "Avg diff": avg_diff,
+                "Avg % change": avg_pct,
+                "Players": len(rows),
+            }
+        )
     return summary_rows
 
 
 def build_month_summaries(rows: list[dict]) -> list[dict]:
-    months = sorted({r["Gift month"] for r in rows})
+    months = sorted({r["Gift month"] for r in rows if r.get("Gift month")})
     out: list[dict] = []
     for month in months:
         month_rows = [r for r in rows if r["Gift month"] == month]
@@ -413,59 +425,136 @@ def write_csv(path: Path, rows: list[dict]) -> None:
 
 
 def print_counts(export_rows: list[dict], as_of: date) -> None:
-    by_month: dict[str, int] = {}
-    full_after = 0
-    for r in export_rows:
-        month = r["Gift month"]
-        by_month[month] = by_month.get(month, 0) + 1
-        if int(r.get("After days available") or 0) >= WINDOW_DAYS:
-            full_after += 1
-
+    if not export_rows:
+        print("Elite birthday gift players: 0")
+        return
+    bf = export_rows[0].get("Before from", "")
+    bt = export_rows[0].get("Before to", "")
+    af = export_rows[0].get("After from", "")
+    at = export_rows[0].get("After to", "")
+    window_days = int(export_rows[0].get("After window days") or 0)
+    full_after = sum(
+        1
+        for r in export_rows
+        if int(r.get("After days available") or 0) >= window_days
+    )
     print(f"Elite birthday gift players: {len(export_rows)}")
-    for month in sorted(by_month):
-        month_rows = [r for r in export_rows if r["Gift month"] == month]
-        month_full = sum(
-            1 for r in month_rows if int(r.get("After days available") or 0) >= WINDOW_DAYS
+    print(f"  Before: {bf} to {bt}")
+    print(f"  After:  {af} to {at}")
+    print(f"Full after window complete (as of {as_of}): {full_after} players")
+
+
+def resolve_windows(args: argparse.Namespace) -> tuple[date, date, date, date]:
+    missing = [
+        name
+        for name in ("before_from", "before_to", "after_from", "after_to")
+        if getattr(args, name) is None
+    ]
+    if missing:
+        raise SystemExit(
+            "AID mode requires checking periods: "
+            "--before-from --before-to --after-from --after-to "
+            f"(missing: {', '.join('--' + m.replace('_', '-') for m in missing)})"
         )
-        anchor = month_rows[0]["Anchor date"] if month_rows else ""
-        print(
-            f"  {month}: {by_month[month]} players "
-            f"(anchor {anchor}, full after window: {month_full})"
-        )
-    print(f"Full 30-day after window (all months, as of {as_of}): {full_after} players")
+    before_from = parse_date(args.before_from)
+    before_to = parse_date(args.before_to)
+    after_from = parse_date(args.after_from)
+    after_to = parse_date(args.after_to)
+    if before_from > before_to:
+        raise SystemExit("before-from must be on or before before-to")
+    if after_from > after_to:
+        raise SystemExit("after-from must be on or before after-to")
+    return before_from, before_to, after_from, after_to
+
+
+def run_aid_mode(
+    client,
+    aids: list[int],
+    before_from: date,
+    before_to: date,
+    after_from: date,
+    after_to: date,
+    stem: str,
+    gift_month: str | None,
+) -> tuple[list[dict], str]:
+    print(
+        f"AID cohort: {len(aids)} AIDs · "
+        f"before {before_from} to {before_to} · after {after_from} to {after_to}"
+    )
+    raw = run_query(
+        client,
+        build_cohort_sql(
+            aids, before_from, before_to, after_from, after_to, gift_month
+        ),
+    )
+    return raw, stem
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Elite birthday gift before/after activity")
-    parser.add_argument("--start", default="2026-06-01", help="Gift receive start date (YYYY-MM-DD)")
-    parser.add_argument("--end", default="2026-07-31", help="Gift receive end date (YYYY-MM-DD)")
+    parser = argparse.ArgumentParser(
+        description="Elite birthday gift before/after activity (explicit checking periods)"
+    )
+    parser.add_argument("--start", default=None, help="Legacy warehouse gift start")
+    parser.add_argument("--end", default=None, help="Legacy warehouse gift end")
     parser.add_argument(
         "--cohort",
         choices=sorted(COHORT_CONFIG),
-        help="Manual AID cohort (overrides warehouse discovery)",
+        help="Named cohort shortcut (uses saved AIDs + default periods unless overridden)",
     )
+    parser.add_argument("--aids-file", help="Path to AID list (one per line)")
+    parser.add_argument("--before-from", help="Checking period before start (YYYY-MM-DD)")
+    parser.add_argument("--before-to", help="Checking period before end (YYYY-MM-DD)")
+    parser.add_argument("--after-from", help="Checking period after start (YYYY-MM-DD)")
+    parser.add_argument("--after-to", help="Checking period after end (YYYY-MM-DD)")
+    parser.add_argument(
+        "--gift-month",
+        help="Optional YYYY-MM for birthday gift enrichment only (does not set windows)",
+    )
+    parser.add_argument("--stem", help="Export filename stem")
     args = parser.parse_args()
 
     client = get_client()
+    aids: list[int] | None = None
+    gift_month: str | None = args.gift_month
+    aid_mode = False
 
     if args.cohort:
         cfg = COHORT_CONFIG[args.cohort]
         aids = load_aids(cfg["aids_file"])
-        print(f"Cohort {args.cohort}: {len(aids)} AIDs from {cfg['aids_file'].name}")
-        raw = run_query(
-            client,
-            build_cohort_sql(aids, cfg["gift_month"], cfg["anchor_date"]),
+        before_from = parse_date(args.before_from or cfg["before_from"])
+        before_to = parse_date(args.before_to or cfg["before_to"])
+        after_from = parse_date(args.after_from or cfg["after_from"])
+        after_to = parse_date(args.after_to or cfg["after_to"])
+        gift_month = gift_month or cfg.get("gift_month")
+        stem = args.stem or cfg["stem"]
+        raw, stem = run_aid_mode(
+            client, aids, before_from, before_to, after_from, after_to, stem, gift_month
         )
-        stem = cfg["stem"]
+        aid_mode = True
+    elif args.aids_file:
+        aids_path = Path(args.aids_file)
+        if not aids_path.is_absolute():
+            aids_path = PROJECT_ROOT / aids_path
+        aids = load_aids(aids_path)
+        before_from, before_to, after_from, after_to = resolve_windows(args)
+        stem = args.stem or (
+            f"birthday_gift_activity_{before_from.isoformat()}_to_{after_to.isoformat()}_cohort"
+        )
+        raw, stem = run_aid_mode(
+            client, aids, before_from, before_to, after_from, after_to, stem, gift_month
+        )
+        aid_mode = True
     else:
-        start = datetime.strptime(args.start, "%Y-%m-%d").date()
-        end = datetime.strptime(args.end, "%Y-%m-%d").date()
+        start = parse_date(args.start or "2026-06-01")
+        end = parse_date(args.end or "2026-07-31")
         raw = run_query(client, build_sql(start, end))
-        stem = f"birthday_gift_activity_{start.isoformat()}_to_{end.isoformat()}"
+        stem = args.stem or (
+            f"birthday_gift_activity_{start.isoformat()}_to_{end.isoformat()}"
+        )
 
     export_rows = [row_to_export(r) for r in raw]
 
-    if args.cohort:
+    if aid_mode and aids is not None:
         returned_aids = {int(r["AID"]) for r in export_rows}
         missing = [a for a in aids if a not in returned_aids]
         if missing:
@@ -483,8 +572,13 @@ def main() -> None:
 
     summary_rows = build_summary(export_rows, label="all")
     month_summary_rows = build_month_summaries(export_rows)
+    window_days = (
+        int(export_rows[0].get("After window days") or WINDOW_DAYS) if export_rows else WINDOW_DAYS
+    )
     full_after_rows = [
-        r for r in export_rows if int(r.get("After days available") or 0) >= WINDOW_DAYS
+        r
+        for r in export_rows
+        if int(r.get("After days available") or 0) >= window_days
     ]
     full_after_summary_rows = build_summary(full_after_rows, label="full_after_window")
 
@@ -499,7 +593,7 @@ def main() -> None:
     if full_after_summary_rows:
         write_csv(full_summary_path, full_after_summary_rows)
 
-    as_of = date.today() - __import__("datetime").timedelta(days=1)
+    as_of = date.today() - timedelta(days=1)
     print_counts(export_rows, as_of)
     print(f"Detail: {detail_path}")
     print(f"Summary: {summary_path}")
@@ -509,13 +603,30 @@ def main() -> None:
             f"avg after {s['Avg after']}, avg % change {s['Avg % change']}"
         )
 
-    if args.cohort:
+    if aid_mode:
         sys.path.insert(0, str(Path(__file__).resolve().parent))
         from generate_birthday_gift_html import build_html, load_players, load_summary
 
         html_path = OUTPUT_DIR / f"{stem}.html"
+        periods = None
+        if export_rows:
+            periods = {
+                "beforeFrom": str(export_rows[0]["Before from"]),
+                "beforeTo": str(export_rows[0]["Before to"]),
+                "afterFrom": str(export_rows[0]["After from"]),
+                "afterTo": str(export_rows[0]["After to"]),
+                "title": (
+                    "Jackpota Anniversary Gift Performance"
+                    if "anniversary" in stem
+                    else stem.replace("birthday_gift_activity_", "").replace("_", " ")
+                ),
+            }
         html_path.write_text(
-            build_html(load_players(detail_path), load_summary(summary_path)),
+            build_html(
+                load_players(detail_path),
+                load_summary(summary_path),
+                periods=periods,
+            ),
             encoding="utf-8",
         )
         print(f"HTML: {html_path}")
