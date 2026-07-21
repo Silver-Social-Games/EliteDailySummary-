@@ -1,4 +1,4 @@
-"""Export June birthday gift cohort to standalone HTML."""
+"""Export birthday gift AID cohort to standalone HTML."""
 from __future__ import annotations
 
 import argparse
@@ -24,7 +24,11 @@ def load_players(csv_path: Path) -> list[dict]:
                 "agent": r["Agent"] or "—",
                 "ltPurchase": float(r.get("LT Purchase") or 0),
                 "hold": r.get("Hold") or "n/a",
-                "giftDate": r["Gift date"] or "—",
+                "giftDate": r.get("Gift date") or "—",
+                "beforeFrom": r.get("Before from") or "",
+                "beforeTo": r.get("Before to") or "",
+                "afterFrom": r.get("After from") or "",
+                "afterTo": r.get("After to") or "",
                 "purchaseBefore": float(r["Before — Purchase amount ($)"]),
                 "purchaseAfter": float(r["After — Purchase amount ($)"]),
                 "purchaseDiff": float(r["Diff — Purchase amount ($)"]),
@@ -67,14 +71,46 @@ def load_summary(path: Path) -> dict[str, dict]:
     return out
 
 
-def build_html(players: list[dict], summary: dict[str, dict]) -> str:
-    payload = json.dumps({"players": players, "summary": summary}, ensure_ascii=False)
+def periods_from_players(players: list[dict]) -> dict[str, str]:
+    if not players:
+        return {
+            "beforeFrom": "",
+            "beforeTo": "",
+            "afterFrom": "",
+            "afterTo": "",
+            "title": "AID cohort",
+        }
+    p0 = players[0]
+    return {
+        "beforeFrom": str(p0.get("beforeFrom") or ""),
+        "beforeTo": str(p0.get("beforeTo") or ""),
+        "afterFrom": str(p0.get("afterFrom") or ""),
+        "afterTo": str(p0.get("afterTo") or ""),
+        "title": "AID cohort",
+    }
+
+
+def build_html(
+    players: list[dict],
+    summary: dict[str, dict],
+    periods: dict[str, str] | None = None,
+) -> str:
+    periods = periods or periods_from_players(players)
+    title = periods.get("title") or "AID cohort"
+    subtitle = (
+        f"Before {periods.get('beforeFrom', '')} → {periods.get('beforeTo', '')} · "
+        f"After {periods.get('afterFrom', '')} → {periods.get('afterTo', '')}"
+    )
+    payload = json.dumps(
+        {"players": players, "summary": summary, "periods": periods},
+        ensure_ascii=False,
+    )
     return f"""<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Elite Birthday Gift — June 2026</title>
+  <title>Elite Birthday Gift — {title}</title>
   <style>
     :root {{
       --bg: #f5f7fa;
@@ -102,7 +138,8 @@ def build_html(players: list[dict], summary: dict[str, dict]) -> str:
       line-height: 1.45;
     }}
     .wrap {{ max-width: 1280px; margin: 0 auto; padding: 24px; }}
-    h1 {{ margin: 0 0 20px; font-size: 24px; font-weight: 600; }}
+    h1 {{ margin: 0 0 8px; font-size: 24px; font-weight: 600; }}
+    .sub {{ color: var(--muted); margin: 0 0 20px; font-size: 13px; }}
     h2 {{ margin: 0 0 12px; font-size: 16px; font-weight: 600; }}
     .stats4 {{
       display: grid;
@@ -196,7 +233,8 @@ def build_html(players: list[dict], summary: dict[str, dict]) -> str:
 </head>
 <body>
   <div class="wrap">
-    <h1>Elite Birthday Gift — June 2026</h1>
+    <h1>Elite Birthday Gift — {title}</h1>
+    <p class="sub">{subtitle}</p>
     <div class="stats4" id="stats"></div>
     <div class="card">
       <h2>Average before vs after</h2>
@@ -343,7 +381,11 @@ def main() -> None:
 
     players = load_players(csv_path)
     summary = load_summary(summary_path)
-    out_path.write_text(build_html(players, summary), encoding="utf-8")
+    periods = periods_from_players(players)
+    periods["title"] = csv_path.stem.replace("birthday_gift_activity_", "").replace(
+        "_", " "
+    )
+    out_path.write_text(build_html(players, summary, periods=periods), encoding="utf-8")
     print(out_path)
 
 
