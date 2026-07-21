@@ -413,24 +413,25 @@ export default function EliteBirthdayGiftActivity() {
                 <Text>
                   Both groups spent less after 7 Jul.{" "}
                   {toneSpan(
-                    `Purchase $/day Gift vs Rest ${fmtSigned(purchaseCmp.didMean, true)}`,
-                    purchaseCmp.didMean
+                    `Purchase $/day Gift vs Rest (median) ${fmtSigned(purchaseCmp.didMedian, true)}`,
+                    purchaseCmp.didMedian
                   )}
-                  {" - "}Gift declined slightly less than Rest.
+                  {" - "}Gift held up better than Rest on the typical player.
                 </Text>
                 <Text>
                   {toneSpan(
-                    `SC bets/day Gift vs Rest ${fmtSigned(betsCmp.didMean, true)}`,
-                    betsCmp.didMean
+                    `SC bets/day Gift vs Rest (median) ${fmtSigned(betsCmp.didMedian, true)}`,
+                    betsCmp.didMedian
                   )}
-                  {" - "}stronger relative hold. Purchases/day and active rate stay near Rest
-                  {" "}({toneSpan(fmtSigned(purchasesCmp.didMean), purchasesCmp.didMean)} purchases, {toneSpan(fmtSigned(activeCmp.didMean), activeCmp.didMean)} active)
-                  {" - "}not a broad absolute uplift.
+                  {" - "}stronger relative hold. Purchases/day and active rate
+                  {" "}({toneSpan(fmtSigned(purchasesCmp.didMedian), purchasesCmp.didMedian)} purchases, {toneSpan(fmtSigned(activeCmp.didMedian), activeCmp.didMedian)} active)
+                  {" - "}check against Rest carefully; not a broad absolute uplift.
                 </Text>
               </Stack>
             </CardBody>
           </Card>
 
+          <Text tone="secondary">Main table: median daily rate per player</Text>
           <Table
             headers={[
               "Metric",
@@ -445,35 +446,35 @@ export default function EliteBirthdayGiftActivity() {
             rows={[
               [
                 "Purchase ($)/day",
-                `${fmtMoney(purchaseCmp.cohort.beforeMean)} - ${fmtMoney(purchaseCmp.cohort.afterMean)}`,
-                <span style={{ color: chgColor(purchaseCmp.cohort.deltaMean), fontWeight: 600 }}>{fmtSigned(purchaseCmp.cohort.deltaMean, true)}</span>,
-                `${fmtMoney(purchaseCmp.rest.beforeMean)} - ${fmtMoney(purchaseCmp.rest.afterMean)}`,
-                <span style={{ color: chgColor(purchaseCmp.rest.deltaMean), fontWeight: 600 }}>{fmtSigned(purchaseCmp.rest.deltaMean, true)}</span>,
-                <span style={{ color: chgColor(purchaseCmp.didMean), fontWeight: 700, background: purchaseCmp.didMean >= 0 ? POS_BG : NEG_BG, padding: "2px 8px", borderRadius: 999 }}>{fmtSigned(purchaseCmp.didMean, true)}</span>,
+                `${fmtMoney(purchaseCmp.cohort.beforeMedian)} - ${fmtMoney(purchaseCmp.cohort.afterMedian)}`,
+                <span style={{ color: chgColor(purchaseCmp.cohort.deltaMedian), fontWeight: 600 }}>{fmtSigned(purchaseCmp.cohort.deltaMedian, true)}</span>,
+                `${fmtMoney(purchaseCmp.rest.beforeMedian)} - ${fmtMoney(purchaseCmp.rest.afterMedian)}`,
+                <span style={{ color: chgColor(purchaseCmp.rest.deltaMedian), fontWeight: 600 }}>{fmtSigned(purchaseCmp.rest.deltaMedian, true)}</span>,
+                <span style={{ color: chgColor(purchaseCmp.didMedian), fontWeight: 700, background: purchaseCmp.didMedian >= 0 ? POS_BG : NEG_BG, padding: "2px 8px", borderRadius: 999 }}>{fmtSigned(purchaseCmp.didMedian, true)}</span>,
               ],
               [
                 "Purchases/day",
-                `${fmtNum(purchasesCmp.cohort.beforeMean)} - ${fmtNum(purchasesCmp.cohort.afterMean)}`,
-                <span style={{ color: chgColor(purchasesCmp.cohort.deltaMean), fontWeight: 600 }}>{fmtSigned(purchasesCmp.cohort.deltaMean)}</span>,
-                `${fmtNum(purchasesCmp.rest.beforeMean)} - ${fmtNum(purchasesCmp.rest.afterMean)}`,
-                <span style={{ color: chgColor(purchasesCmp.rest.deltaMean), fontWeight: 600 }}>{fmtSigned(purchasesCmp.rest.deltaMean)}</span>,
-                <span style={{ color: chgColor(purchasesCmp.didMean), fontWeight: 700, background: purchasesCmp.didMean >= 0 ? POS_BG : NEG_BG, padding: "2px 8px", borderRadius: 999 }}>{fmtSigned(purchasesCmp.didMean)}</span>,
+                `${fmtNum(purchasesCmp.cohort.beforeMedian)} - ${fmtNum(purchasesCmp.cohort.afterMedian)}`,
+                <span style={{ color: chgColor(purchasesCmp.cohort.deltaMedian), fontWeight: 600 }}>{fmtSigned(purchasesCmp.cohort.deltaMedian)}</span>,
+                `${fmtNum(purchasesCmp.rest.beforeMedian)} - ${fmtNum(purchasesCmp.rest.afterMedian)}`,
+                <span style={{ color: chgColor(purchasesCmp.rest.deltaMedian), fontWeight: 600 }}>{fmtSigned(purchasesCmp.rest.deltaMedian)}</span>,
+                <span style={{ color: chgColor(purchasesCmp.didMedian), fontWeight: 700, background: purchasesCmp.didMedian >= 0 ? POS_BG : NEG_BG, padding: "2px 8px", borderRadius: 999 }}>{fmtSigned(purchasesCmp.didMedian)}</span>,
               ],
               [
                 "Active rate/day",
-                `${fmtNum(activeCmp.cohort.beforeMean)} - ${fmtNum(activeCmp.cohort.afterMean)}`,
-                <span style={{ color: chgColor(activeCmp.cohort.deltaMean), fontWeight: 600 }}>{fmtSigned(activeCmp.cohort.deltaMean)}</span>,
-                `${fmtNum(activeCmp.rest.beforeMean)} - ${fmtNum(activeCmp.rest.afterMean)}`,
-                <span style={{ color: chgColor(activeCmp.rest.deltaMean), fontWeight: 600 }}>{fmtSigned(activeCmp.rest.deltaMean)}</span>,
-                <span style={{ color: chgColor(activeCmp.didMean), fontWeight: 700, background: activeCmp.didMean >= 0 ? POS_BG : NEG_BG, padding: "2px 8px", borderRadius: 999 }}>{fmtSigned(activeCmp.didMean)}</span>,
+                `${fmtNum(activeCmp.cohort.beforeMedian)} - ${fmtNum(activeCmp.cohort.afterMedian)}`,
+                <span style={{ color: chgColor(activeCmp.cohort.deltaMedian), fontWeight: 600 }}>{fmtSigned(activeCmp.cohort.deltaMedian)}</span>,
+                `${fmtNum(activeCmp.rest.beforeMedian)} - ${fmtNum(activeCmp.rest.afterMedian)}`,
+                <span style={{ color: chgColor(activeCmp.rest.deltaMedian), fontWeight: 600 }}>{fmtSigned(activeCmp.rest.deltaMedian)}</span>,
+                <span style={{ color: chgColor(activeCmp.didMedian), fontWeight: 700, background: activeCmp.didMedian >= 0 ? POS_BG : NEG_BG, padding: "2px 8px", borderRadius: 999 }}>{fmtSigned(activeCmp.didMedian)}</span>,
               ],
               [
                 "SC bets/day",
-                `${fmtMoney(betsCmp.cohort.beforeMean)} - ${fmtMoney(betsCmp.cohort.afterMean)}`,
-                <span style={{ color: chgColor(betsCmp.cohort.deltaMean), fontWeight: 600 }}>{fmtSigned(betsCmp.cohort.deltaMean, true)}</span>,
-                `${fmtMoney(betsCmp.rest.beforeMean)} - ${fmtMoney(betsCmp.rest.afterMean)}`,
-                <span style={{ color: chgColor(betsCmp.rest.deltaMean), fontWeight: 600 }}>{fmtSigned(betsCmp.rest.deltaMean, true)}</span>,
-                <span style={{ color: chgColor(betsCmp.didMean), fontWeight: 700, background: betsCmp.didMean >= 0 ? POS_BG : NEG_BG, padding: "2px 8px", borderRadius: 999 }}>{fmtSigned(betsCmp.didMean, true)}</span>,
+                `${fmtMoney(betsCmp.cohort.beforeMedian)} - ${fmtMoney(betsCmp.cohort.afterMedian)}`,
+                <span style={{ color: chgColor(betsCmp.cohort.deltaMedian), fontWeight: 600 }}>{fmtSigned(betsCmp.cohort.deltaMedian, true)}</span>,
+                `${fmtMoney(betsCmp.rest.beforeMedian)} - ${fmtMoney(betsCmp.rest.afterMedian)}`,
+                <span style={{ color: chgColor(betsCmp.rest.deltaMedian), fontWeight: 600 }}>{fmtSigned(betsCmp.rest.deltaMedian, true)}</span>,
+                <span style={{ color: chgColor(betsCmp.didMedian), fontWeight: 700, background: betsCmp.didMedian >= 0 ? POS_BG : NEG_BG, padding: "2px 8px", borderRadius: 999 }}>{fmtSigned(betsCmp.didMedian, true)}</span>,
               ],
             ]}
           />
