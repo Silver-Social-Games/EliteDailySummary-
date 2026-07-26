@@ -1,0 +1,854 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Elite Daily Decline Dashboard</title>
+  <style>
+    /* Cursor canvas light tokens — comfortable default for Chrome */
+    :root {
+      --fg: #141414F0;
+      --fg2: #141414BD;
+      --fg3: #1414148A;
+      --fg4: #1414145C;
+      --bg-editor: #FCFCFC;
+      --stroke-secondary: #1414141F;
+      --stroke-tertiary: #14141414;
+      --fill-secondary: #14141424;
+      --fill-tertiary: #14141414;
+      --fill-quaternary: #1414140F;
+      --cat-green: #1F8A65;
+      --cat-yellow: #C08532;
+      --cat-cyan: #4C7F8C;
+      --marker-success: #1F8A65;
+      --marker-danger: #CF2D56;
+      --marker-warning: #DB704B;
+      --marker-info: #3685BF;
+      --marker-neutral: #1414148A;
+      --font: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --fg: #E4E4E4EB;
+        --fg2: #E4E4E48D;
+        --fg3: #E4E4E45E;
+        --fg4: #E4E4E442;
+        --bg-editor: #F3F3F3;
+        --stroke-secondary: #1414141F;
+        --stroke-tertiary: #14141420;
+        --fill-secondary: #14141418;
+        --fill-tertiary: #14141410;
+        --fill-quaternary: #1414140C;
+        --cat-green: #1F8A65;
+        --cat-yellow: #C08532;
+        --cat-cyan: #4C7F8C;
+        --marker-success: #1F8A65;
+        --marker-danger: #CF2D56;
+        --marker-warning: #DB704B;
+        --marker-info: #3685BF;
+        --marker-neutral: #1414148A;
+      }
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; background: var(--bg-editor); color: var(--fg); font-family: var(--font); }
+    .wrap { padding: 20px; max-width: 100%; }
+    .stack { display: flex; flex-direction: column; gap: 16px; }
+    .stack-8 { display: flex; flex-direction: column; gap: 8px; }
+    .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+    .spacer { flex: 1 1 auto; }
+    h1 { margin: 0; font-size: 24px; line-height: 30px; font-weight: 590; }
+    h2 { margin: 0; font-size: 18px; line-height: 24px; font-weight: 590; }
+    .t-body { font-size: 14px; line-height: 20px; }
+    .t-small { font-size: 12px; line-height: 16px; }
+    .t-secondary { color: var(--fg2); }
+    .t-tertiary { color: var(--fg3); }
+    .t-quaternary { color: var(--fg4); }
+    .t-danger { color: var(--marker-danger); }
+    .t-warning { color: var(--cat-yellow); }
+    .t-success { color: var(--cat-green); }
+    .t-info { color: var(--cat-cyan); }
+    .w-semibold { font-weight: 590; }
+    .w-medium { font-weight: 500; }
+    a { color: var(--marker-info); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    input[type="search"], select {
+      font-family: inherit;
+      font-size: 13px;
+      line-height: 18px;
+      color: var(--fg);
+      outline: none;
+    }
+    input[type="search"] {
+      flex: 1 1 220px;
+      min-width: 200px;
+      height: 28px;
+      padding: 4px 8px;
+      border: 1px solid var(--stroke-secondary);
+      border-radius: 6px;
+      background: var(--fill-tertiary);
+    }
+    .select-wrap { position: relative; display: inline-flex; align-items: center; }
+    select {
+      appearance: none;
+      -webkit-appearance: none;
+      background: transparent;
+      border: 1px solid var(--stroke-tertiary);
+      border-radius: 6px;
+      padding: 4px 20px 4px 4px;
+      cursor: pointer;
+      color-scheme: light;
+    }
+    .select-wrap::after {
+      content: "▾";
+      position: absolute;
+      right: 6px;
+      pointer-events: none;
+      color: var(--fg2);
+      font-size: 10px;
+    }
+
+    .pills { display: flex; flex-wrap: wrap; gap: 6px; }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 9999px;
+      white-space: nowrap;
+      user-select: none;
+      font-size: 10px;
+      line-height: 12px;
+      padding: 2px 6px;
+      background: var(--fill-quaternary);
+      color: var(--fg2);
+      border: none;
+      cursor: pointer;
+      font-weight: 400;
+      transition: color 120ms ease, background 120ms ease;
+    }
+    .pill.active {
+      background: var(--fill-secondary);
+      color: var(--fg);
+      font-weight: 500;
+    }
+
+    .table-frame {
+      width: 100%;
+      min-width: 0;
+      border: 1px solid var(--stroke-tertiary);
+      border-radius: 8px;
+      background: var(--bg-editor);
+      overflow-x: auto;
+      overflow-y: clip;
+    }
+    table.canvas {
+      min-width: 100%;
+      border-collapse: collapse;
+      table-layout: auto;
+      font-size: 14px;
+      line-height: 20px;
+      color: var(--fg);
+    }
+    table.canvas thead { background: var(--fill-quaternary); }
+    table.canvas th {
+      padding: 8px 12px;
+      text-align: left;
+      font-weight: 600;
+      color: var(--fg);
+      border-bottom: 1px solid var(--stroke-secondary);
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      background: var(--bg-editor);
+      background-image: linear-gradient(var(--fill-quaternary), var(--fill-quaternary));
+      white-space: nowrap;
+    }
+    table.canvas td {
+      padding: 8px 12px;
+      vertical-align: top;
+      border-bottom: 1px solid var(--stroke-tertiary);
+    }
+    table.canvas tbody tr:last-child td { border-bottom: none; }
+    table.canvas tbody tr.striped td { background: var(--fill-quaternary); }
+    table.canvas .num { text-align: right; }
+    table.canvas .center { text-align: center; }
+
+    .cell-marker {
+      display: inline-flex;
+      align-items: flex-start;
+      gap: 6px;
+      min-width: 0;
+      max-width: 100%;
+    }
+    .marker {
+      width: 6px;
+      height: 6px;
+      margin-top: 7px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .marker-success { background: var(--marker-success); }
+    .marker-danger { background: var(--marker-danger); }
+    .marker-warning { background: var(--marker-warning); }
+    .marker-info { background: var(--marker-info); }
+    .marker-neutral { background: var(--marker-neutral); }
+
+    .reason-cell, .action-cell { min-width: 280px; max-width: 620px; white-space: normal; line-height: 1.6; font-size: 12px; }
+    .action-cell { min-width: 200px; max-width: 420px; line-height: 1.5; }
+    .p7d-cell { min-width: 160px; max-width: 220px; font-size: 12px; line-height: 1.45; }
+    .sep { padding: 0 8px; font-weight: 700; color: var(--fg3); font-size: 15px; }
+    .players-table { min-width: 2950px; width: max-content; }
+
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.45);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      padding: 20px;
+    }
+    .modal-card {
+      background: var(--bg-editor);
+      border-radius: 12px;
+      padding: 20px;
+      max-width: 680px;
+      width: 100%;
+      max-height: 90vh;
+      overflow: auto;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+    }
+    .modal-card input, .modal-card textarea {
+      width: 100%;
+      margin-top: 4px;
+      margin-bottom: 12px;
+      padding: 8px 10px;
+      font-size: 13px;
+      border-radius: 6px;
+      border: 1px solid var(--stroke-secondary);
+      font-family: inherit;
+      color: var(--fg);
+      background: var(--bg-editor);
+    }
+    .modal-card textarea.internal-context {
+      font-size: 12px;
+      min-height: 120px;
+      background: var(--fill-quaternary, #1414140F);
+    }
+    .modal-card textarea { resize: vertical; min-height: 180px; }
+    .ticket-draft-btn {
+      font-size: 12px;
+      padding: 4px 10px;
+      cursor: pointer;
+    }
+    .ticket-preview {
+      font-size: 11px;
+      color: var(--fg-quaternary);
+      max-width: 140px;
+      line-height: 1.35;
+      margin-top: 2px;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap stack" id="app"></div>
+  <div id="ticketModalRoot"></div>
+  <script>
+    const DATA = {"report": {"date": "2026-07-21", "weekday": "Tuesday", "priorDate": "2026-07-14", "headline": "Jackpota revenue +6.8% vs last Tuesday · Elite revenue -2.4% vs last Tuesday · Elite share 25.5% of Jackpota", "segments": [{"label": "Jackpota", "revThis": "$737,192", "revPrior": "$690,405", "revWow": "+$46,786 (+6.8%)", "plyThis": "5643", "plyPrior": "5245", "plyWow": "+398 (+7.6%)", "share": "", "tone": "success"}, {"label": "Elite", "revThis": "$188,001", "revPrior": "$192,546", "revWow": "$-4,545 (-2.4%)", "plyThis": "634", "plyPrior": "587", "plyWow": "+47 (+8.0%)", "share": "25.5% of Jackpota", "tone": "danger"}]}, "segments": [{"label": "Jackpota", "revThis": "$737,192", "revPrior": "$690,405", "revWow": "+$46,786 (+6.8%)", "plyThis": "5643", "plyPrior": "5245", "plyWow": "+398 (+7.6%)", "share": "", "tone": "success"}, {"label": "Elite", "revThis": "$188,001", "revPrior": "$192,546", "revWow": "$-4,545 (-2.4%)", "plyThis": "634", "plyPrior": "587", "plyWow": "+47 (+8.0%)", "share": "25.5% of Jackpota", "tone": "danger"}], "players": [{"aid": "323613905", "aidUrl": "https://lookerpatrianna.cloud.looker.com/dashboards/5207?Account+ID+=323613905", "name": "Reynaldo Garcia", "agent": "lee_t", "agentName": "Lee", "thisDay": "$0", "priorDay": "$3,275", "priorPriorNum": 3274.88, "sortGap": 3274.88, "zeroDay": true, "purchase7d": "$1,855 · 4/7 days · missed Sat, Sun, Tue", "lifetimePurchase": "$36,269", "lifetimeHold": "18.0%", "lifetimePurchasedNum": 36268.75, "favouriteGame7d": "3 Hot Chilli Peppers 93", "urgency": "Today", "reason": "Redemption in progress", "reasonTable": "Redemption in progress  ●  Redeem Status Pre-Authorized  ●  RD $160 (ID 776333)  ●  Last Purchase Mon 20 Jul $270", "reasonParts": ["Redemption in progress", "Redeem Status Pre-Authorized", "RD $160 (ID 776333)", "Last Purchase Mon 20 Jul $270"], "recommendation": "Escalate Ops · clear RD $160 (ID 776333) · Ops Approval To Release", "ticketEnabled": true, "ticketSubject": "Redemption Status 🔄", "ticketBody": "Hi Reynaldo,\n\nCongratulations on your win! 🎉\n\nI'm personally keeping an eye on your redemption, and I'll update you as soon as there's news.\n\nIn the meantime, drop me a message if you need anything else.\n\nBest regards,", "zendeskUrl": "https://jackpotahelp.zendesk.com/agent/tickets/new/1?requester_id=22931781044124", "tone": "danger"}, {"aid": "351347535", "aidUrl": "https://lookerpatrianna.cloud.looker.com/dashboards/5207?Account+ID+=351347535", "name": "Samuel Froggatt", "agent": "lee_t", "agentName": "Lee", "thisDay": "$0", "priorDay": "$2,095", "priorPriorNum": 2094.92, "sortGap": 2094.92, "zeroDay": true, "purchase7d": "$925 · 1/7 days (Wed)", "lifetimePurchase": "$29,888", "lifetimeHold": "19.6%", "lifetimePurchasedNum": 29888.24, "favouriteGame7d": "Smooth 7’s Strike", "urgency": "Today", "reason": "Redemption in progress", "reasonTable": "Redemption in progress  ●  Redeem Status Pre-Authorized  ●  RD $3,500 total (2 open) · latest ID 765171  ●  Last Purchase Wed 15 Jul $925", "reasonParts": ["Redemption in progress", "Redeem Status Pre-Authorized", "RD $3,500 total (2 open) · latest ID 765171", "Last Purchase Wed 15 Jul $925"], "recommendation": "Escalate Ops · clear RD $3,500 total (2 open · latest ID 765171) · Ops Approval To Release", "ticketEnabled": true, "ticketSubject": "Redemption Status 🔄", "ticketBody": "Hi Samuel,\n\nCongratulations on your win! 🎉\n\nI'm personally keeping an eye on your redemption, and I'll update you as soon as there's news.\n\nIn the meantime, drop me a message if you need anything else.\n\nBest regards,", "zendeskUrl": "https://jackpotahelp.zendesk.com/agent/tickets/new/1?requester_id=23801684115996", "tone": "danger"}, {"aid": "350945310", "aidUrl": "https://lookerpatrianna.cloud.looker.com/dashboards/5207?Account+ID+=350945310", "name": "Jade Stewart Martin", "agent": "coral_s", "agentName": "Coral", "thisDay": "$0", "priorDay": "$1,895", "priorPriorNum": 1894.92, "sortGap": 1894.92, "zeroDay": true, "purchase7d": "$1,735 · 5/7 days · missed Sun, Tue", "lifetimePurchase": "$30,046", "lifetimeHold": "71.8%", "lifetimePurchasedNum": 30045.67, "favouriteGame7d": "Dr. Frankenstein", "urgency": "Today", "reason": "Redemption in progress", "reasonTable": "Redemption in progress  ●  Redeem Status Pre-Authorized  ●  RD $762 total (5 open) · latest ID 769054  ●  Last Purchase Mon 20 Jul $175", "reasonParts": ["Redemption in progress", "Redeem Status Pre-Authorized", "RD $762 total (5 open) · latest ID 769054", "Last Purchase Mon 20 Jul $175"], "recommendation": "Escalate Ops · clear RD $762 total (5 open · latest ID 769054) · Ops Approval To Release", "ticketEnabled": true, "ticketSubject": "Redemption Status 🔄", "ticketBody": "Hi Jade,\n\nCongratulations on your win! 🎉\n\nI'm personally keeping an eye on your redemption, and I'll update you as soon as there's news.\n\nIn the meantime, drop me a message if you need anything else.\n\nBest regards,", "zendeskUrl": "https://jackpotahelp.zendesk.com/agent/tickets/new/1?requester_id=23786129060508", "tone": "danger"}, {"aid": "211523918", "aidUrl": "https://lookerpatrianna.cloud.looker.com/dashboards/5207?Account+ID+=211523918", "name": "Leana Simpson", "agent": "coral_s", "agentName": "Coral", "thisDay": "$0", "priorDay": "$1,510", "priorPriorNum": 1509.92, "sortGap": 1509.92, "zeroDay": true, "purchase7d": "$2,810 · 5/7 days · missed Mon, Tue", "lifetimePurchase": "$67,267", "lifetimeHold": "56.7%", "lifetimePurchasedNum": 67267.3, "favouriteGame7d": "3 Hot Teapots", "urgency": "Today", "reason": "Redemption in progress", "reasonTable": "Redemption in progress  ●  Redeem Status Pre-Authorized  ●  RD $2,050 total (3 open) · latest ID 773137  ●  Last Purchase Sun 19 Jul $95", "reasonParts": ["Redemption in progress", "Redeem Status Pre-Authorized", "RD $2,050 total (3 open) · latest ID 773137", "Last Purchase Sun 19 Jul $95"], "recommendation": "Escalate Ops · clear RD $2,050 total (3 open · latest ID 773137) · Ops Approval To Release", "ticketEnabled": true, "ticketSubject": "Redemption Status 🔄", "ticketBody": "Hi Leana,\n\nCongratulations on your win! 🎉\n\nI'm personally keeping an eye on your redemption, and I'll update you as soon as there's news.\n\nIn the meantime, drop me a message if you need anything else.\n\nBest regards,", "zendeskUrl": "https://jackpotahelp.zendesk.com/agent/tickets/new/1?requester_id=20010483443228", "tone": "danger"}, {"aid": "422424758", "aidUrl": "https://lookerpatrianna.cloud.looker.com/dashboards/5207?Account+ID+=422424758", "name": "Adrianne Moore", "agent": "lee_t", "agentName": "Lee", "thisDay": "$0", "priorDay": "$1,250", "priorPriorNum": 1249.95, "sortGap": 1249.95, "zeroDay": true, "purchase7d": "$4,580 · 4/7 days · missed Sat, Sun, Tue", "lifetimePurchase": "$24,124", "lifetimeHold": "57.7%", "lifetimePurchasedNum": 24123.98, "favouriteGame7d": "3 Fortune Mummies", "urgency": "Today", "reason": "Redemption in progress", "reasonTable": "Redemption in progress  ●  Redeem Status Pre-Authorized  ●  RD $2,900 total (3 open) · latest ID 770620  ●  Last Purchase Mon 20 Jul $475", "reasonParts": ["Redemption in progress", "Redeem Status Pre-Authorized", "RD $2,900 total (3 open) · latest ID 770620", "Last Purchase Mon 20 Jul $475"], "recommendation": "Escalate Ops · clear RD $2,900 total (3 open · latest ID 770620) · Ops Approval To Release", "ticketEnabled": true, "ticketSubject": "Redemption Status 🔄", "ticketBody": "Hi Adrianne,\n\nCongratulations on your win! 🎉\n\nI'm personally keeping an eye on your redemption, and I'll update you as soon as there's news.\n\nIn the meantime, drop me a message if you need anything else.\n\nBest regards,", "zendeskUrl": "https://jackpotahelp.zendesk.com/agent/tickets/new/1?requester_id=26110385431324", "tone": "danger"}, {"aid": "396904144", "aidUrl": "https://lookerpatrianna.cloud.looker.com/dashboards/5207?Account+ID+=396904144", "name": "Stacey Siegh", "agent": "lee_t", "agentName": "Lee", "thisDay": "$0", "priorDay": "$1,210", "priorPriorNum": 1209.93, "sortGap": 1209.93, "zeroDay": true, "purchase7d": "$50 · 1/7 days (Wed)", "lifetimePurchase": "$17,927", "lifetimeHold": "77.7%", "lifetimePurchasedNum": 17927.38, "favouriteGame7d": "The Kingdom of Cardia", "urgency": "Today", "reason": "Payment failed", "reasonTable": "Payment failed  ●  1 Failed Checkout  ●  Last Purchase Wed 15 Jul $50  ●  3 Failed Post-Purchase", "reasonParts": ["Payment failed", "1 Failed Checkout", "Last Purchase Wed 15 Jul $50", "3 Failed Post-Purchase"], "recommendation": "Fix payment method · 1 failed checkout", "ticketEnabled": false, "ticketSubject": "", "ticketBody": "", "zendeskUrl": "", "tone": "danger"}, {"aid": "432965821", "aidUrl": "https://lookerpatrianna.cloud.looker.com/dashboards/5207?Account+ID+=432965821", "name": "Richard Nichols", "agent": "rachel_a", "agentName": "Rachel", "thisDay": "$0", "priorDay": "$1,175", "priorPriorNum": 1174.91, "sortGap": 1174.91, "zeroDay": true, "purchase7d": "$170 · 2/7 days · Wed, Sat", "lifetimePurchase": "$48,434", "lifetimeHold": "88.6%", "lifetimePurchasedNum": 48434.36, "favouriteGame7d": "The Kingdom of Cardia", "urgency": "Today", "reason": "Payment failed", "reasonTable": "Payment failed  ●  1 Failed Checkout  ●  Last Purchase Sat 18 Jul $120  ●  1 Failed Post-Purchase", "reasonParts": ["Payment failed", "1 Failed Checkout", "Last Purchase Sat 18 Jul $120", "1 Failed Post-Purchase"], "recommendation": "Fix payment method · 1 failed checkout", "ticketEnabled": false, "ticketSubject": "", "ticketBody": "", "zendeskUrl": "", "tone": "danger"}, {"aid": "151123390", "aidUrl": "https://lookerpatrianna.cloud.looker.com/dashboards/5207?Account+ID+=151123390", "name": "Michael Gajkowski", "agent": "coral_s", "agentName": "Coral", "thisDay": "$0", "priorDay": "$1,070", "priorPriorNum": 1069.8, "sortGap": 1069.8, "zeroDay": true, "purchase7d": "None In 7D", "lifetimePurchase": "$5,964", "lifetimeHold": "95.8%", "lifetimePurchasedNum": 5963.64, "favouriteGame7d": "—", "urgency": "Today", "reason": "Account locked", "reasonTable": "Account locked  ●  Customer request  ●  14 Jul Conversation with Micha…", "reasonParts": ["Account locked", "Customer request", "14 Jul Conversation with Micha…"], "recommendation": "Send to Ops · Customer request", "ticketEnabled": false, "ticketSubject": "", "ticketBody": "", "zendeskUrl": "", "tone": "danger"}, {"aid": "368563630", "aidUrl": "https://lookerpatrianna.cloud.looker.com/dashboards/5207?Account+ID+=368563630", "name": "Ashley Loden", "agent": "gabriel_e", "agentName": "Gabriel", "thisDay": "$0", "priorDay": "$850", "priorPriorNum": 849.94, "sortGap": 849.94, "zeroDay": true, "purchase7d": "$625 · 4/7 days · missed Wed, Sat, Tue", "lifetimePurchase": "$24,217", "lifetimeHold": "78.7%", "lifetimePurchasedNum": 24217.06, "favouriteGame7d": "Luxor Gold: Hold and Win", "urgency": "Today", "reason": "Payment failed", "reasonTable": "Payment failed  ●  2 Failed Checkout  ●  Last Purchase Mon 20 Jul $120  ●  2 Failed Post-Purchase", "reasonParts": ["Payment failed", "2 Failed Checkout", "Last Purchase Mon 20 Jul $120", "2 Failed Post-Purchase"], "recommendation": "Fix payment method · 2 failed checkout", "ticketEnabled": false, "ticketSubject": "", "ticketBody": "", "zendeskUrl": "", "tone": "danger"}, {"aid": "256973440", "aidUrl": "https://lookerpatrianna.cloud.looker.com/dashboards/5207?Account+ID+=256973440", "name": "Amber Purser", "agent": "lee_t", "agentName": "Lee", "thisDay": "$0", "priorDay": "$2,585", "priorPriorNum": 2584.9, "sortGap": 2584.9, "zeroDay": true, "purchase7d": "None In 7D", "lifetimePurchase": "$44,868", "lifetimeHold": "55.4%", "lifetimePurchasedNum": 44867.62, "favouriteGame7d": "—", "urgency": "48h", "reason": "Churn - needs reactivation", "reasonTable": "Churn - needs reactivation  ●  Last Purchase Tue 14 Jul $2,585  ●  No Play In 7D", "reasonParts": ["Churn - needs reactivation", "Last Purchase Tue 14 Jul $2,585", "No Play In 7D"], "recommendation": "Push purchase", "ticketEnabled": true, "ticketSubject": "You've Been Chosen 🎁", "ticketBody": "Hey Amber,\n\nNoticed things were quiet on Jackpota lately, and I wanted to check in personally 👋\n\nI've activated an exclusive offer for you: just grab the {GC_package_name} and reply once you do, I'll personally add a little extra on top 🎁\n\nSometimes one spin is all you need to win BIG.\n\nHave a good one,", "zendeskUrl": "https://jackpotahelp.zendesk.com/agent/tickets/new/1?requester_id=21376029794716", "tone": "danger"}, {"aid": "383268457", "aidUrl": "https://lookerpatrianna.cloud.looker.com/dashboards/5207?Account+ID+=383268457", "name": "Justin Mills", "agent": "gabriel_e", "agentName": "Gabriel", "thisDay": "$0", "priorDay": "$2,085", "priorPriorNum": 2084.84, "sortGap": 2084.84, "zeroDay": true, "purchase7d": "$700 · 1/7 days (Wed)", "lifetimePurchase": "$32,110", "lifetimeHold": "54.8%", "lifetimePurchasedNum": 32110.39, "favouriteGame7d": "Giga Match Egypt (94%)", "urgency": "48h", "reason": "Same weekday skip", "reasonTable": "Same weekday skip  ●  $0 vs Prior $2,085  ●  Last Purchase Wed 15 Jul $700", "reasonParts": ["Same weekday skip", "$0 vs Prior $2,085", "Last Purchase Wed 15 Jul $700"], "recommendation": "Push purchase", "ticketEnabled": true, "ticketSubject": "You've Been Chosen 🎁", "ticketBody": "Hey Justin,\n\nNoticed things were quiet on Jackpota lately, and I wanted to check in personally 👋\n\nI've activated an exclusive offer for you: just grab the {GC_package_name} and reply once you do, I'll personally add a little extra on top 🎁\n\nSometimes one spin is all you need to win BIG.\n\nHave a good one,", "zendeskUrl": "https://jackpotahelp.zendesk.com/agent/tickets/new/1?requester_id=24690157864220", "tone": "warning"}, {"aid": "441104952", "aidUrl": "https://lookerpatrianna.cloud.looker.com/dashboards/5207?Account+ID+=441104952", "name": "Lien Nguyen", "agent": "lee_t", "agentName": "Lee", "thisDay": "$0", "priorDay": "$1,780", "priorPriorNum": 1779.92, "sortGap": 1779.92, "zeroDay": true, "purchase7d": "None In 7D", "lifetimePurchase": "$30,451", "lifetimeHold": "43.5%", "lifetimePurchasedNum": 30451.12, "favouriteGame7d": "Paddys Potions 92", "urgency": "48h", "reason": "Churn - needs reactivation", "reasonTable": "Churn - needs reactivation  ●  Last Purchase Tue 14 Jul $1,780  ●  No Purchases In 7D", "reasonParts": ["Churn - needs reactivation", "Last Purchase Tue 14 Jul $1,780", "No Purchases In 7D"], "recommendation": "Push purchase", "ticketEnabled": true, "ticketSubject": "You've Been Chosen 🎁", "ticketBody": "Hey Lien,\n\nNoticed things were quiet on Jackpota lately, and I wanted to check in personally 👋\n\nI've activated an exclusive offer for you: just grab the {GC_package_name} and reply once you do, I'll personally add a little extra on top 🎁\n\nSometimes one spin is all you need to win BIG.\n\nHave a good one,", "zendeskUrl": "https://jackpotahelp.zendesk.com/agent/tickets/new/1?requester_id=26811795153564", "tone": "danger"}, {"aid": "15570797", "aidUrl": "https://lookerpatrianna.cloud.looker.com/dashboards/5207?Account+ID+=15570797", "name": "Misty Butler", "agent": "lee_t", "agentName": "Lee", "thisDay": "$0", "priorDay": "$1,725", "priorPriorNum": 1724.96, "sortGap": 1724.96, "zeroDay": true, "purchase7d": "None In 7D", "lifetimePurchase": "$67,905", "lifetimeHold": "62.6%", "lifetimePurchasedNum": 67905.42, "favouriteGame7d": "Shark Frenzy", "urgency": "48h", "reason": "Churn - needs reactivation", "reasonTable": "Churn - needs reactivation  ●  Last Purchase Tue 14 Jul $1,725  ●  No Purchases In 7D", "reasonParts": ["Churn - needs reactivation", "Last Purchase Tue 14 Jul $1,725", "No Purchases In 7D"], "recommendation": "Push purchase", "ticketEnabled": true, "ticketSubject": "You've Been Chosen 🎁", "ticketBody": "Hey Misty,\n\nNoticed things were quiet on Jackpota lately, and I wanted to check in personally 👋\n\nI've activated an exclusive offer for you: just grab the {GC_package_name} and reply once you do, I'll personally add a little extra on top 🎁\n\nSometimes one spin is all you need to win BIG.\n\nHave a good one,", "zendeskUrl": "https://jackpotahelp.zendesk.com/agent/tickets/new/1?requester_id=14642647231772", "tone": "danger"}, {"aid": "199339182", "aidUrl": "https://lookerpatrianna.cloud.looker.com/dashboards/5207?Account+ID+=199339182", "name": "Kim Desett", "agent": "lee_t", "agentName": "Lee", "thisDay": "$0", "priorDay": "$1,135", "priorPriorNum": 1134.89, "sortGap": 1134.89, "zeroDay": true, "purchase7d": "None In 7D", "lifetimePurchase": "$98,105", "lifetimeHold": "73.1%", "lifetimePurchasedNum": 98105.1, "favouriteGame7d": "3 Builder Piggies", "urgency": "48h", "reason": "Churn - needs reactivation", "reasonTable": "Churn - needs reactivation  ●  Last Purchase Tue 14 Jul $1,135  ●  No Purchases In 7D", "reasonParts": ["Churn - needs reactivation", "Last Purchase Tue 14 Jul $1,135", "No Purchases In 7D"], "recommendation": "Push purchase", "ticketEnabled": true, "ticketSubject": "You've Been Chosen 🎁", "ticketBody": "Hey Kim,\n\nNoticed things were quiet on Jackpota lately, and I wanted to check in personally 👋\n\nI've activated an exclusive offer for you: just grab the {GC_package_name} and reply once you do, I'll personally add a little extra on top 🎁\n\nSometimes one spin is all you need to win BIG.\n\nHave a good one,", "zendeskUrl": "https://jackpotahelp.zendesk.com/agent/tickets/new/1?requester_id=19615696773788", "tone": "danger"}, {"aid": "444359082", "aidUrl": "https://lookerpatrianna.cloud.looker.com/dashboards/5207?Account+ID+=444359082", "name": "Robin Backus", "agent": "gabriel_e", "agentName": "Gabriel", "thisDay": "$0", "priorDay": "$1,125", "priorPriorNum": 1124.94, "sortGap": 1124.94, "zeroDay": true, "purchase7d": "$210 · 2/7 days · Thu, Fri", "lifetimePurchase": "$27,300", "lifetimeHold": "33.7%", "lifetimePurchasedNum": 27300.49, "favouriteGame7d": "Devil’s Coins Hotfire Hold & Win Buy Bonus", "urgency": "48h", "reason": "Same weekday skip", "reasonTable": "Same weekday skip  ●  $0 vs Prior $1,125  ●  Last Purchase Fri 17 Jul $150", "reasonParts": ["Same weekday skip", "$0 vs Prior $1,125", "Last Purchase Fri 17 Jul $150"], "recommendation": "Push purchase", "ticketEnabled": true, "ticketSubject": "You've Been Chosen 🎁", "ticketBody": "Hey Robin,\n\nNoticed things were quiet on Jackpota lately, and I wanted to check in personally 👋\n\nI've activated an exclusive offer for you: just grab the {GC_package_name} and reply once you do, I'll personally add a little extra on top 🎁\n\nSometimes one spin is all you need to win BIG.\n\nHave a good one,", "zendeskUrl": "https://jackpotahelp.zendesk.com/agent/tickets/new/1?requester_id=28404697603612", "tone": "warning"}, {"aid": "445330131", "aidUrl": "https://lookerpatrianna.cloud.looker.com/dashboards/5207?Account+ID+=445330131", "name": "Kelly Vega", "agent": "lee_t", "agentName": "Lee", "thisDay": "$0", "priorDay": "$880", "priorPriorNum": 879.74, "sortGap": 879.74, "zeroDay": true, "purchase7d": "$160 · 2/7 days · Wed, Thu", "lifetimePurchase": "$8,468", "lifetimeHold": "94.1%", "lifetimePurchasedNum": 8467.58, "favouriteGame7d": "Paddys Potions 92", "urgency": "48h", "reason": "Same weekday skip", "reasonTable": "Same weekday skip  ●  $0 vs Prior $880  ●  Last Purchase Thu 16 Jul $130", "reasonParts": ["Same weekday skip", "$0 vs Prior $880", "Last Purchase Thu 16 Jul $130"], "recommendation": "Push purchase", "ticketEnabled": true, "ticketSubject": "You've Been Chosen 🎁", "ticketBody": "Hey Kelly,\n\nNoticed things were quiet on Jackpota lately, and I wanted to check in personally 👋\n\nI've activated an exclusive offer for you: just grab the {GC_package_name} and reply once you do, I'll personally add a little extra on top 🎁\n\nSometimes one spin is all you need to win BIG.\n\nHave a good one,", "zendeskUrl": "https://jackpotahelp.zendesk.com/agent/tickets/new/1?requester_id=26956556075036", "tone": "warning"}, {"aid": "39137030", "aidUrl": "https://lookerpatrianna.cloud.looker.com/dashboards/5207?Account+ID+=39137030", "name": "Lisa Samuelson", "agent": "rachel_a", "agentName": "Rachel", "thisDay": "$0", "priorDay": "$865", "priorPriorNum": 864.96, "sortGap": 864.96, "zeroDay": true, "purchase7d": "None In 7D", "lifetimePurchase": "$73,102", "lifetimeHold": "48.2%", "lifetimePurchasedNum": 73101.53, "favouriteGame7d": "Blood Club", "urgency": "48h", "reason": "Churn - needs reactivation", "reasonTable": "Churn - needs reactivation  ●  Last Purchase Tue 14 Jul $865  ●  No Purchases In 7D  ●  16 Jul ⚽Your 3rd Kick-Off Rewa…", "reasonParts": ["Churn - needs reactivation", "Last Purchase Tue 14 Jul $865", "No Purchases In 7D", "16 Jul ⚽Your 3rd Kick-Off Rewa…"], "recommendation": "Push purchase", "ticketEnabled": true, "ticketSubject": "You've Been Chosen 🎁", "ticketBody": "Hey Lisa,\n\nNoticed things were quiet on Jackpota lately, and I wanted to check in personally 👋\n\nI've activated an exclusive offer for you: just grab the {GC_package_name} and reply once you do, I'll personally add a little extra on top 🎁\n\nSometimes one spin is all you need to win BIG.\n\nHave a good one,", "zendeskUrl": "https://jackpotahelp.zendesk.com/agent/tickets/new/1?requester_id=15445639812636", "tone": "danger"}, {"aid": "402625773", "aidUrl": "https://lookerpatrianna.cloud.looker.com/dashboards/5207?Account+ID+=402625773", "name": "William Donis", "agent": "coral_s", "agentName": "Coral", "thisDay": "$0", "priorDay": "$5,560", "priorPriorNum": 5559.76, "sortGap": 5559.76, "zeroDay": true, "purchase7d": "$8,310 · 3/7 days · Wed, Sun, Mon", "lifetimePurchase": "$48,910", "lifetimeHold": "73.4%", "lifetimePurchasedNum": 48910.3, "favouriteGame7d": "Voltage Blitz Rapid (94%)", "urgency": "Watch", "reason": "Same weekday skip", "reasonTable": "Same weekday skip  ●  $0 vs Prior $5,560  ●  Played Today - No Purchase", "reasonParts": ["Same weekday skip", "$0 vs Prior $5,560", "Played Today - No Purchase"], "recommendation": "Soft check-in only", "ticketEnabled": true, "ticketSubject": "Checking In On You 👑", "ticketBody": "Hi William,\n\nIt's been a little while, and I just wanted to check in on how everything's going? 💬\nI hope you've been doing well and still enjoying the fun at Jackpota!\n\nIf you ever need anything: game recommendations, slot tips or just chat, I am here for you.\n\nI'd love to hear from you and see how I can make your experience even better.\n\nBest regards,", "zendeskUrl": "https://jackpotahelp.zendesk.com/agent/tickets/new/1?requester_id=25286070565404", "tone": "warning"}, {"aid": "264705848", "aidUrl": "https://lookerpatrianna.cloud.looker.com/dashboards/5207?Account+ID+=264705848", "name": "William Rouse", "agent": "rachel_a", "agentName": "Rachel", "thisDay": "$0", "priorDay": "$1,615", "priorPriorNum": 1614.93, "sortGap": 1614.93, "zeroDay": true, "purchase7d": "$4,895 · 6/7 days · missed Tue", "lifetimePurchase": "$86,290", "lifetimeHold": "62.7%", "lifetimePurchasedNum": 86289.73, "favouriteGame7d": "4 Supercharged Clovers: Hold and Win Power Chance", "urgency": "Watch", "reason": "Same weekday skip", "reasonTable": "Same weekday skip  ●  $0 vs Prior $1,615  ●  Last Purchase Mon 20 Jul $425", "reasonParts": ["Same weekday skip", "$0 vs Prior $1,615", "Last Purchase Mon 20 Jul $425"], "recommendation": "No action", "ticketEnabled": false, "ticketSubject": "", "ticketBody": "", "zendeskUrl": "", "tone": "warning"}, {"aid": "387759191", "aidUrl": "https://lookerpatrianna.cloud.looker.com/dashboards/5207?Account+ID+=387759191", "name": "Lauren Lewis", "agent": "coral_s", "agentName": "Coral", "thisDay": "$0", "priorDay": "$1,355", "priorPriorNum": 1354.94, "sortGap": 1354.94, "zeroDay": true, "purchase7d": "$335 · 2/7 days · Wed, Mon", "lifetimePurchase": "$113,058", "lifetimeHold": "32.1%", "lifetimePurchasedNum": 113058.41, "favouriteGame7d": "Sugar Teddy", "urgency": "Watch", "reason": "Same weekday skip", "reasonTable": "Same weekday skip  ●  $0 vs Prior $1,355  ●  Played Today - No Purchase", "reasonParts": ["Same weekday skip", "$0 vs Prior $1,355", "Played Today - No Purchase"], "recommendation": "Push purchase", "ticketEnabled": true, "ticketSubject": "You've Been Chosen 🎁", "ticketBody": "Hey Lauren,\n\nNoticed things were quiet on Jackpota lately, and I wanted to check in personally 👋\n\nI've activated an exclusive offer for you: just grab the {GC_package_name} and reply once you do, I'll personally add a little extra on top 🎁\n\nSometimes one spin is all you need to win BIG.\n\nHave a good one,", "zendeskUrl": "https://jackpotahelp.zendesk.com/agent/tickets/new/1?requester_id=24843863489948", "tone": "warning"}], "titles": {"thisPurchase": "This Tuesday Purchase", "priorPurchase": "Prior Tuesday Purchase", "purchase7d": "7D Purchase", "lifetimePurchase": "LT Purchase", "lifetimeHold": "Lifetime Hold", "favouriteGame7d": "Favourite Game (7D)"}, "agents": ["coral_s", "gabriel_e", "lee_t", "rachel_a"], "dayShort": "Tue", "urgencyLegend": "Urgency: Today (contact today: Redeem pending, payment failed, account lock, or red flag) · 48h (reach out within 2 days: Churn, spend slowing, or 2+ days without purchase) · Watch (monitor only: Skipped purchase day or post-win) · None (do not contact: Self-exclusion)"};
+    const isWeekend = DATA.report && DATA.report.mode === "weekend";
+
+    if (isWeekend) {
+      renderWeekend(DATA);
+    } else {
+      renderDaily(DATA);
+    }
+
+    function renderDaily(DATA) {
+    const { report: REPORT, segments: SEGMENTS, players: TOP10, titles: TITLES, agents: AGENTS, dayShort } = DATA;
+
+    const REASON_EMPHASIS = [
+      "Redemption Blocked", "Redemption in progress", "Needs ", "Same weekday skip",
+      "Spend Softening", "Offline Since", "Pending RD", "RD $", "Redeem Status ",
+      "Take a break", "No Purchases", "Played Today", "Account locked", "Red flag",
+    ];
+    const URGENCY_RANK = { Today: 0, "48h": 1, Watch: 2, None: 3 };
+    const REASONS = [...new Set(TOP10.map(p => p.reason))].sort();
+
+    function reasonPartEmoji(part) {
+      const pl = part.toLowerCase();
+      if (part.startsWith("Red flag")) return "🚩 ";
+      if (part.startsWith("Redemption Blocked")) return "🚫 ";
+      if (part.startsWith("Redemption in progress")) return "⏳ ";
+      if (part.startsWith("Account locked") || part.includes("Suspended")) return "🔒 ";
+      if (part.startsWith("Needs Recent Acceptable POA") || pl.includes("poa")) return "📄 ";
+      if (part.startsWith("Needs KYC") || pl.includes("verification document")) return "📋 ";
+      if (part.startsWith("RD $") || part.startsWith("Pending RD")) return "💸 ";
+      if (part.startsWith("Same weekday skip")) return "📅 ";
+      if (part.startsWith("Payment failed")) return "❌ ";
+      if (part.startsWith("No Purchases")) return "⚠️ ";
+      if (part.startsWith("Played Today")) return "🎰 ";
+      if (part.startsWith("Redeem Status")) return "📋 ";
+      if (part.startsWith("Take a break")) return "⏰ ";
+      if (part.startsWith("Spend Softening")) return "📉 ";
+      return "";
+    }
+    function actionHeadEmoji(head) {
+      const hl = head.toLowerCase();
+      if (head.startsWith("Escalate Ops")) return "➡️ ";
+      if (head.startsWith("Escalate Compliance")) return "⚖️ ";
+      if (head.startsWith("Push purchase")) return "💰 ";
+      if (head.startsWith("Fix payment method")) return "💳 ";
+      if (head.startsWith("Remove restriction")) return "🔓 ";
+      if (head.startsWith("Send to Ops")) return "🔧 ";
+      if (head.startsWith("Soft check-in")) return "💬 ";
+      if (head.startsWith("Agent call")) return "📞 ";
+      if (head.startsWith("Reactivation")) return "📞 ";
+      if (head.startsWith("No action")) return "✓ ";
+      if (hl.includes("no outreach") || hl.includes("no purchase push")) return "🛑 ";
+      return "";
+    }
+    function reasonPartClass(part) {
+      if (part.startsWith("Red flag")) return "t-danger w-semibold";
+      if (part.startsWith("Needs ") || part.includes("Blocked")) return "t-warning w-semibold";
+      if (part.startsWith("Escalate") || part.includes("Suspended")) return "t-danger w-semibold";
+      if (part.startsWith("Same weekday skip") || part.startsWith("Played Today")) return "t-info";
+      return "";
+    }
+    function esc(s) {
+      return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+    }
+    function marker(tone) {
+      const t = tone || "neutral";
+      return `<span class="marker marker-${t}" aria-hidden="true"></span>`;
+    }
+    function markerCell(tone, content) {
+      return `<span class="cell-marker">${marker(tone)}<span>${content}</span></span>`;
+    }
+    function renderReason(parts, text) {
+      const segments = (parts && parts.length) ? parts : text.split("●").map(p => p.trim()).filter(Boolean);
+      return segments.map((part, i) => {
+        const emphasize = i === 0 || REASON_EMPHASIS.some(pfx => part.startsWith(pfx));
+        const emoji = reasonPartEmoji(part);
+        const cls = emphasize ? (reasonPartClass(part) || "w-semibold") : "";
+        const sep = i > 0 ? '<span class="sep">●</span>' : '';
+        return sep + `<span class="${cls}">${emoji}${esc(part)}</span>`;
+      }).join("");
+    }
+    function renderAction(text) {
+      const chunks = text.split(" · ").filter(Boolean);
+      const head = chunks[0] || text;
+      const tail = chunks.slice(1).join(" · ");
+      return `<span class="w-semibold">${actionHeadEmoji(head)}${esc(head)}</span>` +
+        (tail ? ` · ${esc(tail)}` : "");
+    }
+    function fmtTotalMoney(n) { return "$" + Math.round(n).toLocaleString(); }
+    function holdHtml(value) {
+      const pct = parseFloat(value);
+      const high = !Number.isNaN(pct) && pct >= 70;
+      return `<span class="${high ? "t-success w-semibold" : ""}">${esc(value)}</span>`;
+    }
+    function moneyHtml(value, emphasize) {
+      return `<span class="${emphasize ? "t-danger w-semibold" : ""}">${esc(value)}</span>`;
+    }
+    function p7dHtml(value) {
+      const none = value === "None In 7D";
+      return `<span class="${none ? "t-warning w-semibold" : ""}">${esc(value)}</span>`;
+    }
+    function urgencyHtml(u) {
+      if (u === "Today") return '<span class="t-danger w-semibold">⚡ Today</span>';
+      return esc(u);
+    }
+    function wowHtml(value) {
+      const v = String(value || "").trim();
+      const up = v.startsWith("+") && !v.startsWith("+$0 (");
+      const down = v.startsWith("-") || v.startsWith("$-");
+      const cls = up ? "t-success w-semibold" : down ? "t-danger w-semibold" : "";
+      return `<span class="${cls}">${esc(value)}</span>`;
+    }
+    function sortPlayers(rows, mode) {
+      const copy = [...rows];
+      if (mode === "priorHigh") return copy.sort((a,b) => b.priorPriorNum - a.priorPriorNum);
+      if (mode === "lifetimeHigh") return copy.sort((a,b) => b.lifetimePurchasedNum - a.lifetimePurchasedNum);
+      if (mode === "gapHigh") return copy.sort((a,b) => b.sortGap - a.sortGap);
+      return copy.sort((a,b) => {
+        const ra = URGENCY_RANK[a.urgency] ?? 9;
+        const rb = URGENCY_RANK[b.urgency] ?? 9;
+        if (ra !== rb) return ra - rb;
+        return b.sortGap - a.sortGap;
+      });
+    }
+    function aidHtml(p) {
+      const aid = esc(p.aid);
+      if (p.aidUrl) {
+        return `<a href="${esc(p.aidUrl)}" target="_blank" rel="noopener noreferrer">${aid}</a>`;
+      }
+      return aid;
+    }
+    function ticketHtml(p) {
+      if (!p.ticketEnabled) return '<span class="t-quaternary">—</span>';
+      const subj = p.ticketSubject || "";
+      const preview = subj.length > 28 ? subj.slice(0, 27) + "…" : (subj || "Draft");
+      return `<div><button type="button" class="pill ticket-draft-btn" data-ticket-aid="${esc(p.aid)}">Draft</button><div class="ticket-preview">${esc(preview)}</div></div>`;
+    }
+    async function copyText(text) {
+      try { await navigator.clipboard.writeText(text); } catch (_) { /* ignore */ }
+    }
+    function renderTicketModal() {
+      const root = document.getElementById("ticketModalRoot");
+      if (!ticketDraft) {
+        root.innerHTML = "";
+        return;
+      }
+      const p = ticketDraft.player;
+      root.innerHTML = `
+        <div class="modal-backdrop" id="ticketModalBackdrop">
+          <div class="modal-card">
+            <div class="w-semibold">Zendesk ticket draft · ${esc(p.name)} (AID ${esc(p.aid)})</div>
+            <div class="t-small t-quaternary" style="margin:4px 0 12px">Review only. Edit, copy, then open Zendesk and send manually. Never auto-sent.</div>
+            <label class="t-small w-medium">Subject</label>
+            <input type="text" id="ticketSubjectInput" value="${esc(ticketDraft.subject)}">
+            <label class="t-small w-medium">Message</label>
+            <textarea id="ticketBodyInput">${esc(ticketDraft.body)}</textarea>
+            <div class="row">
+              <button type="button" class="pill" id="ticketCopySubject">Copy subject</button>
+              <button type="button" class="pill" id="ticketCopyBody">Copy message</button>
+              <button type="button" class="pill" id="ticketCopyAll">Copy subject + message</button>
+              <button type="button" class="pill" id="ticketOpenZendesk">Open Zendesk</button>
+              <div class="spacer"></div>
+              <button type="button" class="pill" id="ticketClose">Close</button>
+            </div>
+          </div>
+        </div>`;
+      document.getElementById("ticketSubjectInput").addEventListener("input", e => { ticketDraft.subject = e.target.value; });
+      document.getElementById("ticketBodyInput").addEventListener("input", e => { ticketDraft.body = e.target.value; });
+      document.getElementById("ticketCopySubject").addEventListener("click", () => copyText(ticketDraft.subject));
+      document.getElementById("ticketCopyBody").addEventListener("click", () => copyText(ticketDraft.body));
+      document.getElementById("ticketCopyAll").addEventListener("click", () => copyText(`Subject: ${ticketDraft.subject}\n\n${ticketDraft.body}`));
+      document.getElementById("ticketOpenZendesk").addEventListener("click", () => { if (p.zendeskUrl) window.open(p.zendeskUrl, "_blank", "noopener,noreferrer"); });
+      document.getElementById("ticketClose").addEventListener("click", () => { ticketDraft = null; renderTicketModal(); });
+      document.getElementById("ticketModalBackdrop").addEventListener("click", e => {
+        if (e.target.id === "ticketModalBackdrop") { ticketDraft = null; renderTicketModal(); }
+      });
+    }
+    function openTicketDraft(p) {
+      ticketDraft = {
+        player: p,
+        subject: p.ticketSubject || "",
+        body: p.ticketBody || "",
+      };
+      renderTicketModal();
+    }
+    function matchesSearch(row, query) {
+      if (!query.trim()) return true;
+      const q = query.trim().toLowerCase();
+      return [row.name, row.aid, row.agent, row.agentName, row.reason, row.reasonTable,
+        row.purchase7d, row.favouriteGame7d, row.recommendation].join(" ").toLowerCase().includes(q);
+    }
+    function tableHtml(headers, aligns, rows) {
+      const th = headers.map((h, i) => `<th class="${aligns[i] || ""}">${esc(h)}</th>`).join("");
+      const tb = rows.map((row, ri) => {
+        const stripe = ri % 2 === 1 ? " striped" : "";
+        return `<tr class="${stripe}">${row.map((cell, ci) => `<td class="${aligns[ci] || ""}">${cell}</td>`).join("")}</tr>`;
+      }).join("");
+      return `<div class="table-frame"><table class="canvas"><thead><tr>${th}</tr></thead><tbody>${tb}</tbody></table></div>`;
+    }
+
+    let state = { search: "", agent: "all", reason: "all", sortBy: "urgency" };
+    let ticketDraft = null;
+
+    function render() {
+      const filtered = sortPlayers(TOP10.filter(row => {
+        if (state.agent !== "all" && row.agent !== state.agent) return false;
+        if (state.reason !== "all" && row.reason !== state.reason) return false;
+        return matchesSearch(row, state.search);
+      }), state.sortBy);
+      const priorTotal = filtered.reduce((s, p) => s + p.priorPriorNum, 0);
+      const filterActive = state.search.trim() || state.agent !== "all" || state.reason !== "all" || state.sortBy !== "urgency";
+
+      const segHeaders = [
+        "Segment",
+        `This ${dayShort} Purchase`, `Prior ${dayShort} Purchase`, "Purchase WoW",
+        `This ${dayShort} Purchased Players`, `Prior ${dayShort} Purchased Players`,
+        "Purchased Players WoW", "Share"
+      ];
+      const segAligns = ["", "num", "num", "num", "num", "num", "num", ""];
+      const segRows = SEGMENTS.map(s => [
+        markerCell(s.tone, `<span class="w-semibold">${esc(s.label)}</span>`),
+        esc(s.revThis), esc(s.revPrior), wowHtml(s.revWow),
+        esc(s.plyThis), esc(s.plyPrior), wowHtml(s.plyWow), esc(s.share)
+      ]);
+
+      const playerAligns = ["center", "", "", "", "num", "num", "num", "num", "", "", "center", "", "", "center"];
+      const playerRows = filtered.map((p, i) => [
+        markerCell(p.tone, esc(String(i + 1))),
+        esc(p.agentName), aidHtml(p), esc(p.name),
+        moneyHtml(p.lifetimePurchase, p.lifetimePurchasedNum >= 50000),
+        holdHtml(p.lifetimeHold),
+        moneyHtml(p.thisDay, p.zeroDay),
+        moneyHtml(p.priorDay, p.sortGap >= 2000),
+        p7dHtml(p.purchase7d),
+        esc(p.favouriteGame7d || "—"),
+        urgencyHtml(p.urgency),
+        renderReason(p.reasonParts, p.reasonTable),
+        renderAction(p.recommendation),
+        ticketHtml(p),
+      ]);
+      if (filtered.length) {
+        playerRows.push([
+          "", "", "", '<span class="w-semibold">Total</span>', "", "", "",
+          `<span class="w-semibold">${fmtTotalMoney(priorTotal)}</span>`,
+          "", "", "", "", "", ""
+        ]);
+      }
+
+      const playerHeaders = [
+        "#", "Agent Name", "AID", "Name",
+        TITLES.lifetimePurchase, TITLES.lifetimeHold,
+        TITLES.thisPurchase, TITLES.priorPurchase,
+        TITLES.purchase7d, TITLES.favouriteGame7d,
+        "Urgency", "Reason", "Recommendation", "Ticket"
+      ];
+
+      const pills = ['<button type="button" class="pill' + (state.reason === "all" ? " active" : "") + '" data-reason-idx="-1">All reasons</button>']
+        .concat(REASONS.map((r, idx) =>
+          `<button type="button" class="pill${state.reason === r ? " active" : ""}" data-reason-idx="${idx}">${esc(r)}</button>`
+        )).join("");
+
+      const agentOpts = ['<option value="all">All agents</option>']
+        .concat(AGENTS.map(a => `<option value="${esc(a)}"${state.agent === a ? " selected" : ""}>${esc(a)}</option>`))
+        .join("");
+
+      document.getElementById("app").innerHTML = `
+        <div class="stack-8">
+          <h1>Elite Daily Decline Dashboard</h1>
+          <div class="t-small t-tertiary">${esc(REPORT.weekday)} ${esc(REPORT.date)} vs prior ${esc(REPORT.weekday)} ${esc(REPORT.priorDate)}</div>
+        </div>
+        <div class="stack-8">
+          <h2>${esc(REPORT.weekday)} vs last ${esc(REPORT.weekday)} · Elite &amp; Jackpota</h2>
+          ${tableHtml(segHeaders, segAligns, segRows)}
+          <div class="t-small t-secondary">${esc(REPORT.headline)}</div>
+        </div>
+        <div class="stack-8">
+          <div class="row">
+            <h2>Top 20 · WoW Purchase Gaps</h2>
+            <div class="spacer"></div>
+            <div class="t-small t-tertiary">${filterActive ? `Showing ${filtered.length} of ${TOP10.length}` : `${TOP10.length} players`}</div>
+          </div>
+          <div class="row">
+            <input type="search" id="search" placeholder="Search name, AID, agent, reason…" value="${esc(state.search)}">
+            <span class="select-wrap" style="flex:0 0 140px"><select id="agentFilter">${agentOpts}</select></span>
+            <span class="select-wrap" style="flex:0 0 180px"><select id="sortBy">
+              <option value="urgency"${state.sortBy === "urgency" ? " selected" : ""}>Sort: Urgency + gap</option>
+              <option value="priorHigh"${state.sortBy === "priorHigh" ? " selected" : ""}>Prior purchase ↓</option>
+              <option value="lifetimeHigh"${state.sortBy === "lifetimeHigh" ? " selected" : ""}>Lifetime purchase ↓</option>
+              <option value="gapHigh"${state.sortBy === "gapHigh" ? " selected" : ""}>WoW gap ↓</option>
+            </select></span>
+          </div>
+          <div class="pills" id="reasonPills">${pills}</div>
+          <div class="table-frame"><table class="canvas players-table"><thead><tr>${playerHeaders.map((h,i)=>`<th class="${playerAligns[i]||""}">${esc(h)}</th>`).join("")}</tr></thead><tbody>${
+            playerRows.length ? playerRows.map((row, ri) => `<tr class="${ri % 2 === 1 ? "striped" : ""}">${row.map((cell, ci) => `<td class="${playerAligns[ci]||""} ${ci===11?"reason-cell":""} ${ci===12?"action-cell":""} ${ci===8?"p7d-cell":""}">${cell}</td>`).join("")}</tr>`).join("")
+            : `<tr><td colspan="14" class="t-small t-secondary">No players match the current filters.</td></tr>`
+          }</tbody></table></div>
+        </div>
+      `;
+
+      document.getElementById("search").addEventListener("input", e => { state.search = e.target.value; render(); });
+      document.getElementById("agentFilter").addEventListener("change", e => { state.agent = e.target.value; render(); });
+      document.getElementById("sortBy").addEventListener("change", e => { state.sortBy = e.target.value; render(); });
+      document.querySelectorAll("#reasonPills .pill").forEach(el => {
+        el.addEventListener("click", () => {
+          const idx = parseInt(el.dataset.reasonIdx, 10);
+          state.reason = idx < 0 ? "all" : REASONS[idx];
+          render();
+        });
+      });
+      document.querySelectorAll(".ticket-draft-btn").forEach(el => {
+        el.addEventListener("click", () => {
+          const aid = el.dataset.ticketAid;
+          const player = TOP10.find(p => p.aid === aid);
+          if (player) openTicketDraft(player);
+        });
+      });
+      document.title = `Elite Daily Decline Dashboard · ${REPORT.date}`;
+    }
+    render();
+    }
+
+    function renderWeekend(DATA) {
+      const { report: REPORT, dayBlocks: DAY_BLOCKS, agentOptions: AGENT_OPTIONS } = DATA;
+      const ALL_PLAYERS = DAY_BLOCKS.flatMap(b => b.players);
+      const REASON_EMPHASIS = [
+        "Redemption Blocked", "Redemption in progress", "Needs ", "Same weekday skip",
+        "Spend Softening", "Offline Since", "Pending RD", "RD $", "Redeem Status ",
+        "Take a break", "No Purchases", "Played Today", "Account locked", "Red flag",
+      ];
+      const URGENCY_RANK = { Today: 0, "48h": 1, Watch: 2, None: 3 };
+      const REASONS = [...new Set(ALL_PLAYERS.map(p => p.reason))].sort();
+      const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+      let ticketDraft = null;
+
+      function reasonPartEmoji(part) {
+        const pl = part.toLowerCase();
+        if (part.startsWith("Red flag")) return "🚩 ";
+        if (part.startsWith("Redemption Blocked")) return "🚫 ";
+        if (part.startsWith("Redemption in progress")) return "⏳ ";
+        if (part.startsWith("Account locked") || part.includes("Suspended")) return "🔒 ";
+        if (part.startsWith("Needs Recent Acceptable POA") || pl.includes("poa")) return "📄 ";
+        if (part.startsWith("Needs KYC") || pl.includes("verification document")) return "📋 ";
+        if (part.startsWith("RD $") || part.startsWith("Pending RD")) return "💸 ";
+        if (part.startsWith("Same weekday skip")) return "📅 ";
+        if (part.startsWith("Payment failed")) return "❌ ";
+        if (part.startsWith("No Purchases")) return "⚠️ ";
+        if (part.startsWith("Played Today")) return "🎰 ";
+        if (part.startsWith("Redeem Status")) return "📋 ";
+        return "";
+      }
+      function actionHeadEmoji(head) {
+        const hl = head.toLowerCase();
+        if (head.startsWith("Escalate Ops")) return "➡️ ";
+        if (head.startsWith("Escalate Compliance")) return "⚖️ ";
+        if (head.startsWith("Push purchase")) return "💰 ";
+        if (head.startsWith("Fix payment method")) return "💳 ";
+        if (head.startsWith("Send to Ops")) return "🔧 ";
+        if (head.startsWith("Soft check-in")) return "💬 ";
+        if (head.startsWith("Agent call")) return "📞 ";
+        if (head.startsWith("No action")) return "✓ ";
+        return "";
+      }
+      function esc(s) { return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+      function wowHtml(value) {
+        const v = String(value || "").trim();
+        const up = v.startsWith("+") && !v.startsWith("+$0 (");
+        const down = v.startsWith("-") || v.startsWith("$-");
+        const cls = up ? "t-success w-semibold" : down ? "t-danger w-semibold" : "";
+        return `<span class="${cls}">${esc(value)}</span>`;
+      }
+      function daySelectLabel(block) {
+        const d = block.report.date;
+        return `${block.report.weekday} ${d.slice(8, 10)} ${MONTHS[parseInt(d.slice(5, 7), 10) - 1]}`;
+      }
+      function renderReason(parts, text) {
+        const segments = (parts && parts.length) ? parts : text.split("●").map(p => p.trim()).filter(Boolean);
+        return segments.map((part, i) => {
+          const emphasize = i === 0 || REASON_EMPHASIS.some(pfx => part.startsWith(pfx));
+          const sep = i > 0 ? '<span class="sep">●</span>' : '';
+          return sep + `<span class="${emphasize ? "w-semibold" : ""}">${reasonPartEmoji(part)}${esc(part)}</span>`;
+        }).join("");
+      }
+      function renderAction(text) {
+        const chunks = text.split(" · ").filter(Boolean);
+        const head = chunks[0] || text;
+        const tail = chunks.slice(1).join(" · ");
+        return `<span class="w-semibold">${actionHeadEmoji(head)}${esc(head)}</span>` + (tail ? ` · ${esc(tail)}` : "");
+      }
+      function fmtTotalMoney(n) { return "$" + Math.round(n).toLocaleString(); }
+      function sortPlayers(rows, mode) {
+        const copy = [...rows];
+        if (mode === "priorHigh") return copy.sort((a,b) => b.priorPriorNum - a.priorPriorNum);
+        if (mode === "lifetimeHigh") return copy.sort((a,b) => b.lifetimePurchasedNum - a.lifetimePurchasedNum);
+        if (mode === "gapHigh") return copy.sort((a,b) => b.sortGap - a.sortGap);
+        return copy.sort((a,b) => {
+          const ra = URGENCY_RANK[a.urgency] ?? 9;
+          const rb = URGENCY_RANK[b.urgency] ?? 9;
+          if (ra !== rb) return ra - rb;
+          return b.sortGap - a.sortGap;
+        });
+      }
+      function matchesSearch(row, query) {
+        if (!query.trim()) return true;
+        const q = query.trim().toLowerCase();
+        return [row.name, row.aid, row.agent, row.agentName, row.reason, row.reasonTable,
+          row.purchase7d, row.favouriteGame7d, row.recommendation].join(" ").toLowerCase().includes(q);
+      }
+      function tableHtml(headers, aligns, rows) {
+        const th = headers.map((h, i) => `<th class="${aligns[i] || ""}">${esc(h)}</th>`).join("");
+        const tb = rows.map((row, ri) => {
+          const stripe = ri % 2 === 1 ? " striped" : "";
+          return `<tr class="${stripe}">${row.map((cell, ci) => `<td class="${aligns[ci] || ""}">${cell}</td>`).join("")}</tr>`;
+        }).join("");
+        return `<div class="table-frame"><table class="canvas"><thead><tr>${th}</tr></thead><tbody>${tb}</tbody></table></div>`;
+      }
+      function aidHtml(p) {
+        const aid = esc(p.aid);
+        return p.aidUrl ? `<a href="${esc(p.aidUrl)}" target="_blank" rel="noopener noreferrer">${aid}</a>` : aid;
+      }
+      function ticketHtml(p) {
+        if (!p.ticketEnabled) return '<span class="t-quaternary">—</span>';
+        const subj = p.ticketSubject || "";
+        const preview = subj.length > 28 ? subj.slice(0, 27) + "…" : (subj || "Draft");
+        return `<div><button type="button" class="pill ticket-draft-btn" data-ticket-aid="${esc(p.aid)}">Draft</button><div class="ticket-preview">${esc(preview)}</div></div>`;
+      }
+      async function copyText(text) {
+        try { await navigator.clipboard.writeText(text); } catch (_) { /* ignore */ }
+      }
+      function renderTicketModal() {
+        const root = document.getElementById("ticketModalRoot");
+        if (!ticketDraft) { root.innerHTML = ""; return; }
+        const p = ticketDraft.player;
+        root.innerHTML = `
+          <div class="modal-backdrop" id="ticketModalBackdrop">
+            <div class="modal-card">
+              <div class="w-semibold">Zendesk ticket draft · ${esc(p.name)} (AID ${esc(p.aid)})</div>
+              <div class="t-small t-quaternary" style="margin:4px 0 12px">Review only. Edit, copy, then open Zendesk and send manually. Never auto-sent.</div>
+              <label class="t-small w-medium">Subject</label>
+              <input type="text" id="ticketSubjectInput" value="${esc(ticketDraft.subject)}">
+              <label class="t-small w-medium">Message</label>
+              <textarea id="ticketBodyInput">${esc(ticketDraft.body)}</textarea>
+              <div class="row">
+                <button type="button" class="pill" id="ticketCopySubject">Copy subject</button>
+                <button type="button" class="pill" id="ticketCopyBody">Copy message</button>
+                <button type="button" class="pill" id="ticketCopyAll">Copy subject + message</button>
+                <button type="button" class="pill" id="ticketOpenZendesk">Open Zendesk</button>
+                <div class="spacer"></div>
+                <button type="button" class="pill" id="ticketClose">Close</button>
+              </div>
+            </div>
+          </div>`;
+        document.getElementById("ticketSubjectInput").addEventListener("input", e => { ticketDraft.subject = e.target.value; });
+        document.getElementById("ticketBodyInput").addEventListener("input", e => { ticketDraft.body = e.target.value; });
+        document.getElementById("ticketCopySubject").addEventListener("click", () => copyText(ticketDraft.subject));
+        document.getElementById("ticketCopyBody").addEventListener("click", () => copyText(ticketDraft.body));
+        document.getElementById("ticketCopyAll").addEventListener("click", () => copyText(`Subject: ${ticketDraft.subject}\n\n${ticketDraft.body}`));
+        document.getElementById("ticketOpenZendesk").addEventListener("click", () => { if (p.zendeskUrl) window.open(p.zendeskUrl, "_blank", "noopener,noreferrer"); });
+        document.getElementById("ticketClose").addEventListener("click", () => { ticketDraft = null; renderTicketModal(); });
+        document.getElementById("ticketModalBackdrop").addEventListener("click", e => {
+          if (e.target.id === "ticketModalBackdrop") { ticketDraft = null; renderTicketModal(); }
+        });
+      }
+      function openTicketDraft(p) {
+        ticketDraft = { player: p, subject: p.ticketSubject || "", body: p.ticketBody || "" };
+        renderTicketModal();
+      }
+      function filterPlayers(rows) {
+        return rows.filter(row => {
+          if (state.agent !== "all" && row.agent !== state.agent) return false;
+          if (state.reason !== "all" && row.reason !== state.reason) return false;
+          return matchesSearch(row, state.search);
+        });
+      }
+      function dayMatchesFilter(block) {
+        return state.dayFilter === "all" || block.report.date === state.dayFilter;
+      }
+
+      let state = { search: "", agent: "all", reason: "all", sortBy: "urgency", dayFilter: "all" };
+
+      function renderSegmentBlock(block) {
+        const short = block.dayShort;
+        const segHeaders = [
+          "Segment", `This ${short} Purchase`, `Prior ${short} Purchase`, "Purchase WoW",
+          `This ${short} Purchased Players`, `Prior ${short} Purchased Players`, "Purchased Players WoW", "Share"
+        ];
+        const segRows = block.segments.map(s => [
+          esc(s.label), esc(s.revThis), esc(s.revPrior), wowHtml(s.revWow),
+          esc(s.plyThis), esc(s.plyPrior), wowHtml(s.plyWow), esc(s.share)
+        ]);
+        return `
+          <div class="stack-8">
+            <h2>${esc(block.report.weekday)} vs last ${esc(block.report.weekday)} · Elite &amp; Jackpota</h2>
+            ${tableHtml(segHeaders, ["","","num","num","num","num","num","num",""], segRows)}
+          </div>`;
+      }
+
+      function renderPlayerBlock(block) {
+        const T = block.titles;
+        const filtered = sortPlayers(filterPlayers(block.players), state.sortBy);
+        const priorTotal = filtered.reduce((s, p) => s + p.priorPriorNum, 0);
+        const filterActive = state.search.trim() || state.agent !== "all" || state.reason !== "all" || state.sortBy !== "urgency";
+        const playerHeaders = [
+          "#", "Agent Name", "AID", "Name", T.lifetimePurchase, T.lifetimeHold,
+          T.thisPurchase, T.priorPurchase, T.purchase7d, T.favouriteGame7d,
+          "Urgency", "Reason", "Recommendation", "Ticket"
+        ];
+        const playerAligns = ["center","","","","num","num","num","num","","","center","","","center"];
+        const playerRows = filtered.map((p, i) => [
+          esc(String(i + 1)), esc(p.agentName), aidHtml(p), esc(p.name),
+          `<span class="${p.lifetimePurchasedNum >= 50000 ? "t-danger w-semibold" : ""}">${esc(p.lifetimePurchase)}</span>`,
+          esc(p.lifetimeHold),
+          `<span class="${p.zeroDay ? "t-danger w-semibold" : ""}">${esc(p.thisDay)}</span>`,
+          `<span class="${p.sortGap >= 2000 ? "t-danger w-semibold" : ""}">${esc(p.priorDay)}</span>`,
+          esc(p.purchase7d), esc(p.favouriteGame7d || "—"),
+          p.urgency === "Today" ? '<span class="t-danger w-semibold">⚡ Today</span>' : esc(p.urgency),
+          renderReason(p.reasonParts, p.reasonTable), renderAction(p.recommendation), ticketHtml(p),
+        ]);
+        if (filtered.length) {
+          playerRows.push(["","","",`<span class="w-semibold">Total (${filtered.length})</span>`,"","","",`<span class="w-semibold">${fmtTotalMoney(priorTotal)}</span>`,"","","","","",""]);
+        }
+        return `
+          <div class="stack-8">
+            <div class="row">
+              <h2>${esc(block.report.weekday)} · Top 20</h2>
+              <div class="spacer"></div>
+              <div class="t-small t-tertiary">${filterActive ? `Showing ${filtered.length} of ${block.players.length}` : `${block.players.length} players`}</div>
+            </div>
+            ${tableHtml(playerHeaders, playerAligns, playerRows.length ? playerRows : [["","","","","","","","","","","","","No matches",""]])}
+          </div>`;
+      }
+
+      function render() {
+        const visibleBlocks = DAY_BLOCKS.filter(dayMatchesFilter);
+        const visibleCount = visibleBlocks.reduce((sum, b) => sum + filterPlayers(b.players).length, 0);
+        const filterActive = state.search.trim() || state.agent !== "all" || state.reason !== "all" || state.sortBy !== "urgency";
+        const agentOpts = ['<option value="all">All agents</option>']
+          .concat((AGENT_OPTIONS || []).map(o => `<option value="${esc(o.value)}"${state.agent === o.value ? " selected" : ""}>${esc(o.label)}</option>`)).join("");
+        const daySelectOpts = ['<option value="all">All days</option>']
+          .concat(DAY_BLOCKS.map(b => `<option value="${esc(b.report.date)}"${state.dayFilter === b.report.date ? " selected" : ""}>${esc(daySelectLabel(b))}</option>`)).join("");
+        const dayPills = ['<button type="button" class="pill' + (state.dayFilter === "all" ? " active" : "") + '" data-day="all">All</button>']
+          .concat(DAY_BLOCKS.map(b => `<button type="button" class="pill${state.dayFilter === b.report.date ? " active" : ""}" data-day="${esc(b.report.date)}">${esc(b.dayShort)}</button>`)).join("");
+        const reasonPills = ['<button type="button" class="pill' + (state.reason === "all" ? " active" : "") + '" data-reason="all">All reasons</button>']
+          .concat(REASONS.map(r => `<button type="button" class="pill${state.reason === r ? " active" : ""}" data-reason="${esc(r)}">${esc(r)}</button>`)).join("");
+
+        document.getElementById("app").innerHTML = `
+          <div class="stack-8">
+            <h1>Elite Daily Decline Dashboard</h1>
+          </div>
+          <div class="stack">
+            ${DAY_BLOCKS.map(renderSegmentBlock).join("")}
+          </div>
+          <div class="stack-8">
+            <div class="row">
+              <h2>Top 20 · WoW Purchase Gaps</h2>
+              <div class="spacer"></div>
+              <div class="t-small t-tertiary">${filterActive ? `Showing ${visibleCount} of ${REPORT.playerCount}` : `${REPORT.playerCount} players`}</div>
+            </div>
+            <div class="row">
+              <div class="pills" id="dayPills">${dayPills}</div>
+              <span class="select-wrap"><select id="dayFilter">${daySelectOpts}</select></span>
+            </div>
+            <div class="row">
+              <input type="search" id="search" placeholder="Search name, AID, agent, reason…" value="${esc(state.search)}">
+              <span class="select-wrap" style="flex:0 0 140px"><select id="agentFilter">${agentOpts}</select></span>
+              <span class="select-wrap"><select id="sortBy">
+                <option value="urgency"${state.sortBy === "urgency" ? " selected" : ""}>Sort: Urgency + gap</option>
+                <option value="priorHigh"${state.sortBy === "priorHigh" ? " selected" : ""}>Prior purchase ↓</option>
+                <option value="lifetimeHigh"${state.sortBy === "lifetimeHigh" ? " selected" : ""}>Lifetime purchase ↓</option>
+                <option value="gapHigh"${state.sortBy === "gapHigh" ? " selected" : ""}>WoW gap ↓</option>
+              </select></span>
+            </div>
+            <div class="pills" id="reasonPills">${reasonPills}</div>
+          </div>
+          ${visibleBlocks.map(renderPlayerBlock).join("")}`;
+
+        document.getElementById("search").addEventListener("input", e => { state.search = e.target.value; render(); });
+        document.getElementById("agentFilter").addEventListener("change", e => { state.agent = e.target.value; render(); });
+        document.getElementById("sortBy").addEventListener("change", e => { state.sortBy = e.target.value; render(); });
+        document.getElementById("dayFilter").addEventListener("change", e => { state.dayFilter = e.target.value; render(); });
+        document.querySelectorAll("#dayPills .pill").forEach(el => {
+          el.addEventListener("click", () => { state.dayFilter = el.dataset.day; render(); });
+        });
+        document.querySelectorAll("#reasonPills .pill").forEach(el => {
+          el.addEventListener("click", () => { state.reason = el.dataset.reason; render(); });
+        });
+        document.querySelectorAll(".ticket-draft-btn").forEach(el => {
+          el.addEventListener("click", () => {
+            const player = ALL_PLAYERS.find(p => p.aid === el.dataset.ticketAid);
+            if (player) openTicketDraft(player);
+          });
+        });
+        document.title = `Elite Daily Decline Dashboard · ${REPORT.dateStart}`;
+      }
+      render();
+    }
+  </script>
+</body>
+</html>

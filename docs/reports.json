@@ -1,5 +1,19 @@
 [
   {
+    "filename": "2026-07-23_to_2026-07-25_elite_weekend_summary_canvas.html",
+    "kind": "weekend",
+    "title": "Weekend 2026-07-23 to 2026-07-25",
+    "date": "2026-07-25",
+    "sort_key": "2026-07-25"
+  },
+  {
+    "filename": "2026-07-21_elite_daily_summary_canvas.html",
+    "kind": "daily",
+    "title": "Daily 2026-07-21",
+    "date": "2026-07-21",
+    "sort_key": "2026-07-21"
+  },
+  {
     "filename": "2026-07-20_elite_daily_summary_canvas.html",
     "kind": "daily",
     "title": "Daily 2026-07-20",
