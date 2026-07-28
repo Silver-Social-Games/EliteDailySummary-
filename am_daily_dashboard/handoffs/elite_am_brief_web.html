@@ -1,0 +1,685 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Elite AM Brief</title>
+  <style>
+    :root {
+      --fg: #141414F0;
+      --fg2: #141414BD;
+      --fg3: #1414148A;
+      --fg4: #1414145C;
+      --bg-editor: #FCFCFC;
+      --stroke-secondary: #1414141F;
+      --stroke-tertiary: #14141414;
+      --fill-secondary: #14141424;
+      --fill-tertiary: #14141414;
+      --fill-quaternary: #1414140F;
+      --cat-green: #1F8A65;
+      --cat-yellow: #C08532;
+      --cat-cyan: #4C7F8C;
+      --marker-success: #1F8A65;
+      --marker-danger: #CF2D56;
+      --marker-warning: #DB704B;
+      --marker-info: #3685BF;
+      --marker-neutral: #1414148A;
+      --font: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    html, body { margin: 0; background: var(--bg-editor); color: var(--fg); font-family: var(--font); }
+    .wrap { padding: 20px; max-width: 100%; }
+    .stack { display: flex; flex-direction: column; gap: 16px; }
+    .stack-8 { display: flex; flex-direction: column; gap: 8px; }
+    .stack-6 { display: flex; flex-direction: column; gap: 6px; }
+    .stack-2 { display: flex; flex-direction: column; gap: 2px; }
+    .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+    .row-start { align-items: flex-start; }
+    .spacer { flex: 1 1 auto; }
+    .col-main { flex: 1 1 560px; min-width: 320px; }
+    .col-side { flex: 0 1 460px; min-width: 280px; }
+    h1 { margin: 0; font-size: 24px; line-height: 30px; font-weight: 590; }
+    h2 { margin: 0; font-size: 18px; line-height: 24px; font-weight: 590; }
+    .t-body { font-size: 14px; line-height: 20px; }
+    .t-small { font-size: 12px; line-height: 16px; }
+    .t-secondary { color: var(--fg2); }
+    .t-tertiary { color: var(--fg3); }
+    .t-quaternary { color: var(--fg4); }
+    .t-danger { color: var(--marker-danger); }
+    .t-warning { color: var(--cat-yellow); }
+    .t-success { color: var(--marker-success); }
+    .t-info { color: var(--marker-info); }
+    .w-semibold { font-weight: 590; }
+    a { color: var(--marker-info); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    a.jump { text-decoration: underline; cursor: pointer; }
+    input[type="search"], select {
+      font-family: inherit; font-size: 13px; line-height: 18px; color: var(--fg); outline: none;
+    }
+    input[type="search"] {
+      box-sizing: border-box;
+      width: 280px; max-width: 100%; height: 28px; padding: 4px 8px;
+      border: 1px solid var(--stroke-secondary); border-radius: 6px; background: var(--fill-tertiary);
+      appearance: none; -webkit-appearance: none;
+    }
+    input[type="search"]::-webkit-search-decoration,
+    input[type="search"]::-webkit-search-cancel-button,
+    input[type="search"]::-webkit-search-results-button,
+    input[type="search"]::-webkit-search-results-decoration {
+      -webkit-appearance: none; appearance: none; display: none;
+    }
+    .row > input[type="search"] {
+      flex: 1 1 220px; width: auto; min-width: 180px; max-width: 360px;
+    }
+    .select-wrap { position: relative; display: inline-flex; align-items: center; }
+    select {
+      appearance: none; -webkit-appearance: none; background: transparent;
+      border: 1px solid var(--stroke-tertiary); border-radius: 6px;
+      padding: 4px 20px 4px 8px; cursor: pointer;
+    }
+    .select-wrap::after {
+      content: "▾"; position: absolute; right: 6px; pointer-events: none; color: var(--fg2); font-size: 10px;
+    }
+    .pills { display: flex; flex-wrap: wrap; gap: 6px; }
+    .pill {
+      display: inline-flex; align-items: center; justify-content: center;
+      border-radius: 9999px; white-space: nowrap; user-select: none;
+      font-size: 10px; line-height: 12px; padding: 2px 8px;
+      background: var(--fill-quaternary); color: var(--fg2); border: none; cursor: pointer;
+    }
+    .pill.active { background: var(--fill-secondary); color: var(--fg); font-weight: 500; }
+    .table-frame {
+      width: 100%; border: 1px solid var(--stroke-tertiary); border-radius: 8px;
+      background: var(--bg-editor); overflow-x: auto;
+    }
+    table.canvas {
+      min-width: 100%; border-collapse: collapse; font-size: 14px; line-height: 20px; color: var(--fg);
+    }
+    table.canvas th {
+      padding: 8px 12px; text-align: left; font-weight: 600; color: var(--fg);
+      border-bottom: 1px solid var(--stroke-secondary); position: sticky; top: 0; z-index: 2;
+      background: var(--bg-editor); background-image: linear-gradient(var(--fill-quaternary), var(--fill-quaternary));
+      white-space: nowrap;
+    }
+    table.canvas td {
+      padding: 8px 12px; vertical-align: top; border-bottom: 1px solid var(--stroke-tertiary);
+    }
+    table.canvas tbody tr:last-child td { border-bottom: none; }
+    table.canvas tbody tr.striped td { background: var(--fill-quaternary); }
+    table.canvas .num { text-align: right; }
+    table.canvas .center { text-align: center; }
+    .cell-marker { display: inline-flex; align-items: flex-start; gap: 6px; min-width: 0; max-width: 100%; }
+    .marker { width: 6px; height: 6px; margin-top: 7px; border-radius: 50%; flex-shrink: 0; }
+    .marker-success { background: var(--marker-success); }
+    .marker-danger { background: var(--marker-danger); }
+    .marker-warning { background: var(--marker-warning); }
+    .marker-info { background: var(--marker-info); }
+    .marker-neutral { background: var(--marker-neutral); }
+    .reason-cell, .action-cell { min-width: 280px; max-width: 620px; white-space: normal; line-height: 1.6; font-size: 12px; }
+    .action-cell { min-width: 200px; max-width: 420px; line-height: 1.5; }
+    .p7d-cell { min-width: 160px; max-width: 220px; font-size: 12px; line-height: 1.45; }
+    .sep { padding: 0 8px; font-weight: 700; color: var(--fg3); font-size: 15px; }
+    .players-table { min-width: 2950px; width: max-content; }
+    .section-anchor { scroll-margin-top: 24px; }
+    .modal-backdrop {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.45); display: flex;
+      align-items: center; justify-content: center; z-index: 1000; padding: 20px;
+    }
+    .modal-card {
+      background: var(--bg-editor); border-radius: 12px; padding: 20px; max-width: 680px;
+      width: 100%; max-height: 90vh; overflow: auto; box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+    }
+    .modal-card input, .modal-card textarea {
+      width: 100%; margin-top: 4px; margin-bottom: 12px; padding: 8px 10px; font-size: 13px;
+      border-radius: 6px; border: 1px solid var(--stroke-secondary); font-family: inherit;
+      color: var(--fg); background: var(--bg-editor);
+    }
+    .modal-card textarea { resize: vertical; min-height: 180px; }
+    .ticket-preview { font-size: 11px; color: var(--fg4); max-width: 140px; line-height: 1.35; margin-top: 2px; }
+  </style>
+</head>
+<body>
+  <div class="wrap stack" id="app"></div>
+  <div id="ticketModalRoot"></div>
+  <script>
+    const DATA = __PAYLOAD_JSON__;
+    const REPORT = DATA.report || {};
+    const OVERVIEW = DATA.overview || [];
+    const AGENTS = DATA.agents || [];
+    const AM_SHARES = DATA.amShares || [];
+    const AM_ORDER = DATA.amOrder || [];
+    const day = REPORT.weekday || "";
+    const dayShort = REPORT.dayShort || day.slice(0, 3);
+    const TITLES = {
+      thisPurchase: `This ${day} Purchase`,
+      priorPurchase: `Prior ${day} Purchase`,
+      purchase7d: "7D Purchase",
+      lifetimePurchase: "LT Purchase",
+      lifetimeHold: "Lifetime Hold",
+      favouriteGame7d: "Favourite Game (7D)",
+    };
+    const URGENCY_RANK = { Today: 0, "48h": 1, Watch: 2, None: 3 };
+    const REASON_EMPHASIS = [
+      "Redemption Blocked", "Redemption in progress", "Needs ", "Same weekday skip",
+      "Spend Softening", "Offline Since", "Pending RD", "RD $", "Redeem Status ",
+      "Take a break", "No Purchases", "Played Today", "Account locked", "Red flag",
+    ];
+
+    let tab = "Overview";
+    let ticketDraft = null;
+    const state = {};
+
+    function esc(s) {
+      return String(s ?? "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+    }
+    function getState(key, fallback) {
+      if (!(key in state)) state[key] = fallback;
+      return state[key];
+    }
+    function setState(key, value) {
+      state[key] = value;
+      render();
+    }
+    function marker(tone) {
+      return `<span class="marker marker-${tone || "neutral"}" aria-hidden="true"></span>`;
+    }
+    function markerCell(tone, content) {
+      return `<span class="cell-marker">${marker(tone)}<span>${content}</span></span>`;
+    }
+    function wowHtml(value) {
+      const v = String(value || "").trim();
+      const pct = (v.match(/\(([+-]?\d+(?:\.\d+)?)%\)/) || [])[1];
+      const n = pct != null ? Number(pct) : NaN;
+      const up = (!Number.isNaN(n) && n > 0) || (v.startsWith("+") && !v.startsWith("+$0") && !v.startsWith("+0"));
+      const down = (!Number.isNaN(n) && n < 0) || v.startsWith("-") || v.startsWith("$-");
+      const cls = up ? "t-success w-semibold" : down ? "t-danger w-semibold" : "";
+      return `<span class="${cls}">${esc(value)}</span>`;
+    }
+    function moneyHtml(value, emphasize) {
+      return `<span class="${emphasize ? "t-danger w-semibold" : ""}">${esc(value)}</span>`;
+    }
+    function holdHtml(value) {
+      const pct = parseFloat(value);
+      const high = !Number.isNaN(pct) && pct >= 70;
+      return `<span class="${high ? "t-success w-semibold" : ""}">${esc(value)}</span>`;
+    }
+    function p7dHtml(value) {
+      const none = value === "None In 7D";
+      return `<span class="p7d-cell ${none ? "t-warning w-semibold" : ""}">${esc(value)}</span>`;
+    }
+    function urgencyHtml(u) {
+      if (u === "Today") return '<span class="t-danger w-semibold">⚡ Today</span>';
+      return esc(u);
+    }
+    function aidHtml(p) {
+      const aid = esc(p.aid);
+      return p.aidUrl
+        ? `<a href="${esc(p.aidUrl)}" target="_blank" rel="noopener noreferrer">${aid}</a>`
+        : aid;
+    }
+    function richText(text, weight) {
+      const parts = String(text || "").split(/(\*\*[^*]+\*\*)/g);
+      const inner = parts.map((part) => {
+        if (part.startsWith("**") && part.endsWith("**") && part.length >= 4) {
+          return `<span class="t-success w-semibold">${esc(part.slice(2, -2))}</span>`;
+        }
+        return esc(part);
+      }).join("");
+      return `<div class="t-body ${weight === "semibold" ? "w-semibold" : ""}" style="line-height:1.55">${inner}</div>`;
+    }
+    function reasonPartEmoji(part) {
+      const pl = part.toLowerCase();
+      if (part.startsWith("Red flag")) return "🚩 ";
+      if (part.startsWith("Redemption Blocked")) return "🚫 ";
+      if (part.startsWith("Redemption in progress")) return "⏳ ";
+      if (part.startsWith("Account locked") || part.includes("Suspended")) return "🔒 ";
+      if (part.startsWith("Needs Recent Acceptable POA") || pl.includes("poa")) return "📄 ";
+      if (part.startsWith("Needs KYC") || pl.includes("verification document")) return "📋 ";
+      if (part.startsWith("RD $") || part.startsWith("Pending RD")) return "💸 ";
+      if (part.startsWith("Same weekday skip")) return "📅 ";
+      if (part.startsWith("Payment failed")) return "❌ ";
+      if (part.startsWith("No Purchases")) return "⚠️ ";
+      if (part.startsWith("Played Today")) return "🎰 ";
+      if (part.startsWith("Redeem Status")) return "📋 ";
+      if (part.startsWith("Take a break")) return "⏰ ";
+      if (part.startsWith("Spend Softening")) return "📉 ";
+      return "";
+    }
+    function actionHeadEmoji(head) {
+      const hl = head.toLowerCase();
+      if (head.startsWith("Escalate Ops")) return "➡️ ";
+      if (head.startsWith("Escalate Compliance")) return "⚖️ ";
+      if (head.startsWith("Push purchase")) return "💰 ";
+      if (head.startsWith("Fix payment method")) return "💳 ";
+      if (head.startsWith("Remove restriction")) return "🔓 ";
+      if (head.startsWith("Send to Ops")) return "🔧 ";
+      if (head.startsWith("Soft check-in")) return "💬 ";
+      if (head.startsWith("Agent call") || head.startsWith("Reactivation")) return "📞 ";
+      if (head.startsWith("No action")) return "✓ ";
+      if (hl.includes("no outreach") || hl.includes("no purchase push")) return "🛑 ";
+      return "";
+    }
+    function reasonPartClass(part) {
+      if (part.startsWith("Red flag")) return "t-danger w-semibold";
+      if (part.startsWith("Needs ") || part.includes("Blocked")) return "t-warning w-semibold";
+      if (part.startsWith("Escalate") || part.includes("Suspended")) return "t-danger w-semibold";
+      if (part.startsWith("Same weekday skip") || part.startsWith("Played Today")) return "t-info";
+      return "";
+    }
+    function renderReason(parts, text) {
+      const segments = (parts && parts.length) ? parts : String(text || "").split("●").map(p => p.trim()).filter(Boolean);
+      return segments.map((part, i) => {
+        const emphasize = i === 0 || REASON_EMPHASIS.some(pfx => part.startsWith(pfx));
+        const emoji = reasonPartEmoji(part);
+        const cls = emphasize ? (reasonPartClass(part) || "w-semibold") : "";
+        const sep = i > 0 ? '<span class="sep">●</span>' : "";
+        return sep + `<span class="${cls}">${emoji}${esc(part)}</span>`;
+      }).join("");
+    }
+    function renderAction(text) {
+      const chunks = String(text || "").split(" · ").filter(Boolean);
+      const head = chunks[0] || text || "";
+      const tail = chunks.slice(1).join(" · ");
+      return `<span class="w-semibold">${actionHeadEmoji(head)}${esc(head)}</span>` + (tail ? ` · ${esc(tail)}` : "");
+    }
+    function ticketHtml(p) {
+      if (!p.ticketEnabled) return '<span class="t-quaternary">—</span>';
+      const subj = p.ticketSubject || "";
+      const preview = subj.length > 28 ? subj.slice(0, 27) + "…" : (subj || "Draft");
+      return `<div><button type="button" class="pill" data-ticket-aid="${esc(p.aid)}">Draft</button><div class="ticket-preview">${esc(preview)}</div></div>`;
+    }
+    function ticketIdsHtml(p) {
+      const list = p.tickets || [];
+      if (!list.length) return `<span class="t-quaternary">${esc(p.ticketIds || "—")}</span>`;
+      return list.map((t, i) => `${i ? ", " : ""}<a href="${esc(t.url)}" target="_blank" rel="noopener noreferrer">${esc(t.id)}</a>`).join("");
+    }
+    function sortPlayers(rows, mode) {
+      const copy = [...rows];
+      if (mode === "priorHigh") return copy.sort((a,b) => (b.priorPriorNum||0) - (a.priorPriorNum||0));
+      if (mode === "lifetimeHigh") return copy.sort((a,b) => (b.lifetimePurchasedNum||0) - (a.lifetimePurchasedNum||0));
+      if (mode === "gapHigh") return copy.sort((a,b) => (b.sortGap||0) - (a.sortGap||0));
+      return copy.sort((a,b) => {
+        const ra = URGENCY_RANK[a.urgency] ?? 9;
+        const rb = URGENCY_RANK[b.urgency] ?? 9;
+        if (ra !== rb) return ra - rb;
+        return (b.sortGap||0) - (a.sortGap||0);
+      });
+    }
+    function matchesDecline(row, q) {
+      if (!q.trim()) return true;
+      const s = q.trim().toLowerCase();
+      return [row.name, row.aid, row.agent, row.agentName, row.reason, row.reasonTable, row.purchase7d, row.favouriteGame7d, row.recommendation]
+        .some(v => String(v || "").toLowerCase().includes(s));
+    }
+    function matchesAid(row, q, extraKeys) {
+      if (!q.trim()) return true;
+      const s = q.trim().toLowerCase();
+      if (String(row.name||"").toLowerCase().includes(s) || String(row.aid||"").includes(s)) return true;
+      return (extraKeys || []).some(k => String(row[k] ?? "").toLowerCase().includes(s));
+    }
+    function fmtTotalMoney(n) { return "$" + Math.round(n).toLocaleString(); }
+
+    function tableHtml(headers, rows, align, tones, opts) {
+      opts = opts || {};
+      const th = headers.map((h, i) => {
+        const a = (align && align[i]) || "left";
+        return `<th class="${a === "right" ? "num" : a === "center" ? "center" : ""}">${esc(h)}</th>`;
+      }).join("");
+      const body = rows.length ? rows.map((cells, ri) => {
+        const tone = (tones && tones[ri]) || "neutral";
+        const striped = ri % 2 === 1 ? " striped" : "";
+        const tds = cells.map((c, i) => {
+          const a = (align && align[i]) || "left";
+          const cls = a === "right" ? "num" : a === "center" ? "center" : "";
+          const content = (i === 0 || opts.noMarker) ? c : markerCell(tone, c);
+          return `<td class="${cls}">${i === 0 || opts.noMarker ? c : content}</td>`;
+        }).join("");
+        // first column often label; apply marker on first text column for segment-style
+        return `<tr class="${striped}">${cells.map((c, i) => {
+          const a = (align && align[i]) || "left";
+          const cls = a === "right" ? "num" : a === "center" ? "center" : "";
+          if (opts.markerCol === i) {
+            return `<td class="${cls}">${markerCell(tone, c)}</td>`;
+          }
+          return `<td class="${cls}">${c}</td>`;
+        }).join("")}</tr>`;
+      }).join("") : `<tr><td colspan="${headers.length}" class="t-tertiary">${esc(opts.empty || "No players match the current filters.")}</td></tr>`;
+      return `<div class="table-frame"><table class="canvas ${opts.tableClass || ""}"><thead><tr>${th}</tr></thead><tbody>${body}</tbody></table></div>`;
+    }
+
+    function segmentTable() {
+      const segments = REPORT.segments || [];
+      const title = REPORT.segmentTitle || `${day} vs last ${day} · Elite & Jackpota`;
+      const rows = segments.map(s => [
+        esc(s.label),
+        esc(s.revThis),
+        esc(s.revPrior),
+        wowHtml(s.revWow),
+        esc(s.plyThis),
+        esc(s.plyPrior),
+        wowHtml(s.plyWow),
+        esc(s.share || ""),
+      ]);
+      return `<div class="stack-8">
+        <h2>${esc(title)}</h2>
+        ${tableHtml(
+          ["Segment", `This ${dayShort} Purchase`, `Prior ${dayShort} Purchase`, "Purchase WoW",
+           `This ${dayShort} Purchased Players`, `Prior ${dayShort} Purchased Players`, "Purchased Players WoW", "Share"],
+          rows,
+          ["left","right","right","right","right","right","right","left"],
+          segments.map(s => s.tone || "neutral"),
+          { markerCol: 0, empty: "No segment data." }
+        )}
+        ${REPORT.headline ? `<div class="t-small t-tertiary">${esc(REPORT.headline)}</div>` : ""}
+      </div>`;
+    }
+
+    function amShareTable() {
+      const rows = AM_SHARES.map(r => [
+        `<button type="button" class="pill" data-tab="${esc(r.agentName)}">${esc(r.agentName)}</button>`,
+        `<span class="t-success w-semibold">${esc(r.purchase)}</span>`,
+        esc(r.purchaseShare),
+        esc(r.purchasedOfBook || r.purchasedPlayers),
+      ]);
+      return `<div class="stack-8">
+        <h2>AM Share Of Elite</h2>
+        ${tableHtml(
+          ["AM", "Purchase $", "Share", "Purchased / Book"],
+          rows,
+          ["left","right","right","right"],
+          AM_SHARES.map(() => "success"),
+          { markerCol: 1, empty: "No AM share data." }
+        )}
+      </div>`;
+    }
+
+    function checklistHtml(focus, prefix) {
+      const rows = [
+        ["Open Tickets", focus.openZd, focus.openZd ? "info" : "success", `${prefix}-zendesk`],
+        ["Take A Break (Past Day)", focus.takeABreak, focus.takeABreak ? "warning" : "success", `${prefix}-locks`],
+        ["Other Locked", focus.otherLocked, focus.otherLocked ? "warning" : "success", `${prefix}-locks`],
+        ["Self-Exclusion", focus.selfExclusion, "neutral", `${prefix}-locks`],
+        ["Pending Redemptions", focus.rdOver5k, focus.rdOver5k ? "warning" : "success", `${prefix}-pending-rd`],
+        ["Birthdays (3d)", focus.birthdays, "success", `${prefix}-birthdays`],
+        ["Top 20 Decline", focus.declineCount, focus.declineCount ? "warning" : "success", `${prefix}-top20`],
+      ];
+      return tableHtml(
+        ["Metric", "Count"],
+        rows.map(r => [`<a class="jump" href="#${esc(r[3])}">${esc(r[0])}</a>`, `<span class="w-semibold t-${r[2]}">${r[1]}</span>`]),
+        ["left", "right"],
+        rows.map(r => r[2]),
+        { markerCol: 1, empty: "" }
+      );
+    }
+
+    function searchableSection(opts) {
+      const key = opts.stateKey + "_q";
+      const q = getState(key, "");
+      const filtered = (opts.rows || []).filter(r => matchesAid(r, q, opts.extraKeys || []));
+      const filterActive = q.trim() !== "";
+      const count = filterActive ? `Showing ${filtered.length} of ${opts.rows.length}` : `${opts.rows.length} players`;
+      return `<div class="stack-8 section-anchor" id="${esc(opts.sectionId || "")}">
+        <div class="row"><h2>${esc(opts.title)}</h2><div class="spacer"></div><div class="t-small t-tertiary">${esc(count)}</div></div>
+        <div class="row"><input type="search" placeholder="Search name, AID…" value="${esc(q)}" data-state="${esc(key)}" /></div>
+        ${tableHtml(opts.headers, filtered.map(opts.renderRow), opts.align, filtered.map(r => r.tone || "neutral"), { markerCol: opts.markerCol, empty: opts.keepWhenEmpty && !filtered.length ? "" : undefined, tableClass: opts.tableClass })}
+      </div>`;
+    }
+
+    function top20Section(players, stateKey, showAgentSelect, sectionId) {
+      const search = getState(stateKey + "_search", "");
+      const agent = getState(stateKey + "_agent", "all");
+      const reason = getState(stateKey + "_reason", "all");
+      const sortBy = getState(stateKey + "_sortBy", "urgency");
+      const agentOptions = [...new Set(players.map(p => p.agent).filter(Boolean))].sort();
+      const reasons = [...new Set(players.map(p => p.reason).filter(Boolean))].sort();
+      const filtered = sortPlayers(players.filter(row => {
+        if (showAgentSelect && agent !== "all" && row.agent !== agent) return false;
+        if (reason !== "all" && row.reason !== reason) return false;
+        return matchesDecline(row, search);
+      }), sortBy);
+      const priorTotal = filtered.reduce((sum, p) => sum + (p.priorPriorNum || 0), 0);
+      const filterActive = search.trim() !== "" || (showAgentSelect && agent !== "all") || reason !== "all" || sortBy !== "urgency";
+      const count = filterActive ? `Showing ${filtered.length} of ${players.length}` : `${players.length} players`;
+      const headers = ["#", "Agent Name", "AID", "Name", TITLES.lifetimePurchase, TITLES.lifetimeHold, TITLES.thisPurchase, TITLES.priorPurchase, TITLES.purchase7d, TITLES.favouriteGame7d, "Urgency", "Reason", "Recommendation", "Ticket"];
+      const rows = filtered.map((p, i) => [
+        String(i + 1),
+        esc(p.agentName),
+        aidHtml(p),
+        esc(p.name),
+        moneyHtml(p.lifetimePurchase, (p.lifetimePurchasedNum || 0) >= 50000),
+        holdHtml(p.lifetimeHold),
+        moneyHtml(p.thisDay, p.zeroDay),
+        moneyHtml(p.priorDay, (p.sortGap || 0) >= 2000),
+        p7dHtml(p.purchase7d),
+        esc(p.favouriteGame7d),
+        urgencyHtml(p.urgency),
+        `<div class="reason-cell">${renderReason(p.reasonParts, p.reasonTable || p.reason)}</div>`,
+        `<div class="action-cell">${renderAction(p.recommendation)}</div>`,
+        ticketHtml(p),
+      ]);
+      if (filtered.length) {
+        rows.push(["", "", "", `<span class="w-semibold">Total</span>`, "", "", "", `<span class="w-semibold">${fmtTotalMoney(priorTotal)}</span>`, "", "", "", "", "", ""]);
+      }
+      const tones = [...filtered.map(p => p.tone || "neutral"), ...(filtered.length ? ["neutral"] : [])];
+      const anchorId = sectionId || (stateKey.startsWith("dec_")
+        ? `am-${stateKey.slice(4)}-top20`
+        : stateKey);
+      return `<div class="stack-8 section-anchor" id="${esc(anchorId)}">
+        <div class="row"><h2>Top 20 · WoW Purchase Gaps</h2><div class="spacer"></div><div class="t-small t-tertiary">${esc(count)}</div></div>
+        <div class="row">
+          <input type="search" placeholder="Search name, AID, agent, reason…" value="${esc(search)}" data-state="${esc(stateKey + "_search")}" />
+          ${showAgentSelect ? `<span class="select-wrap"><select data-state="${esc(stateKey + "_agent")}"><option value="all">All agents</option>${agentOptions.map(a => `<option value="${esc(a)}" ${agent===a?"selected":""}>${esc(a)}</option>`).join("")}</select></span>` : ""}
+          <span class="select-wrap"><select data-state="${esc(stateKey + "_sortBy")}">
+            <option value="urgency" ${sortBy==="urgency"?"selected":""}>Sort: Urgency + gap</option>
+            <option value="priorHigh" ${sortBy==="priorHigh"?"selected":""}>Prior purchase ↓</option>
+            <option value="lifetimeHigh" ${sortBy==="lifetimeHigh"?"selected":""}>Lifetime purchase ↓</option>
+            <option value="gapHigh" ${sortBy==="gapHigh"?"selected":""}>WoW gap ↓</option>
+          </select></span>
+        </div>
+        <div class="pills">
+          <button type="button" class="pill ${reason==="all"?"active":""}" data-reason-state="${esc(stateKey + "_reason")}" data-reason="all">All reasons</button>
+          ${reasons.map(r => `<button type="button" class="pill ${reason===r?"active":""}" data-reason-state="${esc(stateKey + "_reason")}" data-reason="${esc(r)}">${esc(r)}</button>`).join("")}
+        </div>
+        ${tableHtml(headers, rows, ["center","left","left","left","right","right","right","right","left","left","center","left","left","center"], tones, { tableClass: "players-table", empty: "No players match the current filters." })}
+      </div>`;
+    }
+
+    function agentPanel(block) {
+      const prefix = `am-${block.agentName}`;
+      const greet = (block.greetingLines || []).map((line, i) => richText(line, i === 0 ? "semibold" : "normal")).join("");
+      return `<div class="stack">
+        <div class="stack-6">${greet}</div>
+        ${segmentTable()}
+        <div class="stack-8"><h2>Morning Checklist</h2>${checklistHtml(block.focus || {}, prefix)}</div>
+        ${searchableSection({
+          title: "Top 10 Purchasers",
+          rows: block.top10 || [],
+          stateKey: `t10_${block.agentName}`,
+          sectionId: `${prefix}-top10`,
+          extraKeys: ["offerCode", "offerTitle"],
+          headers: ["#", "AID", "Name", "Purchased $", "Purchases (#)", "Top Offer"],
+          align: ["center","left","left","right","right","left"],
+          markerCol: 3,
+          renderRow: (p) => [esc(p.rank), aidHtml(p), esc(p.name), `<span class="t-success">${esc(p.purchased)}</span>`, esc(p.orderCount), esc(p.offerCode)],
+        })}
+        ${top20Section(block.decline || [], `dec_${block.agentName}`, false, `${prefix}-top20`)}
+        ${searchableSection({
+          title: "Pending Redemptions",
+          rows: block.rdOver5k || [],
+          stateKey: `rd5_${block.agentName}`,
+          sectionId: `${prefix}-pending-rd`,
+          headers: ["AID", "Name", "RD ID", "Amount", "Status", "Created"],
+          align: ["left","left","left","right","left","left"],
+          markerCol: 3,
+          renderRow: (p) => [aidHtml(p), esc(p.name), esc(p.redeemId), `<span class="t-warning">${esc(p.amount)}</span>`, esc(p.status), esc(p.created)],
+        })}
+        ${searchableSection({
+          title: "First-Time Locked RD",
+          rows: block.rdFirstTime || [],
+          stateKey: `rdf_${block.agentName}`,
+          sectionId: `${prefix}-first-rd`,
+          keepWhenEmpty: true,
+          headers: ["AID", "Name", "RD ID", "Amount", "Status", "Created"],
+          align: ["left","left","left","right","left","left"],
+          markerCol: 3,
+          renderRow: (p) => [aidHtml(p), esc(p.name), esc(p.redeemId), `<span class="t-warning">${esc(p.amount)}</span>`, esc(p.status), esc(p.created)],
+        })}
+        ${searchableSection({
+          title: "Birthdays · Last 3 Days",
+          rows: block.birthdays || [],
+          stateKey: `bd_${block.agentName}`,
+          sectionId: `${prefix}-birthdays`,
+          headers: ["AID", "Name", "Email", "DOB", "Age"],
+          align: ["left","left","left","left","right"],
+          markerCol: 3,
+          renderRow: (p) => [aidHtml(p), esc(p.name), esc(p.email), `<span class="t-success">${esc(p.dob)}</span>`, esc(p.age ?? "—")],
+        })}
+        ${searchableSection({
+          title: "Open Tickets",
+          rows: block.zendesk || [],
+          stateKey: `zd_${block.agentName}`,
+          sectionId: `${prefix}-zendesk`,
+          extraKeys: ["ticketIds"],
+          headers: ["AID", "Name", "LTP", "Hold", "7D Purchase", "Open Tickets", "Ticket"],
+          align: ["left","left","right","right","right","right","left"],
+          markerCol: 2,
+          renderRow: (p) => [
+            aidHtml(p), esc(p.name),
+            moneyHtml(p.lifetimePurchase || "$0", (p.lifetimePurchasedNum || 0) >= 50000),
+            holdHtml(p.lifetimeHold || "n/a"),
+            moneyHtml(p.purchase7d || "$0"),
+            esc(p.openTickets),
+            ticketIdsHtml(p),
+          ],
+        })}
+        ${searchableSection({
+          title: "Locked And Take A Break",
+          rows: block.locks || [],
+          stateKey: `lk_${block.agentName}`,
+          sectionId: `${prefix}-locks`,
+          extraKeys: ["lockReason", "unlockDetail"],
+          headers: ["AID", "Name", "Lock Reason", "Days Remaining / Unlock"],
+          align: ["left","left","left","left"],
+          markerCol: 2,
+          renderRow: (p) => [aidHtml(p), esc(p.name), `<span class="t-${p.tone || "warning"}">${esc(p.lockReason)}</span>`, esc(p.unlockDetail || "—")],
+        })}
+      </div>`;
+    }
+
+    function overviewPanel() {
+      const greet = (REPORT.overviewGreetingLines || []).map((line, i) => richText(line, i === 0 ? "semibold" : "normal")).join("");
+      const ovRows = OVERVIEW.map(r => [
+        `<button type="button" class="pill" data-tab="${esc(r.agentName)}">${esc(r.agentName)}</button>`,
+        `<span class="t-success w-semibold">${esc(r.purchase)}</span>`,
+        esc(r.purchasedOfBook || r.purchasedPlayers),
+        esc(r.openZd),
+        esc(r.takeABreak),
+        esc(r.locked),
+        esc(r.rdOver5k),
+        `<span class="t-success">${esc(r.birthdays)}</span>`,
+        esc(r.declineCount),
+      ]);
+      return `<div class="stack">
+        <div class="stack-2">${greet}</div>
+        <div class="row row-start">
+          <div class="col-main">${segmentTable()}</div>
+          <div class="col-side">${amShareTable()}</div>
+        </div>
+        <div class="stack-8">
+          <h2>AM Overview</h2>
+          ${tableHtml(
+            ["AM", "Purchase $", "Purchased / Book", "Open Tickets", "Take A Break", "Locked", "Pending RD", "Birthdays", "Top 20 Decline"],
+            ovRows,
+            ["left","right","right","right","right","right","right","right","right"],
+            OVERVIEW.map(() => "success"),
+            { markerCol: 1 }
+          )}
+        </div>
+      </div>`;
+    }
+
+    function renderTicketModal() {
+      const root = document.getElementById("ticketModalRoot");
+      if (!ticketDraft) { root.innerHTML = ""; return; }
+      const p = ticketDraft;
+      root.innerHTML = `<div class="modal-backdrop" id="ticketBackdrop">
+        <div class="modal-card" id="ticketCard">
+          <div class="w-semibold">Zendesk ticket draft · ${esc(p.name)} (AID ${esc(p.aid)})</div>
+          <div class="t-small t-quaternary" style="margin:4px 0 12px">Review only. Edit, copy, then open Zendesk and send manually. Never auto-sent.</div>
+          <div class="t-small w-semibold">Subject</div>
+          <input id="ticketSubject" value="${esc(p.ticketSubject || "")}" />
+          <div class="t-small w-semibold">Message</div>
+          <textarea id="ticketBody" rows="10">${esc(p.ticketBody || "")}</textarea>
+          <div class="row">
+            <button type="button" class="pill" id="copySubject">Copy subject</button>
+            <button type="button" class="pill" id="copyBody">Copy message</button>
+            <button type="button" class="pill" id="copyBoth">Copy subject + message</button>
+            <button type="button" class="pill" id="openZd">Open Zendesk</button>
+            <div class="spacer"></div>
+            <button type="button" class="pill" id="closeTicket">Close</button>
+          </div>
+        </div>
+      </div>`;
+      document.getElementById("ticketBackdrop").onclick = (e) => { if (e.target.id === "ticketBackdrop") { ticketDraft = null; render(); } };
+      document.getElementById("ticketCard").onclick = (e) => e.stopPropagation();
+      document.getElementById("closeTicket").onclick = () => { ticketDraft = null; render(); };
+      document.getElementById("copySubject").onclick = () => navigator.clipboard.writeText(document.getElementById("ticketSubject").value);
+      document.getElementById("copyBody").onclick = () => navigator.clipboard.writeText(document.getElementById("ticketBody").value);
+      document.getElementById("copyBoth").onclick = () => {
+        const s = document.getElementById("ticketSubject").value;
+        const b = document.getElementById("ticketBody").value;
+        navigator.clipboard.writeText(`Subject: ${s}\n\n${b}`);
+      };
+      document.getElementById("openZd").onclick = () => {
+        if (p.zendeskUrl) window.open(p.zendeskUrl, "_blank", "noopener,noreferrer");
+      };
+    }
+
+    function bind() {
+      document.querySelectorAll("[data-tab]").forEach(el => {
+        el.onclick = () => { tab = el.getAttribute("data-tab"); render(); window.scrollTo(0, 0); };
+      });
+      document.querySelectorAll("input[data-state]").forEach(el => {
+        el.oninput = () => setState(el.getAttribute("data-state"), el.value);
+      });
+      document.querySelectorAll("select[data-state]").forEach(el => {
+        el.onchange = () => setState(el.getAttribute("data-state"), el.value);
+      });
+      document.querySelectorAll("[data-reason-state]").forEach(el => {
+        el.onclick = () => setState(el.getAttribute("data-reason-state"), el.getAttribute("data-reason"));
+      });
+      document.querySelectorAll("[data-ticket-aid]").forEach(el => {
+        el.onclick = () => {
+          const aid = el.getAttribute("data-ticket-aid");
+          const active = AGENTS.find(a => a.agentName === tab);
+          const pool = active ? (active.decline || []) : AGENTS.flatMap(a => a.decline || []);
+          const p = pool.find(x => String(x.aid) === aid);
+          if (p) { ticketDraft = p; render(); }
+        };
+      });
+    }
+
+    function render() {
+      const active = AGENTS.find(a => a.agentName === tab);
+      const pills = [
+        `<button type="button" class="pill ${tab==="Overview"?"active":""}" data-tab="Overview">Overview</button>`,
+        ...AM_ORDER.map(name => `<button type="button" class="pill ${tab===name?"active":""}" data-tab="${esc(name)}">${esc(name)}</button>`),
+      ].join("");
+      document.getElementById("app").innerHTML = `
+        <div class="stack-8">
+          <h1>${esc(REPORT.title || "Elite AM Brief")}</h1>
+          <div class="t-small t-tertiary">${esc(REPORT.subtitle || "")}</div>
+        </div>
+        <div class="row pills">${pills}</div>
+        ${tab === "Overview" ? overviewPanel() : (active ? agentPanel(active) : "")}
+      `;
+      document.title = `${REPORT.title || "Elite AM Brief"} · ${REPORT.date || ""}`;
+      bind();
+      renderTicketModal();
+    }
+
+    render();
+  </script>
+</body>
+</html>

@@ -12,16 +12,23 @@ Credentials: GOOGLE_APPLICATION_CREDENTIALS or default key path below.
 from __future__ import annotations
 
 import os
+import sys
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
-from google.cloud import bigquery
-from google.oauth2 import service_account
-
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(PROJECT_ROOT))
+
+from elite_lib import (  # noqa: E402
+    PROJECT_ID,
+    dashboard_elite_ctes,
+    day_row,
+    get_client,
+    run_query,
+    wow_change,
+)
+
 OUTPUT_DIR = Path(__file__).resolve().parent / "daily_summaries"
-DEFAULT_KEY = Path(r"c:\Users\Owner\Downloads\key.json.json")
-PROJECT_ID = "silver-social-games-data"
 # S-Jackpota Account Portal (Looker dashboard 5207). Override via LOOKER_ACCOUNT_PORTAL_URL.
 DEFAULT_LOOKER_ACCOUNT_PORTAL_URL = (
     "https://lookerpatrianna.cloud.looker.com/dashboards/5207?Account+ID+={aid}"
@@ -56,6 +63,15 @@ def zendesk_new_ticket_url(requester_id: object = None) -> str:
     return url
 
 
+def zendesk_ticket_url(ticket_id: object) -> str:
+    """Open an existing Zendesk ticket in Agent Workspace."""
+    tid = str(ticket_id or "").strip()
+    if not tid:
+        return ""
+    base = os.environ.get("ZENDESK_AGENT_BASE_URL", DEFAULT_ZENDESK_AGENT_BASE).rstrip("/")
+    return f"{base}/agent/tickets/{tid}"
+
+
 def format_ticket_markdown(draft: dict) -> str:
     if not draft.get("ticketEnabled"):
         return "—"
@@ -65,22 +81,6 @@ def format_ticket_markdown(draft: dict) -> str:
     if url:
         return f"[Draft]({url}) · _{preview}_"
     return f"_{preview}_"
-
-
-def get_client() -> bigquery.Client:
-    key_path = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS", str(DEFAULT_KEY))
-    if Path(key_path).exists():
-        creds = service_account.Credentials.from_service_account_file(
-            key_path,
-            scopes=["https://www.googleapis.com/auth/bigquery"],
-        )
-        return bigquery.Client(project=PROJECT_ID, credentials=creds, location="EU")
-    return bigquery.Client(project=PROJECT_ID, location="EU")
-
-
-def run_query(client: bigquery.Client, sql: str) -> list[dict]:
-    rows = client.query(sql).result()
-    return [dict(r.items()) for r in rows]
 
 
 def weekday_label(d: date) -> str:
@@ -117,24 +117,14 @@ def build_sql(report_date: date) -> dict[str, str]:
     w1_end = (report_date - timedelta(days=7)).isoformat()
     gp_start = (report_date - timedelta(days=6)).isoformat()
 
+    elite_ctes = dashboard_elite_ctes(
+        latest_name="latest",
+        elite_name="elite",
+        aid_alias="AID",
+        agent_alias="agent",
+    )
     base_cte = f"""
-    WITH latest AS (
-      SELECT MAX(snapshot_date) AS snap
-      FROM `{PROJECT_ID}.dbt_utils.elite_account_tags`
-    ),
-    elite AS (
-      -- Tableau "Yesterday Performance" book: dbt_aninditac.elite (Elite tag + Zendesk-managed)
-      SELECT DISTINCT
-        e.account_id AS AID,
-        COALESCE(t.tag_agent_1, e.agent_name) AS agent
-      FROM `{PROJECT_ID}.dbt_aninditac.elite` e
-      CROSS JOIN latest l
-      LEFT JOIN `{PROJECT_ID}.dbt_utils.elite_account_tags` t
-        ON e.account_id = t.account_id
-        AND t.snapshot_date = l.snap
-        AND t.category = 'Elite'
-        AND t.tag_agent_1 IS NOT NULL
-    ),
+    WITH {elite_ctes},
     purchases AS (
       SELECT account_id AS AID, date,
         SUM(CAST(purchased AS FLOAT64)) AS bought,
@@ -203,19 +193,28 @@ def build_sql(report_date: date) -> dict[str, str]:
           WHERE status IN ('pre_authorized', 'locked')
         ),
         tagged AS (
-          SELECT ad.*, eu.redeem_status, eu.locked, eu.red_flag,
+          SELECT ad.*, eu.redeem_status,
+            COALESCE(ua.locked, eu.locked, FALSE) AS locked,
+            COALESCE(ua.lock_reason, eu.lock_reason) AS lock_reason,
+            eu.red_flag,
             ROUND(ad.w1 - ad.w0, 2) AS wow_drop,
             CASE
+              WHEN COALESCE(ua.locked, eu.locked, FALSE)
+                AND COALESCE(ua.lock_reason, eu.lock_reason) = 'Exclusion'
+                THEN 'self_exclusion'
+              WHEN COALESCE(ua.locked, eu.locked, FALSE)
+                THEN 'account_locked'
               WHEN COALESCE(pd.amount, 0) > 0
                 THEN 'redemption_in_progress'
-              WHEN ad.ngr_7d >= 5000 THEN 'big_win_last_7d'
-              WHEN ad.ngr_7d <= -5000 THEN 'big_loss_last_7d'
+              WHEN ad.ngr_7d <= -5000 THEN 'big_win_last_7d'
+              WHEN ad.ngr_7d >= 5000 THEN 'big_loss_last_7d'
               WHEN ad.day_this = 0 AND ad.day_prior_week > 0 THEN 'same_weekday_skip'
-              WHEN eu.locked THEN 'account_locked'
               WHEN eu.red_flag = 1 THEN 'red_flag'
               ELSE 'general_spend_softening'
             END AS primary_reason
           FROM active_decliners ad
+          LEFT JOIN `{PROJECT_ID}.transactional_data.uam_accounts` ua
+            ON ad.AID = ua.id
           LEFT JOIN `{PROJECT_ID}.dbt_dashboards_mart.elite_users` eu
             ON ad.AID = eu.account_id AND eu.report_date = DATE '{rd}'
           LEFT JOIN pending_redeem pd
@@ -275,6 +274,7 @@ def fmt_money(v) -> str:
 
 
 REASON_LABELS = {
+    "self_exclusion": "Self-exclusion",
     "redemption_in_progress": "Redemption in progress",
     "big_win_last_7d": "Big win (7d)",
     "big_loss_last_7d": "Big loss (7d)",
@@ -289,10 +289,6 @@ def fmt_reason(code: str) -> str:
     return REASON_LABELS.get(code, code.replace("_", " "))
 
 
-def _day_row(rows: list[dict], d: date) -> dict:
-    return next((r for r in rows if str(r.get("date"))[:10] == d.isoformat()), {})
-
-
 def _wow_marker(chg: float) -> str:
     if chg > 0:
         return "🟢 "
@@ -302,14 +298,13 @@ def _wow_marker(chg: float) -> str:
 
 
 def _fmt_rev_wow(this: float, prior: float) -> str:
-    chg = this - prior
-    pct = (chg / prior * 100) if prior else 0
+    chg, pct = wow_change(this, prior)
     return f"{_wow_marker(chg)}{fmt_money(chg)} ({pct:+.1f}%)"
 
 
 def _fmt_ply_wow(this: int, prior: int) -> str:
-    chg = this - prior
-    pct = (chg / prior * 100) if prior else 0
+    chg_raw, pct = wow_change(this, prior)
+    chg = int(chg_raw)
     return f"{_wow_marker(chg)}{chg:+d} ({pct:+.1f}%)"
 
 
@@ -385,10 +380,10 @@ def render_markdown(
     day_name = weekday_label(report_date)
     generated = datetime.now().strftime("%Y-%m-%d %H:%M")
 
-    elite_this = _day_row(day_rows, report_date)
-    overall_this = _day_row(overall_rows, report_date)
-    elite_prior = _day_row(day_rows, prior_day)
-    overall_prior = _day_row(overall_rows, prior_day)
+    elite_this = day_row(day_rows, report_date)
+    overall_this = day_row(overall_rows, report_date)
+    elite_prior = day_row(day_rows, prior_day)
+    overall_prior = day_row(overall_rows, prior_day)
     elite_rev = float(elite_this.get("revenue") or 0)
     overall_rev = float(overall_this.get("revenue") or 0)
     elite_share = (elite_rev / overall_rev * 100) if overall_rev else 0
@@ -526,7 +521,7 @@ def resolve_report_date(arg_date: str | None) -> date:
     return date.today() - timedelta(days=1)
 
 
-def main() -> None:
+def main(output_dir: Path | None = None) -> None:
     import argparse
 
     parser = argparse.ArgumentParser(description="Elite daily summary")
@@ -537,6 +532,7 @@ def main() -> None:
     )
     args = parser.parse_args()
     report_date = resolve_report_date(args.report_date)
+    target_output_dir = output_dir or OUTPUT_DIR
     client = get_client()
     sql = build_sql(report_date)
 
@@ -546,16 +542,16 @@ def main() -> None:
     day_rows = run_query(client, sql["weekday_compare"])
     overall_rows = run_query(client, sql["overall_weekday_compare"])
     prior_day = report_date - timedelta(days=7)
-    elite_this = _day_row(day_rows, report_date)
-    elite_prior = _day_row(day_rows, prior_day)
+    elite_this = day_row(day_rows, report_date)
+    elite_prior = day_row(day_rows, prior_day)
     elite_wow_drop = max(
         0.0,
         float(elite_prior.get("revenue") or 0) - float(elite_this.get("revenue") or 0),
     )
     top10_delta = fetch_top10_by_delta(client, report_date, elite_wow_drop=elite_wow_drop)
 
-    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-    out_path = OUTPUT_DIR / f"{report_date.isoformat()}_elite_daily_summary.md"
+    target_output_dir.mkdir(parents=True, exist_ok=True)
+    out_path = target_output_dir / f"{report_date.isoformat()}_elite_daily_summary.md"
     content = render_markdown(report_date, day_rows, overall_rows, top10_delta)
     out_path.write_text(content, encoding="utf-8")
     print(f"Wrote {out_path}")

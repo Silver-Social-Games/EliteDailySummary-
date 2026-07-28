@@ -2420,18 +2420,16 @@ def sort_top10_rows(rows: list[dict]) -> list[dict]:
     )
 
 
-def fetch_top10_by_delta(
+def classify_same_day_candidate_rows(
     client,
     report_date: date,
-    *,
-    elite_wow_drop: float | None = None,
+    rows: list[dict],
 ) -> list[dict]:
+    """Enrich + classify already-selected same-day gap rows (Daily Top 20 logic)."""
     from generate_daily_elite_summary import weekday_label
 
-    candidates = run_query(client, top_same_day_sql(report_date))
-    if not candidates:
+    if not rows:
         return []
-    rows = select_top_same_day_players(candidates, elite_wow_drop=elite_wow_drop)
     aids = [int(r["AID"]) for r in rows]
     enrich_map = {int(e["AID"]): e for e in run_query(client, enrich_aids_sql(aids, report_date))}
     day_name = weekday_label(report_date)
@@ -2492,3 +2490,53 @@ def fetch_top10_by_delta(
         row_out.update(ticket)
         out.append(row_out)
     return sort_top10_rows(out)
+
+
+def fetch_top10_by_delta(
+    client,
+    report_date: date,
+    *,
+    elite_wow_drop: float | None = None,
+) -> list[dict]:
+    candidates = run_query(client, top_same_day_sql(report_date))
+    if not candidates:
+        return []
+    rows = select_top_same_day_players(candidates, elite_wow_drop=elite_wow_drop)
+    return classify_same_day_candidate_rows(client, report_date, rows)
+
+
+def fetch_top_same_day_by_agent(
+    client,
+    report_date: date,
+    agent_names: list[str],
+    *,
+    elite_wow_drop: float | None = None,
+    limit: int = TOP_SAME_DAY_LIMIT,
+) -> dict[str, list[dict]]:
+    """Per-agent Top N using the same selection + classify logic as Daily Elite Summary."""
+    candidates = run_query(client, top_same_day_sql(report_date))
+    if not candidates:
+        return {name: [] for name in agent_names}
+
+    picked_by_agent: dict[str, list[dict]] = {}
+    ordered: list[dict] = []
+    seen_aids: set[int] = set()
+    for name in agent_names:
+        pool = [c for c in candidates if format_agent_name(c) == name]
+        picked = select_top_same_day_players(
+            pool, limit=limit, elite_wow_drop=elite_wow_drop
+        )
+        picked_by_agent[name] = picked
+        for r in picked:
+            aid = int(r["AID"])
+            if aid not in seen_aids:
+                ordered.append(r)
+                seen_aids.add(aid)
+
+    classified = classify_same_day_candidate_rows(client, report_date, ordered)
+    by_aid = {int(r["AID"]): r for r in classified}
+    return {
+        name: [by_aid[int(r["AID"])] for r in picked if int(r["AID"]) in by_aid]
+        for name, picked in picked_by_agent.items()
+    }
+
