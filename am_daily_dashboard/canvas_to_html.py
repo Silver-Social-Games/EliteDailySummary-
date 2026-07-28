@@ -7,6 +7,7 @@ import sys
 from pathlib import Path
 
 PACKAGE_DIR = Path(__file__).resolve().parent
+PROJECT_ROOT = PACKAGE_DIR.parent
 SHELL = PACKAGE_DIR / "handoffs" / "elite_am_brief_web.html"
 OUT_DIR = PACKAGE_DIR / "exports"
 
@@ -25,6 +26,18 @@ def write_am_brief_html(payload: dict, out_path: Path) -> Path:
         raise RuntimeError("Payload placeholder still present after replace")
     out.write_text(html, encoding="utf-8")
     return out
+
+
+def publish_am_brief(html_path: Path) -> Path | None:
+    """Copy AM Brief HTML into docs/ for GitHub Pages (does not overwrite latest.html)."""
+    sys.path.insert(0, str(PROJECT_ROOT / "daily_summary"))
+    try:
+        from publish_github_pages import publish_html
+
+        return publish_html(html_path)
+    except Exception as exc:
+        print(f"GitHub Pages publish skipped: {exc}")
+        return None
 
 
 def convert(payload_path: Path, out_path: Path | None = None) -> Path:
@@ -52,6 +65,11 @@ def main() -> None:
         help="Payload JSON path",
     )
     parser.add_argument("--out", type=Path, help="Output HTML path")
+    parser.add_argument(
+        "--no-publish",
+        action="store_true",
+        help="Skip copying the HTML into docs/ for GitHub Pages",
+    )
     args = parser.parse_args()
     payload_path = args.payload_opt or args.payload
     if not payload_path:
@@ -64,6 +82,8 @@ def main() -> None:
         print(f"HTML canvas export failed: {exc}", file=sys.stderr)
         raise SystemExit(1) from exc
     print(out)
+    if not args.no_publish:
+        publish_am_brief(out)
 
 
 if __name__ == "__main__":
