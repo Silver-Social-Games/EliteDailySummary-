@@ -6,7 +6,7 @@ import json
 from datetime import date, timedelta
 from pathlib import Path
 
-from generate_daily_elite_summary import weekday_label
+from generate_daily_elite_summary import day_row, weekday_label, wow_change
 
 DEFAULT_CANVAS_DIR = Path(
     r"C:\Users\Owner\.cursor\projects\c-Users-Owner-Downloads-Elite\canvases"
@@ -40,20 +40,15 @@ def fmt_money_short(v) -> str:
     return f"${round(float(v)):,}"
 
 
-def _day_row(rows: list[dict], d: date) -> dict:
-    return next((r for r in rows if str(r.get("date"))[:10] == d.isoformat()), {})
-
-
 def _fmt_wow_money(this: float, prior: float) -> str:
-    chg = this - prior
-    pct = (chg / prior * 100) if prior else 0
+    chg, pct = wow_change(this, prior)
     sign = "+" if chg >= 0 else ""
     return f"{sign}${round(chg):,} ({pct:+.1f}%)"
 
 
 def _fmt_wow_count(this: int, prior: int) -> str:
-    chg = this - prior
-    pct = (chg / prior * 100) if prior else 0
+    chg_raw, pct = wow_change(this, prior)
+    chg = int(chg_raw)
     return f"{chg:+d} ({pct:+.1f}%)"
 
 
@@ -68,10 +63,10 @@ def _wow_tone(chg: float) -> str:
 def build_report(report_date: date, day_rows: list[dict], overall_rows: list[dict]) -> dict:
     prior_day = report_date - timedelta(days=7)
     day_name = weekday_label(report_date)
-    elite_this = _day_row(day_rows, report_date)
-    elite_prior = _day_row(day_rows, prior_day)
-    overall_this = _day_row(overall_rows, report_date)
-    overall_prior = _day_row(overall_rows, prior_day)
+    elite_this = day_row(day_rows, report_date)
+    elite_prior = day_row(day_rows, prior_day)
+    overall_this = day_row(overall_rows, report_date)
+    overall_prior = day_row(overall_rows, prior_day)
 
     elite_rev_this = float(elite_this.get("revenue") or 0)
     elite_rev_prior = float(elite_prior.get("revenue") or 0)
@@ -747,10 +742,10 @@ def build_stakeholder_payload(
 ) -> dict:
     prior_day = report_date - timedelta(days=7)
     day_name = weekday_label(report_date)
-    elite_this = _day_row(day_rows, report_date)
-    elite_prior = _day_row(day_rows, prior_day)
-    overall_this = _day_row(overall_rows, report_date)
-    overall_prior = _day_row(overall_rows, prior_day)
+    elite_this = day_row(day_rows, report_date)
+    elite_prior = day_row(day_rows, prior_day)
+    overall_this = day_row(overall_rows, report_date)
+    overall_prior = day_row(overall_rows, prior_day)
 
     elite_rev_this = float(elite_this.get("revenue") or 0)
     elite_rev_prior = float(elite_prior.get("revenue") or 0)
