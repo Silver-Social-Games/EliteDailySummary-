@@ -24,7 +24,7 @@ from elite_lib.bigquery import get_client, run_query  # noqa: E402
 
 import queries as am_queries  # noqa: E402
 from am_brief_canvas import render_am_brief_canvas  # noqa: E402
-from canvas_to_html import write_am_brief_html  # noqa: E402
+from canvas_to_html import publish_am_brief, write_am_brief_html  # noqa: E402
 from generate_daily_elite_canvas import build_report, build_top10_rows, fmt_money_short  # noqa: E402
 from generate_daily_elite_summary import (  # noqa: E402
     build_sql,
@@ -556,7 +556,9 @@ def build_payload(report_date: date, client) -> dict:
     }
 
 
-def write_outputs(payload: dict, canvas_dir: Path) -> tuple[Path, Path]:
+def write_outputs(
+    payload: dict, canvas_dir: Path, *, publish: bool = True
+) -> tuple[Path, Path]:
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     canvas_dir.mkdir(parents=True, exist_ok=True)
     d = payload["report"]["date"]
@@ -572,6 +574,8 @@ def write_outputs(payload: dict, canvas_dir: Path) -> tuple[Path, Path]:
     old_canvas = canvas_dir / f"elite-am-focus-{d}.canvas.tsx"
     if old_canvas.exists():
         old_canvas.unlink()
+    if publish:
+        publish_am_brief(html_path)
     return canvas_path, html_path
 
 
@@ -584,11 +588,18 @@ def main() -> None:
         default=DEFAULT_CANVAS_DIR,
         help="Canvas output directory",
     )
+    parser.add_argument(
+        "--no-publish",
+        action="store_true",
+        help="Skip copying the HTML into docs/ for GitHub Pages",
+    )
     args = parser.parse_args()
     report_date = resolve_report_date(args.date)
     client = get_client()
     payload = build_payload(report_date, client)
-    canvas_path, html_path = write_outputs(payload, args.canvas_dir)
+    canvas_path, html_path = write_outputs(
+        payload, args.canvas_dir, publish=not args.no_publish
+    )
     print(f"Wrote {canvas_path}")
     print(f"Wrote {html_path}")
 

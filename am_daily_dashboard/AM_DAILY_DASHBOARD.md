@@ -25,14 +25,21 @@ Default report date = **yesterday**.
 | Canvas | `~/.cursor/projects/.../canvases/elite-am-brief-YYYY-MM-DD.canvas.tsx` |
 | HTML | `am_daily_dashboard/exports/YYYY-MM-DD_elite_am_brief.html` — canvas-matched interactive export (Overview + AM tabs), same pattern as Daily Summary |
 | JSON | `am_daily_dashboard/exports/YYYY-MM-DD_elite_am_brief.json` |
+| GitHub Pages | `docs/reports/YYYY-MM-DD_elite_am_brief.html` — copied on generate (exports/ is gitignored) |
 
 HTML is built by injecting the JSON payload into `handoffs/elite_am_brief_web.html` via `canvas_to_html.write_am_brief_html` (not a static table dump).
+
+After each generate (or `canvas_to_html.py` run), the HTML is published into `docs/` via `daily_summary/publish_github_pages.py` — same helper as Daily Summary. AM Brief rows appear as type **AM Brief** on `docs/index.html` and do **not** overwrite `docs/latest.html` (that stays Daily/Weekend). Use `--no-publish` to skip the docs copy.
 
 Standalone refresh from existing JSON:
 
 ```bash
 python am_daily_dashboard/canvas_to_html.py am_daily_dashboard/exports/YYYY-MM-DD_elite_am_brief.json
 ```
+
+Site path once on `main`:
+
+`https://silver-social-games.github.io/EliteDailySummary-/reports/YYYY-MM-DD_elite_am_brief.html`
 
 ---
 
