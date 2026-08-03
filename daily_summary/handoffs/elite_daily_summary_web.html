@@ -361,8 +361,10 @@
     }
     function wowHtml(value) {
       const v = String(value || "").trim();
-      const up = v.startsWith("+") && !v.startsWith("+$0 (");
-      const down = v.startsWith("-") || v.startsWith("$-");
+      const pct = (v.match(/\(([+-]?\d+(?:\.\d+)?)%\)/) || [])[1];
+      const n = pct != null ? Number(pct) : NaN;
+      const up = (!Number.isNaN(n) && n > 0) || (v.startsWith("+") && !v.startsWith("+$0") && !v.startsWith("+0"));
+      const down = (!Number.isNaN(n) && n < 0) || v.startsWith("-") || v.startsWith("$-");
       const cls = up ? "t-success w-semibold" : down ? "t-danger w-semibold" : "";
       return `<span class="${cls}">${esc(value)}</span>`;
     }
@@ -619,8 +621,10 @@
       function esc(s) { return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
       function wowHtml(value) {
         const v = String(value || "").trim();
-        const up = v.startsWith("+") && !v.startsWith("+$0 (");
-        const down = v.startsWith("-") || v.startsWith("$-");
+        const pct = (v.match(/\(([+-]?\d+(?:\.\d+)?)%\)/) || [])[1];
+        const n = pct != null ? Number(pct) : NaN;
+        const up = (!Number.isNaN(n) && n > 0) || (v.startsWith("+") && !v.startsWith("+$0") && !v.startsWith("+0"));
+        const down = (!Number.isNaN(n) && n < 0) || v.startsWith("-") || v.startsWith("$-");
         const cls = up ? "t-success w-semibold" : down ? "t-danger w-semibold" : "";
         return `<span class="${cls}">${esc(value)}</span>`;
       }

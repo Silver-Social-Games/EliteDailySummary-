@@ -491,10 +491,30 @@ function fmtTotalMoney(n: number): string {{
 
 function WowCell({{ value }}: {{ value: string }}) {{
   const v = (value || "").trim();
-  const up = v.startsWith("+") && !v.startsWith("+$0 (");
-  const down = v.startsWith("-") || v.startsWith("$-");
+  const pctMatch = v.match(/\\(([+-]?\\d+(?:\\.\\d+)?)%\\)/);
+  const pct = pctMatch ? Number(pctMatch[1]) : NaN;
+  const up =
+    (!Number.isNaN(pct) && pct > 0) ||
+    (v.startsWith("+") && !v.startsWith("+$0") && !v.startsWith("+0"));
+  const down =
+    (!Number.isNaN(pct) && pct < 0) ||
+    v.startsWith("-") ||
+    v.startsWith("$-") ||
+    /^-\\$?\\d/.test(v);
+  const tone = up ? "success" : down ? "danger" : undefined;
   return (
-    <Text as="span" weight={{up || down ? "semibold" : "normal"}} tone={{up ? "success" : down ? "danger" : undefined}}>
+    <Text
+      as="span"
+      weight={{up || down ? "semibold" : "normal"}}
+      tone={{tone}}
+      style={{{{
+        color: up
+          ? "var(--marker-success, #1F8A65)"
+          : down
+            ? "var(--marker-danger, #C75050)"
+            : undefined,
+      }}}}
+    >
       {{value}}
     </Text>
   );
