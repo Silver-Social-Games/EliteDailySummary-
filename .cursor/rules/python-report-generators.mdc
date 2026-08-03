@@ -1,0 +1,25 @@
+---
+description: Python generator, report artifact, and canvas conventions
+globs: "**/generate_*.py, **/*.canvas.tsx, **/handoffs/**, **/exports/**"
+alwaysApply: false
+---
+
+# Python report generators
+
+- Put each new initiative in a dedicated top-level folder.
+- Keep generated files inside that initiative's `exports/`, `handoffs/`, or
+  `data/` directory. Do not add unrelated work to `decline_check/`.
+- Prefer one documented generator entry point over ad hoc scripts.
+- Resolve paths from `Path(__file__)`; do not depend on the launch directory.
+- Add explicit CLI options for dates and AIDs. Preserve deterministic date
+  overrides for reproducible reports.
+- Fail with a clear message when credentials, source files, or required columns
+  are missing.
+- Do not silently replace live query output with fixtures or workshop CSV data.
+- Use `YYYY-MM-DD` in dated artifact names.
+- Keep live Cursor canvases and durable project exports clearly distinguished.
+- Preserve locked report baselines unless the user explicitly requests a layout
+  change.
+- For weekday comparisons, compare the same weekday, normally 7 days apart.
+- Run the narrowest available syntax check or dry run after generator edits.
+- Do not create extra status Markdown files; summarize completion in chat.

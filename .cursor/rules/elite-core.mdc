@@ -1,0 +1,18 @@
+---
+description: Mandatory Elite terminology, definitions, and analytical safety
+alwaysApply: true
+---
+
+# Elite core conventions
+
+- Treat `Elite.MD` as the canonical definitions and SQL reference.
+- Use **Elite**, not VIP, in reports. Show `account_id` as **AID**.
+- Define **Bought** as `purchased > 0` after account/date aggregation.
+- Say **Purchased players** for distinct Elite with `purchased > 0`; do not say Buyers.
+- Define **Churn** as no purchase in the last 7 calendar days.
+- Define **Active decliner** as bought in the last 7 days but less than the prior 7 days.
+- Use `tag_agent_1` from `dbt_utils.elite_account_tags` for **Agent**.
+- Before a drop-reason conclusion, check `uam_accounts.locked` and `lock_reason`.
+- Never recommend retention outreach for self-excluded or locked accounts.
+- TID means Zendesk ticket ID. Use **Order ID** or transaction UUID for purchases.
+- Never expose credentials or commit credential files.

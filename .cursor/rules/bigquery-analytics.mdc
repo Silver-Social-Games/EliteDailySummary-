@@ -1,0 +1,38 @@
+---
+description: BigQuery source, grain, scan, and generator conventions
+globs: "**/*.py, **/*.sql"
+alwaysApply: false
+---
+
+# BigQuery analytics
+
+- Use project `silver-social-games-data` in EU.
+- For dashboard-parity revenue, use `dbt_aninditac.elite` with
+  `jackpota_agg.daily_player_revenue_kpis.purchased`.
+- Aggregate KPI rows by `account_id, date` before summing `purchased` or counting
+  Purchased players. Never sum raw KPI rows.
+- Use `transactional_data.payment_payment_orders` only for order-level
+  reconciliation; it is not the dashboard revenue source.
+- Prefer `dbt_utils.elite_account_tags` over raw
+  `uam_account_category_tags`, especially through MCP.
+- Reuse `PROJECT_ID`, `get_client`, `run_query`, and canonical Elite-book SQL
+  from `elite_lib` in new Python generators.
+- Read credentials from `GOOGLE_APPLICATION_CREDENTIALS`; do not embed secrets.
+- Use query parameters for AIDs and dates. Avoid interpolating user input into SQL.
+- For heavy tables that exceed MCP scan limits, use the established Python
+  generator and service-account path.
+- Validate report dates, timezone assumptions, row grain, and totals before
+  presenting conclusions.
+
+## Correct KPI pattern
+
+```sql
+WITH account_day AS (
+  SELECT account_id, date, SUM(purchased) AS purchased
+  FROM `silver-social-games-data.jackpota_agg.daily_player_revenue_kpis`
+  GROUP BY account_id, date
+)
+SELECT date, SUM(purchased) AS revenue
+FROM account_day
+GROUP BY date;
+```
