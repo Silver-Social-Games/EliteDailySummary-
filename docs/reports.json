@@ -1,13 +1,5 @@
 [
   {
-    "filename": "2026-08-02_elite_am_brief.html",
-    "kind": "am_brief",
-    "label": "AM Brief",
-    "title": "AM Brief 2026-08-02",
-    "date": "2026-08-02",
-    "sort_key": "2026-08-02"
-  },
-  {
     "filename": "2026-08-02_elite_daily_summary_canvas.html",
     "kind": "daily",
     "label": "daily",
@@ -22,30 +14,6 @@
     "title": "Weekend 2026-07-30 to 2026-08-01",
     "date": "2026-08-01",
     "sort_key": "2026-08-01"
-  },
-  {
-    "filename": "2026-08-01_elite_am_brief.html",
-    "kind": "am_brief",
-    "label": "AM Brief",
-    "title": "AM Brief 2026-08-01",
-    "date": "2026-08-01",
-    "sort_key": "2026-08-01"
-  },
-  {
-    "filename": "2026-07-31_elite_am_brief.html",
-    "kind": "am_brief",
-    "label": "AM Brief",
-    "title": "AM Brief 2026-07-31",
-    "date": "2026-07-31",
-    "sort_key": "2026-07-31"
-  },
-  {
-    "filename": "2026-07-27_elite_am_brief.html",
-    "kind": "am_brief",
-    "label": "AM Brief",
-    "title": "AM Brief 2026-07-27",
-    "date": "2026-07-27",
-    "sort_key": "2026-07-27"
   },
   {
     "filename": "2026-07-27_elite_daily_summary_canvas.html",

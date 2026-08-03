@@ -76,34 +76,29 @@ def _latest_of_kinds(entries: list[dict], kinds: set[str]) -> dict | None:
     return None
 
 
+def _public_entries(entries: list[dict]) -> list[dict]:
+    """Daily/weekend only — AM Brief stays local (exports + canvas), not on Pages."""
+    return [e for e in entries if e["kind"] in {"daily", "weekend"}]
+
+
 def _write_index(entries: list[dict]) -> None:
-    latest = _latest_of_kinds(entries, {"daily", "weekend"}) or (
-        entries[0] if entries and entries[0]["kind"] != "am_brief" else None
+    public = _public_entries(entries)
+    latest = _latest_of_kinds(public, {"daily", "weekend"}) or (
+        public[0] if public else None
     )
-    latest_am = _latest_of_kinds(entries, {"am_brief"})
     latest_href = f"reports/{latest['filename']}" if latest else None
-    latest_am_href = f"reports/{latest_am['filename']}" if latest_am else None
     rows = "\n".join(
         f"""        <tr>
           <td>{e['title']}</td>
           <td><span class="pill {e['kind']}">{e.get('label', e['kind'])}</span></td>
           <td><a href="reports/{e['filename']}">Open report</a></td>
         </tr>"""
-        for e in entries
+        for e in public
     )
     updated = datetime.now().strftime("%Y-%m-%d %H:%M")
-    buttons: list[str] = []
-    if latest_href:
-        buttons.append(
-            f'<a class="button" href="{latest_href}">Open latest report</a>'
-        )
-    if latest_am_href:
-        buttons.append(
-            f'<a class="button secondary" href="{latest_am_href}">Open latest AM Brief</a>'
-        )
     latest_block = (
-        f'<p class="lead">{" ".join(buttons)}</p>'
-        if buttons
+        f'<p class="lead"><a class="button" href="{latest_href}">Open latest report</a></p>'
+        if latest_href
         else '<p class="lead">No reports published yet. Run the morning elite script locally.</p>'
     )
     html = f"""<!DOCTYPE html>
@@ -121,7 +116,6 @@ def _write_index(entries: list[dict]) -> None:
       --line: #e6e6e8;
       --accent: #1f8a65;
       --weekend: #3685bf;
-      --am-brief: #9a6b2f;
     }}
     * {{ box-sizing: border-box; }}
     body {{
@@ -152,11 +146,6 @@ def _write_index(entries: list[dict]) -> None:
       font-weight: 600;
       margin: 0 8px 8px 0;
     }}
-    .button.secondary {{
-      background: #fff;
-      color: var(--am-brief);
-      border: 1px solid var(--am-brief);
-    }}
     table {{ width: 100%; border-collapse: collapse; }}
     th, td {{ text-align: left; padding: 10px 8px; border-bottom: 1px solid var(--line); }}
     th {{ color: var(--muted); font-size: 0.9rem; }}
@@ -171,11 +160,6 @@ def _write_index(entries: list[dict]) -> None:
       text-transform: capitalize;
     }}
     .pill.weekend {{ background: #e7f1fa; color: var(--weekend); }}
-    .pill.am_brief {{
-      background: #f7f0e6;
-      color: var(--am-brief);
-      text-transform: none;
-    }}
     .foot {{ color: var(--muted); font-size: 0.85rem; margin-top: 16px; }}
   </style>
 </head>
@@ -205,11 +189,19 @@ def _write_index(entries: list[dict]) -> None:
     (DOCS_DIR / "index.html").write_text(html, encoding="utf-8")
 
 
+def rebuild_pages_index() -> list[dict]:
+    """Refresh docs/reports.json and docs/index.html from files on disk."""
+    entries = _build_manifest()
+    _write_manifest(_public_entries(entries))
+    _write_index(entries)
+    return entries
+
+
 def publish_html(html_path: Path, *, update_latest: bool | None = None) -> Path | None:
     """Copy report HTML into docs/ and refresh GitHub Pages index.
 
-    Daily/weekend reports also refresh docs/latest.html. AM Brief pages are
-    archived and indexed but do not overwrite latest.html.
+    Daily/weekend reports also refresh docs/latest.html. AM Brief is local-only
+    by default and is excluded from the public index even if copied manually.
     """
     html_path = Path(html_path)
     if not html_path.exists():
@@ -227,9 +219,7 @@ def publish_html(html_path: Path, *, update_latest: bool | None = None) -> Path 
     if update_latest:
         shutil.copy2(html_path, DOCS_DIR / "latest.html")
 
-    entries = _build_manifest()
-    _write_manifest(entries)
-    _write_index(entries)
+    rebuild_pages_index()
     print(f"Published GitHub Pages: {dest.relative_to(PROJECT_ROOT)}")
     return dest
 

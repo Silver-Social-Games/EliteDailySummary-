@@ -19,7 +19,8 @@ python am_daily_dashboard/generate_am_daily_dashboard.py
 python am_daily_dashboard/generate_am_daily_dashboard.py --date YYYY-MM-DD
 ```
 
-Default report date = **yesterday**. Use `--no-publish` to skip the `docs/` copy.
+Default report date = **yesterday**. Outputs are **local only** (canvas +
+`am_daily_dashboard/exports/`). Do **not** publish AM Brief to GitHub Pages.
 
 Standalone HTML refresh from existing JSON:
 
@@ -36,7 +37,6 @@ python am_daily_dashboard/canvas_to_html.py am_daily_dashboard/exports/YYYY-MM-D
 | Canvas | `canvases/elite-am-brief-YYYY-MM-DD.canvas.tsx` |
 | HTML | `am_daily_dashboard/exports/YYYY-MM-DD_elite_am_brief.html` |
 | JSON | `am_daily_dashboard/exports/YYYY-MM-DD_elite_am_brief.json` |
-| GitHub Pages | `docs/reports/YYYY-MM-DD_elite_am_brief.html` (type **AM Brief** on `docs/index.html`; does not overwrite `docs/latest.html`) |
 
 After running, open the dated canvas beside chat and/or the HTML export.
 
@@ -49,6 +49,7 @@ After running, open the dated canvas beside chat and/or the HTML export.
 - **Open Tickets** — TID links to Zendesk
 - **Top 20** via `fetch_top_same_day_by_agent` (same selection/classify as Elite Daily Decline; up to 20 per AM)
 - HTML via `canvas_to_html` interactive shell (Overview + AM tabs) — **not** a static table dump
+- **Not** on GitHub Pages — Daily/Weekend publish to `docs/`; AM Brief stays local
 
 ## Sections (see canonical doc)
 

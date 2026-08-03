@@ -557,7 +557,7 @@ def build_payload(report_date: date, client) -> dict:
 
 
 def write_outputs(
-    payload: dict, canvas_dir: Path, *, publish: bool = True
+    payload: dict, canvas_dir: Path, *, publish: bool = False
 ) -> tuple[Path, Path]:
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     canvas_dir.mkdir(parents=True, exist_ok=True)
@@ -589,16 +589,16 @@ def main() -> None:
         help="Canvas output directory",
     )
     parser.add_argument(
-        "--no-publish",
+        "--publish",
         action="store_true",
-        help="Skip copying the HTML into docs/ for GitHub Pages",
+        help="Copy HTML into docs/ for GitHub Pages (off by default; local review only)",
     )
     args = parser.parse_args()
     report_date = resolve_report_date(args.date)
     client = get_client()
     payload = build_payload(report_date, client)
     canvas_path, html_path = write_outputs(
-        payload, args.canvas_dir, publish=not args.no_publish
+        payload, args.canvas_dir, publish=args.publish
     )
     print(f"Wrote {canvas_path}")
     print(f"Wrote {html_path}")

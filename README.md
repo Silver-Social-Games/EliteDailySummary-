@@ -159,13 +159,13 @@ Site URL (org repo):
 
 `https://silver-social-games.github.io/EliteDailySummary-/`
 
-- **Home:** `docs/index.html` — latest Daily/Weekend + latest AM Brief + archive
-- **Latest:** `docs/latest.html` (Daily/Weekend only; AM Brief does not overwrite this)
-- **Archive:** `docs/reports/` — includes `*_elite_daily_summary_canvas.html`, weekend canvases, and `*_elite_am_brief.html`
+- **Home:** `docs/index.html` — latest Daily/Weekend + archive
+- **Latest:** `docs/latest.html` (Daily/Weekend only)
+- **Archive:** `docs/reports/` — `*_elite_daily_summary_canvas.html` and weekend canvases
 
-AM Brief publishes into `docs/` after `am_daily_dashboard/generate_am_daily_dashboard.py` (or `canvas_to_html.py`) the same way Daily Summary does.
+AM Brief is local review only (`am_daily_dashboard/exports/` + canvas). It is **not** published to GitHub Pages.
 
-After a local run, commit and push `docs/` to update the site:
+After a local Daily/Weekend run, commit and push `docs/` to update the site:
 
 ```bash
 git add docs/

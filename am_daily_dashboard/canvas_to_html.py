@@ -29,7 +29,7 @@ def write_am_brief_html(payload: dict, out_path: Path) -> Path:
 
 
 def publish_am_brief(html_path: Path) -> Path | None:
-    """Copy AM Brief HTML into docs/ for GitHub Pages (does not overwrite latest.html)."""
+    """Opt-in: copy AM Brief HTML into docs/ (local review is the default)."""
     sys.path.insert(0, str(PROJECT_ROOT / "daily_summary"))
     try:
         from publish_github_pages import publish_html
@@ -66,9 +66,9 @@ def main() -> None:
     )
     parser.add_argument("--out", type=Path, help="Output HTML path")
     parser.add_argument(
-        "--no-publish",
+        "--publish",
         action="store_true",
-        help="Skip copying the HTML into docs/ for GitHub Pages",
+        help="Copy HTML into docs/ for GitHub Pages (off by default; local review only)",
     )
     args = parser.parse_args()
     payload_path = args.payload_opt or args.payload
@@ -82,7 +82,7 @@ def main() -> None:
         print(f"HTML canvas export failed: {exc}", file=sys.stderr)
         raise SystemExit(1) from exc
     print(out)
-    if not args.no_publish:
+    if args.publish:
         publish_am_brief(out)
 
 
