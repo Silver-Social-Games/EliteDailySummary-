@@ -2,6 +2,9 @@
 
 Before/after Elite activity for a user-supplied AID list and checking periods.
 
+**Definitions:** [`Elite.MD`](../Elite.MD) — **Terminology** (Hold, Purchase)
+and **Revenue and Purchased players**.
+
 ## Inputs
 
 Use [`REQUEST_TEMPLATE.md`](REQUEST_TEMPLATE.md):
@@ -49,3 +52,8 @@ python birthday_gift/generate_birthday_gift_canvas.py \
 ```
 
 Skill entry point: `@birthday-gift-activity`
+
+## Canvas
+
+AID columns link to Looker Account Portal. Player rows sort high → low by
+purchase % change. No Player Data filter/sort pills.

@@ -15,18 +15,15 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 OUTPUT_DIR = Path(__file__).resolve().parent / "daily_summaries"
 
-sys.path.insert(0, str(PROJECT_ROOT / "decline_check"))
+sys.path.insert(0, str(PROJECT_ROOT))
 
-import generate_daily_elite_summary as gen  # noqa: E402
-from generate_daily_elite_summary import (  # noqa: E402
+from elite_lib import day_row, get_client, run_query  # noqa: E402
+from daily_summary.generate_daily_elite_summary import (  # noqa: E402
     build_sql,
-    get_client,
-    run_query,
     weekday_label,
-    _day_row,
 )
-from generate_weekend_elite_canvas import write_weekend_canvas  # noqa: E402
-from wow_drop_reason import fetch_top10_by_delta  # noqa: E402
+from daily_summary.generate_weekend_elite_canvas import write_weekend_canvas  # noqa: E402
+from wow_drop_analysis.wow_drop_reason import fetch_top10_by_delta  # noqa: E402
 
 
 def parse_dates(raw: str | None) -> list[date]:
@@ -44,8 +41,8 @@ def fetch_day_bundle(client, report_date: date) -> tuple[list[dict], list[dict],
     day_rows = run_query(client, sql["weekday_compare"])
     overall_rows = run_query(client, sql["overall_weekday_compare"])
     prior_day = report_date - timedelta(days=7)
-    elite_this = _day_row(day_rows, report_date)
-    elite_prior = _day_row(day_rows, prior_day)
+    elite_this = day_row(day_rows, report_date)
+    elite_prior = day_row(day_rows, prior_day)
     elite_wow_drop = max(
         0.0,
         float(elite_prior.get("revenue") or 0) - float(elite_this.get("revenue") or 0),
@@ -77,10 +74,7 @@ def main() -> None:
     print(f"Wrote {canvas_path}")
 
     try:
-        ds = PROJECT_ROOT / "daily_summary"
-        if str(ds) not in sys.path:
-            sys.path.insert(0, str(ds))
-        from canvas_to_html import export_for_canvas
+        from daily_summary.canvas_to_html import export_for_canvas
 
         slug = f"{dates[0].isoformat()}_to_{dates[-1].isoformat()}"
         html_out = OUTPUT_DIR / f"{slug}_elite_weekend_summary_canvas.html"

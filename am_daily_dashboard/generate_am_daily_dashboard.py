@@ -18,22 +18,21 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 PACKAGE_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(PROJECT_ROOT))
 sys.path.insert(0, str(PACKAGE_DIR))
-sys.path.insert(0, str(PROJECT_ROOT / "decline_check"))
 
 from elite_lib.bigquery import get_client, run_query  # noqa: E402
 
 import queries as am_queries  # noqa: E402
 from am_brief_canvas import render_am_brief_canvas  # noqa: E402
 from canvas_to_html import publish_am_brief, write_am_brief_html  # noqa: E402
-from generate_daily_elite_canvas import build_report, build_top10_rows, fmt_money_short  # noqa: E402
-from generate_daily_elite_summary import (  # noqa: E402
+from daily_summary.generate_daily_elite_canvas import build_report, build_top10_rows, fmt_money_short  # noqa: E402
+from daily_summary.generate_daily_elite_summary import (  # noqa: E402
     build_sql,
     day_row,
     looker_account_portal_url,
     weekday_label,
     zendesk_ticket_url,
 )
-from wow_drop_reason import (  # noqa: E402
+from wow_drop_analysis.wow_drop_reason import (  # noqa: E402
     AGENT_TAG_LABELS,
     _take_a_break_days,
     enrich_aids_sql,

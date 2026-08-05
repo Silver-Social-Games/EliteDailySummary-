@@ -9,7 +9,7 @@ description: Generates the Elite AM Brief morning board for Coral, Gabriel, Lee,
 
 **Definitions:** [`Elite.MD`](../../../Elite.MD) — **Terminology**, **Elite
 managed book**, **Revenue and Purchased players**, **Account status and
-decline reasons**. Decline reasons: `decline_check/wow_drop_reason.py`.
+decline reasons**. Decline reasons: `wow_drop_analysis/wow_drop_reason.py`.
 
 ## Run
 

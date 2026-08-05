@@ -109,7 +109,7 @@ def _validate_output(mode: str, report_date: date | None, weekend_dates: list[da
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Elite Sun–Thu morning report router")
+    parser = argparse.ArgumentParser(description="Elite Sun-Thu morning report router")
     parser.add_argument(
         "--force",
         choices=["daily", "weekend"],
@@ -134,7 +134,7 @@ def main() -> None:
     mode = _resolve_mode(today, args.force)
 
     if mode is None:
-        print(f"Skipped — no Elite morning report on {today.strftime('%A')} (Fri/Sat).")
+        print(f"Skipped - no Elite morning report on {today.strftime('%A')} (Fri/Sat).")
         return
 
     if mode == "daily":
@@ -144,7 +144,7 @@ def main() -> None:
         if not args.skip_format_check:
             _validate_output("daily", date.fromisoformat(report_date), None)
     else:
-        print("Morning Elite: weekend (prior Thu–Sat)")
+        print("Morning Elite: weekend (prior Thu-Sat)")
         _run_weekend(args.dates)
         if not args.skip_format_check:
             from daily_summary.generate_weekend_summary import parse_dates  # noqa: E402

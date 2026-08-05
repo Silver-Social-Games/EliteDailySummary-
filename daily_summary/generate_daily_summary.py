@@ -19,15 +19,12 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 OUTPUT_DIR = Path(__file__).resolve().parent / "daily_summaries"
 
-sys.path.insert(0, str(PROJECT_ROOT / "decline_check"))
+sys.path.insert(0, str(PROJECT_ROOT))
 
-import generate_daily_elite_summary as gen  # noqa: E402
-
-gen.OUTPUT_DIR = OUTPUT_DIR
-
+from daily_summary import generate_daily_elite_summary as gen  # noqa: E402
 
 def main() -> None:
-    gen.main()
+    gen.main(output_dir=OUTPUT_DIR)
 
 
 if __name__ == "__main__":

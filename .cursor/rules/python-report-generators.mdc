@@ -8,7 +8,7 @@ alwaysApply: false
 
 - Put each new initiative in a dedicated top-level folder.
 - Keep generated files inside that initiative's `exports/`, `handoffs/`, or
-  `data/` directory. Do not add unrelated work to `decline_check/`.
+  `data/` directory. Keep work in its owning initiative folder.
 - Prefer one documented generator entry point over ad hoc scripts.
 - Resolve paths from `Path(__file__)`; do not depend on the launch directory.
 - Add explicit CLI options for dates and AIDs. Preserve deterministic date

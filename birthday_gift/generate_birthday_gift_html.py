@@ -1,13 +1,28 @@
-"""Export birthday gift AID cohort to standalone HTML."""
+"""Export birthday gift AID cohort to standalone HTML (canvas-parity layout)."""
 from __future__ import annotations
 
 import argparse
 import csv
 import json
+import os
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 EXPORT_DIR = Path(__file__).resolve().parent / "exports"
+
+DEFAULT_LOOKER_ACCOUNT_PORTAL_URL = (
+    "https://lookerpatrianna.cloud.looker.com/dashboards/5207?Account+ID+={aid}"
+)
+
+
+def looker_account_portal_url(aid: object) -> str:
+    aid_s = str(aid or "").strip()
+    if not aid_s:
+        return ""
+    template = os.environ.get(
+        "LOOKER_ACCOUNT_PORTAL_URL", DEFAULT_LOOKER_ACCOUNT_PORTAL_URL
+    )
+    return template.format(aid=aid_s, account_id=aid_s)
 
 
 def load_players(csv_path: Path) -> list[dict]:
@@ -18,9 +33,11 @@ def load_players(csv_path: Path) -> list[dict]:
 
     players = []
     for r in rows:
+        aid = r["AID"]
         players.append(
             {
-                "aid": r["AID"],
+                "aid": aid,
+                "aidUrl": looker_account_portal_url(aid),
                 "agent": r["Agent"] or "—",
                 "ltPurchase": float(r.get("LT Purchase") or 0),
                 "hold": r.get("Hold") or "n/a",
@@ -47,6 +64,13 @@ def load_players(csv_path: Path) -> list[dict]:
                 "betsPct": pct(r["% change — Total SC bets"]),
             }
         )
+    players.sort(
+        key=lambda p: (
+            -(p["purchasePct"] if p["purchasePct"] is not None else float("-inf")),
+            -p["purchaseAfter"],
+            p["aid"],
+        )
+    )
     return players
 
 
@@ -78,7 +102,6 @@ def periods_from_players(players: list[dict]) -> dict[str, str]:
             "beforeTo": "",
             "afterFrom": "",
             "afterTo": "",
-            "title": "AID cohort",
         }
     p0 = players[0]
     return {
@@ -86,23 +109,22 @@ def periods_from_players(players: list[dict]) -> dict[str, str]:
         "beforeTo": str(p0.get("beforeTo") or ""),
         "afterFrom": str(p0.get("afterFrom") or ""),
         "afterTo": str(p0.get("afterTo") or ""),
-        "title": "AID cohort",
     }
 
 
 def build_html(
     players: list[dict],
     summary: dict[str, dict],
-    periods: dict[str, str] | None = None,
+    periods: dict[str, str],
+    title: str,
 ) -> str:
-    periods = periods or periods_from_players(players)
-    title = periods.get("title") or "AID cohort"
     subtitle = (
-        f"Before {periods.get('beforeFrom', '')} → {periods.get('beforeTo', '')} · "
-        f"After {periods.get('afterFrom', '')} → {periods.get('afterTo', '')}"
+        f"Before {periods.get('beforeFrom', '')} to {periods.get('beforeTo', '')} · "
+        f"After {periods.get('afterFrom', '')} to {periods.get('afterTo', '')}"
+        f" · n={len(players)}"
     )
     payload = json.dumps(
-        {"players": players, "summary": summary, "periods": periods},
+        {"players": players, "summary": summary, "periods": periods, "title": title},
         ensure_ascii=False,
     )
     return f"""<!DOCTYPE html>
@@ -110,7 +132,7 @@ def build_html(
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Elite Birthday Gift — {title}</title>
+  <title>{title}</title>
   <style>
     :root {{
       --bg: #f5f7fa;
@@ -118,14 +140,8 @@ def build_html(
       --text: #1a1d21;
       --muted: #6b7280;
       --stroke: #e2e8f0;
-      --before-bg: #eef1f5;
-      --before-text: #475569;
-      --after-bg: #e8f2fb;
-      --after-text: #1d4f7c;
       --pos: #15803d;
-      --pos-bg: #dcfce7;
       --neg: #b91c1c;
-      --neg-bg: #fee2e2;
       --accent: #2563eb;
     }}
     * {{ box-sizing: border-box; }}
@@ -140,7 +156,8 @@ def build_html(
     .wrap {{ max-width: 1280px; margin: 0 auto; padding: 24px; }}
     h1 {{ margin: 0 0 8px; font-size: 24px; font-weight: 600; }}
     .sub {{ color: var(--muted); margin: 0 0 20px; font-size: 13px; }}
-    h2 {{ margin: 0 0 12px; font-size: 16px; font-weight: 600; }}
+    h2 {{ margin: 0 0 8px; font-size: 16px; font-weight: 600; }}
+    .section-note {{ color: var(--muted); margin: 0 0 12px; font-size: 13px; }}
     .stats4 {{
       display: grid;
       grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -155,7 +172,7 @@ def build_html(
       padding: 14px;
     }}
     .stat label {{ display: block; color: var(--muted); font-size: 12px; margin-bottom: 6px; }}
-    .stat .val {{ font-size: 20px; font-weight: 600; }}
+    .stat .val {{ font-size: 18px; font-weight: 600; }}
     .stat .detail {{ font-size: 12px; margin-top: 6px; font-weight: 600; }}
     .card {{
       background: var(--surface);
@@ -164,6 +181,15 @@ def build_html(
       padding: 16px;
       margin-bottom: 20px;
     }}
+    .card-head {{
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 12px;
+      margin-bottom: 12px;
+    }}
+    .card-head h2 {{ margin: 0; }}
+    .card-head .n {{ color: var(--muted); font-size: 13px; }}
     .bars {{
       display: flex; gap: 28px; align-items: flex-end; height: 200px;
       padding-top: 8px; justify-content: center; flex-wrap: wrap;
@@ -178,84 +204,48 @@ def build_html(
     .dot {{ display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; }}
     table {{ width: 100%; border-collapse: collapse; font-size: 13px; }}
     th, td {{ padding: 10px 12px; border-bottom: 1px solid var(--stroke); text-align: left; vertical-align: middle; }}
-    th {{ color: var(--muted); font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.03em; background: #f8fafc; }}
+    th {{ color: var(--muted); font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.03em; background: #f8fafc; position: sticky; top: 0; }}
     td.num, th.num {{ text-align: right; font-variant-numeric: tabular-nums; }}
-    tr:hover td {{ background: #f8fafc; }}
-    .pos {{ color: var(--pos); }}
-    .neg {{ color: var(--neg); }}
-    .badge {{
-      display: inline-block;
-      padding: 4px 10px;
-      border-radius: 999px;
-      font-size: 12px;
-      font-weight: 600;
-      font-variant-numeric: tabular-nums;
-    }}
-    .badge-before {{ background: var(--before-bg); color: var(--before-text); }}
-    .badge-after {{ background: var(--after-bg); color: var(--after-text); }}
-    .badge-pos {{ background: var(--pos-bg); color: var(--pos); }}
-    .badge-neg {{ background: var(--neg-bg); color: var(--neg); }}
-    .badge-flat {{ background: #f1f5f9; color: var(--muted); }}
-    .compare {{
-      display: flex;
-      align-items: center;
-      justify-content: flex-end;
-      gap: 8px;
-      flex-wrap: wrap;
-    }}
-    .arrow {{ color: var(--muted); font-size: 12px; }}
-    details {{
-      border: 1px solid var(--stroke);
-      border-radius: 10px;
-      margin-bottom: 10px;
-      background: var(--surface);
-      overflow: hidden;
-    }}
-    summary {{
-      cursor: pointer;
-      padding: 14px 16px;
-      font-weight: 600;
-      list-style: none;
-      display: flex;
-      justify-content: space-between;
-      gap: 12px;
-      flex-wrap: wrap;
-      background: #fafbfc;
-    }}
-    summary::-webkit-details-marker {{ display: none; }}
-    summary .meta {{ color: var(--muted); font-weight: 500; font-size: 13px; }}
-    details .inner {{ padding: 0 16px 16px; overflow-x: auto; }}
-    .th-before {{ background: var(--before-bg) !important; color: var(--before-text) !important; }}
-    .th-after {{ background: var(--after-bg) !important; color: var(--after-text) !important; }}
-    .td-before {{ background: #f8fafc; }}
-    .td-after {{ background: #f0f7ff; }}
+    tbody tr:nth-child(even) td {{ background: #fafbfc; }}
+    tr:hover td {{ background: #f1f5f9; }}
+    .pos {{ color: var(--pos); font-weight: 700; }}
+    .neg {{ color: var(--neg); font-weight: 700; }}
+    a.aid {{ color: var(--accent); text-decoration: none; font-weight: 600; }}
+    a.aid:hover {{ text-decoration: underline; }}
+    .table-card {{ padding: 0; overflow-x: auto; }}
   </style>
 </head>
 <body>
   <div class="wrap">
-    <h1>Elite Birthday Gift — {title}</h1>
-    <p class="sub">{subtitle}</p>
+    <h1 id="title"></h1>
+    <p class="sub" id="subtitle"></p>
     <div class="stats4" id="stats"></div>
     <div class="card">
-      <h2>Average before vs after</h2>
+      <div class="card-head">
+        <h2>Average Before vs After</h2>
+        <span class="n" id="chart-n"></span>
+      </div>
       <div class="bars" id="bars"></div>
       <div class="bar-legend">
         <span><span class="dot" style="background:#94a3b8"></span>Before</span>
         <span><span class="dot" style="background:var(--accent)"></span>After</span>
       </div>
     </div>
-    <h2>Per-player split</h2>
-    <div id="players"></div>
-    <h2 style="margin-top:24px">All players</h2>
-    <div class="card" style="padding:0; overflow-x:auto">
-      <table id="snapshot">
+    <h2>Player Data</h2>
+    <p class="section-note" id="player-note"></p>
+    <div class="card table-card">
+      <table id="players">
         <thead>
           <tr>
-            <th>AID</th><th>Agent</th><th class="num">LT Purchase</th><th class="num">Hold</th>
-            <th class="num th-before">Purchase before</th><th class="num th-after">Purchase after</th><th class="num">Change</th>
-            <th class="num th-before">Purchases before</th><th class="num th-after">Purchases after</th>
-            <th class="num th-before">Active before</th><th class="num th-after">Active after</th>
-            <th class="num th-before">SC bets before</th><th class="num th-after">SC bets after</th>
+            <th>AID</th>
+            <th>AM</th>
+            <th class="num">LT Purchase</th>
+            <th class="num">Hold</th>
+            <th class="num">Purchase</th>
+            <th class="num">Purchases</th>
+            <th class="num">Active Days</th>
+            <th class="num">SC Bets</th>
+            <th class="num">% Purchase</th>
           </tr>
         </thead>
         <tbody></tbody>
@@ -266,94 +256,59 @@ def build_html(
     const DATA = {payload};
 
     const fmtMoney = (n) => `$${{Math.round(n).toLocaleString()}}`;
-    const fmtNum = (n) => Math.round(n).toLocaleString();
-    const fmtPct = (n) => n == null ? "—" : `${{n > 0 ? "+" : ""}}${{n.toFixed(1)}}%`;
-    const chgClass = (n) => n == null || n === 0 ? "badge-flat" : n > 0 ? "badge-pos" : "badge-neg";
-    const chgTextClass = (n) => n == null || n === 0 ? "" : n > 0 ? "pos" : "neg";
+    const fmtInt = (n) => Math.round(n).toLocaleString();
+    const fmtPct = (n) => n == null ? "-" : `${{n > 0 ? "+" : ""}}${{n.toFixed(1)}}%`;
+    const chgClass = (n) => n == null || n === 0 ? "" : n > 0 ? "pos" : "neg";
+    const pairMoney = (a, b) => `${{fmtMoney(a)}} - ${{fmtMoney(b)}}`;
+    const pairInt = (a, b) => `${{fmtInt(a)}} - ${{fmtInt(b)}}`;
+    const aidCell = (p) => p.aidUrl
+      ? `<a class="aid" href="${{p.aidUrl}}" target="_blank" rel="noopener noreferrer">${{p.aid}}</a>`
+      : p.aid;
 
-    function compareCell(beforeFmt, afterFmt, pct) {{
-      const badge = pct == null ? "badge-flat" : pct > 0 ? "badge-pos" : pct < 0 ? "badge-neg" : "badge-flat";
-      return `<div class="compare"><span class="badge badge-before">${{beforeFmt}}</span><span class="arrow">→</span><span class="badge badge-after">${{afterFmt}}</span><span class="badge ${{badge}}">${{fmtPct(pct)}}</span></div>`;
-    }}
+    document.getElementById("title").textContent = DATA.title;
+    document.getElementById("subtitle").textContent =
+      `Before ${{DATA.periods.beforeFrom}} to ${{DATA.periods.beforeTo}} · After ${{DATA.periods.afterFrom}} to ${{DATA.periods.afterTo}} · n=${{DATA.players.length}}`;
+    document.getElementById("chart-n").textContent = `n=${{DATA.summary.purchase.players}}`;
+    document.getElementById("player-note").textContent =
+      `${{DATA.players.length}} player${{DATA.players.length === 1 ? "" : "s"}} · values shown as before - after · sorted by purchase % (high → low)`;
 
     const statDefs = [
-      ["purchase", "Avg purchase", fmtMoney],
-      ["purchases", "Avg purchases", fmtNum],
-      ["active", "Avg active days", fmtNum],
-      ["bets", "Avg SC bets", fmtMoney],
+      ["purchase", "Avg Purchase", fmtMoney],
+      ["purchases", "Avg Purchases", fmtInt],
+      ["active", "Avg Active Days", fmtInt],
+      ["bets", "Avg SC Bets", fmtMoney],
     ];
     document.getElementById("stats").innerHTML = statDefs.map(([key, label, fmt]) => {{
       const s = DATA.summary[key];
-      const cls = chgTextClass(s.avgPct);
-      return `<div class="stat"><label>${{label}}</label><div class="val">${{fmt(s.avgBefore)}} <span style="color:var(--muted);font-weight:400">→</span> ${{fmt(s.avgAfter)}}</div><div class="detail ${{cls}}">${{fmtPct(s.avgPct)}}</div></div>`;
+      return `<div class="stat"><label>${{label}}</label><div class="val">${{fmt(s.avgBefore)}} - ${{fmt(s.avgAfter)}}</div><div class="detail ${{chgClass(s.avgPct)}}">${{fmtPct(s.avgPct)}}</div></div>`;
     }}).join("");
 
     const chartKeys = [
-      ["purchase", "Purchase", true],
+      ["purchase", "Purchase ($)", true],
       ["purchases", "Purchases", false],
-      ["active", "Active days", false],
-      ["bets", "SC bets", true],
+      ["active", "Active Days", false],
+      ["bets", "SC Bets", true],
     ];
     const maxVal = Math.max(...chartKeys.flatMap(([k]) => [DATA.summary[k].avgBefore, DATA.summary[k].avgAfter]), 1);
     document.getElementById("bars").innerHTML = chartKeys.map(([k, label, money]) => {{
       const s = DATA.summary[k];
       const bH = Math.max(4, (s.avgBefore / maxVal) * 140);
       const aH = Math.max(4, (s.avgAfter / maxVal) * 140);
-      const fmt = money ? fmtMoney : fmtNum;
+      const fmt = money ? fmtMoney : fmtInt;
       return `<div class="bar-group"><div class="bar-pair"><div class="bar before" style="height:${{bH}}px" title="Before: ${{fmt(s.avgBefore)}}"></div><div class="bar after" style="height:${{aH}}px" title="After: ${{fmt(s.avgAfter)}}"></div></div><div class="bar-label">${{label}}</div></div>`;
     }}).join("");
 
-    function metricRows(p, money, before, after, diff, pct) {{
-      const fmtB = money ? fmtMoney(before) : fmtNum(before);
-      const fmtA = money ? fmtMoney(after) : fmtNum(after);
-      const fmtD = money ? `${{diff > 0 ? "+" : ""}}${{fmtMoney(diff)}}` : `${{diff > 0 ? "+" : ""}}${{fmtNum(diff)}}`;
-      return {{ before: fmtB, after: fmtA, diff: fmtD, pct }};
-    }}
-
-    document.getElementById("players").innerHTML = DATA.players.map((p) => {{
-      const metrics = [
-        ["Purchase amount", metricRows(p, true, p.purchaseBefore, p.purchaseAfter, p.purchaseDiff, p.purchasePct)],
-        ["Purchases", metricRows(p, false, p.purchasesBefore, p.purchasesAfter, p.purchasesDiff, p.purchasesPct)],
-        ["Active days", metricRows(p, false, p.activeBefore, p.activeAfter, p.activeDiff, p.activePct)],
-        ["SC bets", metricRows(p, true, p.betsBefore, p.betsAfter, p.betsDiff, p.betsPct)],
-      ];
-      return `<details>
-        <summary>
-          <span>AID ${{p.aid}}</span>
-          <span class="meta">${{p.agent}} · LT ${{fmtMoney(p.ltPurchase)}} · Hold ${{p.hold}} · <span class="${{chgTextClass(p.purchasePct)}}">${{fmtPct(p.purchasePct)}} purchase</span></span>
-        </summary>
-        <div class="inner">
-          <table>
-            <thead><tr><th>Metric</th><th class="num th-before">Before</th><th class="num th-after">After</th><th class="num">Diff</th><th class="num">Change</th></tr></thead>
-            <tbody>
-              ${{metrics.map(([name, m]) => `<tr>
-                <td>${{name}}</td>
-                <td class="num td-before"><span class="badge badge-before">${{m.before}}</span></td>
-                <td class="num td-after"><span class="badge badge-after">${{m.after}}</span></td>
-                <td class="num ${{chgTextClass(m.pct)}}">${{m.diff}}</td>
-                <td class="num"><span class="badge ${{chgClass(m.pct)}}">${{fmtPct(m.pct)}}</span></td>
-              </tr>`).join("")}}
-            </tbody>
-          </table>
-        </div>
-      </details>`;
-    }}).join("");
-
-    document.querySelector("#snapshot tbody").innerHTML = DATA.players.map((p) => `
+    document.querySelector("#players tbody").innerHTML = DATA.players.map((p) => `
       <tr>
-        <td>${{p.aid}}</td>
+        <td>${{aidCell(p)}}</td>
         <td>${{p.agent}}</td>
         <td class="num">${{fmtMoney(p.ltPurchase)}}</td>
         <td class="num">${{p.hold}}</td>
-        <td class="num td-before"><span class="badge badge-before">${{fmtMoney(p.purchaseBefore)}}</span></td>
-        <td class="num td-after"><span class="badge badge-after">${{fmtMoney(p.purchaseAfter)}}</span></td>
-        <td class="num"><span class="badge ${{chgClass(p.purchasePct)}}">${{fmtPct(p.purchasePct)}}</span></td>
-        <td class="num td-before">${{fmtNum(p.purchasesBefore)}}</td>
-        <td class="num td-after">${{fmtNum(p.purchasesAfter)}}</td>
-        <td class="num td-before">${{fmtNum(p.activeBefore)}}</td>
-        <td class="num td-after">${{fmtNum(p.activeAfter)}}</td>
-        <td class="num td-before">${{fmtMoney(p.betsBefore)}}</td>
-        <td class="num td-after">${{fmtMoney(p.betsAfter)}}</td>
+        <td class="num">${{pairMoney(p.purchaseBefore, p.purchaseAfter)}}</td>
+        <td class="num">${{pairInt(p.purchasesBefore, p.purchasesAfter)}}</td>
+        <td class="num">${{pairInt(p.activeBefore, p.activeAfter)}}</td>
+        <td class="num">${{pairMoney(p.betsBefore, p.betsAfter)}}</td>
+        <td class="num ${{chgClass(p.purchasePct)}}">${{fmtPct(p.purchasePct)}}</td>
       </tr>
     `).join("");
   </script>
@@ -369,6 +324,11 @@ def main() -> None:
         default="birthday_gift/exports/birthday_gift_activity_june_2026_cohort.csv",
     )
     parser.add_argument("--output", default=None)
+    parser.add_argument(
+        "--title",
+        default=None,
+        help="Report title (defaults from input stem)",
+    )
     args = parser.parse_args()
 
     csv_path = Path(args.input)
@@ -382,10 +342,14 @@ def main() -> None:
     players = load_players(csv_path)
     summary = load_summary(summary_path)
     periods = periods_from_players(players)
-    periods["title"] = csv_path.stem.replace("birthday_gift_activity_", "").replace(
-        "_", " "
+    title = args.title or (
+        "Birthday Gift Activity - "
+        + csv_path.stem.replace("birthday_gift_activity_", "").replace("_", " ")
     )
-    out_path.write_text(build_html(players, summary, periods=periods), encoding="utf-8")
+    out_path.write_text(
+        build_html(players, summary, periods=periods, title=title),
+        encoding="utf-8",
+    )
     print(out_path)
 
 

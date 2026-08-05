@@ -63,7 +63,7 @@ aggregation is mandatory).
 tags** before purchase push (skip may be POA/KYC block). See `Elite.MD`
 **Account status and decline reasons**.
 
-**Not in daily summary** (run separately): `python decline_check/generate_decline_protocol.py` for rolling 7d decline cohort.
+**Not in daily summary** (run separately): `python decline_protocol/generate_decline_protocol.py` for rolling 7d decline cohort.
 
 ## Terminology
 

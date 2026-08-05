@@ -10,6 +10,10 @@ from pathlib import Path
 CANVAS_DIR = Path(
     r"C:\Users\Owner\.cursor\projects\c-Users-Owner-Downloads-Elite\canvases"
 )
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
 OUT_DIR = Path(__file__).resolve().parent / "daily_summaries"
 SHELL = Path(__file__).resolve().parent / "handoffs" / "elite_daily_summary_web.html"
 
@@ -64,8 +68,7 @@ def build_payload(canvas_path: Path) -> dict:
     report = extract_const_json(text, "const REPORT = ")
     if report.get("mode") == "weekend":
         day_blocks = extract_const_json(text, "const DAY_BLOCKS = ")
-        sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "decline_check"))
-        from wow_drop_reason import format_agent_name, format_urgency_legend_one_line
+        from wow_drop_analysis.wow_drop_reason import format_agent_name, format_urgency_legend_one_line
 
         try:
             agent_options = extract_const_json(
@@ -94,8 +97,7 @@ def build_payload(canvas_path: Path) -> dict:
     except ValueError:
         agents = sorted({p["agent"] for p in players})
     weekday = report.get("weekday", "")
-    sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "decline_check"))
-    from wow_drop_reason import format_urgency_legend_one_line
+    from wow_drop_analysis.wow_drop_reason import format_urgency_legend_one_line
 
     return {
         "report": report,

@@ -13,6 +13,9 @@ description: >-
 
 **Fill-in template:** [`birthday_gift/REQUEST_TEMPLATE.md`](../../../birthday_gift/REQUEST_TEMPLATE.md)
 
+**Definitions:** [`Elite.MD`](../../../Elite.MD) — **Terminology** (Hold,
+Purchase) and **Revenue and Purchased players**.
+
 ## When to use
 
 - Birthday gift before/after activity for a pasted AID list
@@ -115,6 +118,8 @@ Run via Python generator (not BigQuery MCP) — KPI scans exceed MCP limits.
 | Summary CSV | `birthday_gift/exports/birthday_gift_activity_{run_name}_summary.csv` |
 | HTML | `birthday_gift/exports/birthday_gift_activity_{run_name}.html` |
 | Canvas | `~/.cursor/projects/<workspace>/canvases/elite-birthday-gift-{run_name}.canvas.tsx` |
+
+Player Data is sorted high → low by purchase % change. AID columns link to Looker Account Portal. No Player Data filter/sort pills.
 
 ## Terminology
 

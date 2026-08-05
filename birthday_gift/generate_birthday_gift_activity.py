@@ -29,7 +29,6 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 OUTPUT_DIR = Path(__file__).resolve().parent / "exports"
 COHORTS_DIR = Path(__file__).resolve().parent / "cohorts"
 sys.path.insert(0, str(PROJECT_ROOT))
-sys.path.insert(0, str(PROJECT_ROOT / "decline_check"))
 
 from elite_lib import PROJECT_ID, get_client, run_query  # noqa: E402
 

@@ -6,7 +6,7 @@ import json
 from datetime import date
 from pathlib import Path
 
-from generate_daily_elite_canvas import (
+from daily_summary.generate_daily_elite_canvas import (
     DEFAULT_CANVAS_DIR,
     build_day_summary,
     build_report,
@@ -14,8 +14,8 @@ from generate_daily_elite_canvas import (
     build_weekend_report,
     render_canvas_tsx,
 )
-from generate_daily_elite_summary import weekday_label
-from wow_drop_reason import format_agent_name
+from daily_summary.generate_daily_elite_summary import weekday_label
+from wow_drop_analysis.wow_drop_reason import format_agent_name
 
 
 def _block_titles(day_name: str) -> dict[str, str]:

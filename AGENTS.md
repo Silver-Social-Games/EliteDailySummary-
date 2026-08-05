@@ -18,8 +18,9 @@ Do not duplicate detailed workflows here. Update the owning document or Skill.
 - Keep initiative generators, documentation, `exports/`, `handoffs/`, and
   optional `data/` together.
 - Reuse BigQuery and canonical Elite-book helpers from `elite_lib`.
-- Do not add unrelated deliverables to `decline_check/`.
-- Treat `decline_check/generate_daily_elite_summary.py` as shared report
+- Keep daily reporting, WoW drop analysis, feedback CRO, decline protocol, and
+  reference assets in their dedicated top-level initiative folders.
+- Treat `daily_summary/generate_daily_elite_summary.py` as shared report
   implementation, not the scheduled entry point.
 - Do not create extra status or summary Markdown files; report status in chat.
 
