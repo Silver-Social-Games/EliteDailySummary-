@@ -1,9 +1,9 @@
 """
 Daily Elite summary — BigQuery report for managed Elite book.
 Run from project root:
-  python decline_check/generate_daily_elite_summary.py
+  python daily_summary/generate_daily_elite_summary.py
 
-Output: decline_check/daily_summaries/YYYY-MM-DD_elite_daily_summary.md
+Output: daily_summary/daily_summaries/YYYY-MM-DD_elite_daily_summary.md
 
 Requires: google-cloud-bigquery, pandas (optional for tables)
 Credentials: GOOGLE_APPLICATION_CREDENTIALS or default key path below.
@@ -388,7 +388,7 @@ def render_markdown(
     overall_rev = float(overall_this.get("revenue") or 0)
     elite_share = (elite_rev / overall_rev * 100) if overall_rev else 0
 
-    from wow_drop_reason import (
+    from wow_drop_analysis.wow_drop_reason import (
         M_NONE_IN_7D,
         fmt_money,
         format_action_markdown,
@@ -503,10 +503,10 @@ def render_markdown(
         "Deep dive and agent canvas: `@wow-drop-reason-analysis`",
         "",
         "```bash",
-        f"python decline_check/wow_drop_player_handoff.py --aid AID --date {report_date.isoformat()}",
+        f"python wow_drop_analysis/wow_drop_player_handoff.py --aid AID --date {report_date.isoformat()}",
         "```",
         "",
-        "Rolling 7d decline cohort: `python decline_check/generate_decline_protocol.py`",
+        "Rolling 7d decline cohort: `python decline_protocol/generate_decline_protocol.py`",
         "",
         "*Source: `silver-social-games-data` · See `Elite.MD`*",
     ])
@@ -537,7 +537,7 @@ def main(output_dir: Path | None = None) -> None:
     sql = build_sql(report_date)
 
     print(f"Running Elite daily summary for {report_date} ({weekday_label(report_date)})...")
-    from wow_drop_reason import fetch_top10_by_delta
+    from wow_drop_analysis.wow_drop_reason import fetch_top10_by_delta
 
     day_rows = run_query(client, sql["weekday_compare"])
     overall_rows = run_query(client, sql["overall_weekday_compare"])
@@ -556,18 +556,13 @@ def main(output_dir: Path | None = None) -> None:
     out_path.write_text(content, encoding="utf-8")
     print(f"Wrote {out_path}")
 
-    from generate_daily_elite_canvas import write_daily_canvas, write_stakeholder_canvas
+    from daily_summary.generate_daily_elite_canvas import write_daily_canvas, write_stakeholder_canvas
 
     canvas_path = write_daily_canvas(report_date, day_rows, overall_rows, top10_delta)
     print(f"Wrote {canvas_path}")
 
     try:
-        import sys
-
-        ds = PROJECT_ROOT / "daily_summary"
-        if str(ds) not in sys.path:
-            sys.path.insert(0, str(ds))
-        from canvas_to_html import export_for_canvas
+        from daily_summary.canvas_to_html import export_for_canvas
 
         export_for_canvas(canvas_path)
     except Exception as exc:

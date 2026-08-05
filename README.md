@@ -119,8 +119,11 @@ Each daily report includes:
 ## Folder guide
 
 ```
-daily_summary/          Run scripts, scheduler, HTML export, outputs
-decline_check/          BigQuery queries, reason logic, canvas generators
+daily_summary/          Daily/weekend implementation, scheduler, HTML export, outputs
+wow_drop_analysis/      Same-weekday reason logic, exports, and player handoffs
+feedback_cro/           Feedback analysis generator, docs, and exports
+decline_protocol/       Rolling 7-day decline cohort protocol
+elite_reference/        Enterprise SQL and source reference files
 Elite.MD                Terminology and KPI rules (read before reporting)
 .cursor/skills/         Cursor agent skills (@daily-elite-summary)
 ```
@@ -165,14 +168,29 @@ Site URL (org repo):
 
 AM Brief is local review only (`am_daily_dashboard/exports/` + canvas). It is **not** published to GitHub Pages.
 
-After a local Daily/Weekend run, commit and push `docs/` to update the site:
+After a local Daily/Weekend run, HTML is copied into `docs/`.
+
+**Scheduled GitHub Pages auto-publish is currently disabled.** The implementation
+is retained in `daily_summary/publish_pages_git.py`, but the registered scheduled
+task does not opt in to commit or push. See
+`daily_summary/github-pages-auto-publish-spec.md` and
+`daily_summary/github-pages-auto-publish-review.md` before enabling it.
+
+Manual publish (if needed):
 
 ```bash
-git add docs/
-git commit -m "Publish latest Elite daily summary"
-git push
+python daily_summary/publish_pages_git.py --dry-run
+python daily_summary/publish_pages_git.py
 ```
 
+Safety: only `docs/latest.html`, `docs/index.html`, `docs/reports.json`, and
+`docs/reports/*.html`; no force push; no empty commits.
+
+Tests:
+
+```bash
+python -m unittest daily_summary.test_publish_pages_git -v
+```
 ---
 
 - **Workflow:** [`daily_summary/DAILY_SUMMARY.md`](daily_summary/DAILY_SUMMARY.md)

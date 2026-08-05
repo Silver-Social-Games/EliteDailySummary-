@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import os
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -11,6 +12,10 @@ EXPORT_DIR = ROOT / "birthday_gift" / "exports"
 PAYLOAD_PATH = EXPORT_DIR / "canvas_payload.json"
 CANVAS_DIR = Path(
     r"C:\Users\Owner\.cursor\projects\c-Users-Owner-Downloads-Elite\canvases"
+)
+
+DEFAULT_LOOKER_ACCOUNT_PORTAL_URL = (
+    "https://lookerpatrianna.cloud.looker.com/dashboards/5207?Account+ID+={aid}"
 )
 
 METRIC_KEYS = {
@@ -21,6 +26,15 @@ METRIC_KEYS = {
 }
 
 
+def looker_account_portal_url(aid: object) -> str:
+    """Looker Jackpota Account Portal for an AID. Template uses {aid} or {account_id}."""
+    aid_s = str(aid or "").strip()
+    if not aid_s:
+        return ""
+    template = os.environ.get("LOOKER_ACCOUNT_PORTAL_URL", DEFAULT_LOOKER_ACCOUNT_PORTAL_URL)
+    return template.format(aid=aid_s, account_id=aid_s)
+
+
 def load_players(csv_path: Path) -> list[dict]:
     rows = list(csv.DictReader(csv_path.open(encoding="utf-8")))
     players = []
@@ -29,9 +43,11 @@ def load_players(csv_path: Path) -> list[dict]:
         return float(val) if val else None
 
     for r in rows:
+        aid = r["AID"]
         players.append(
             {
-                "aid": r["AID"],
+                "aid": aid,
+                "aidUrl": looker_account_portal_url(aid),
                 "agent": r["Agent"],
                 "ltPurchase": float(r.get("LT Purchase") or 0),
                 "hold": r.get("Hold") or "n/a",
@@ -150,6 +166,7 @@ COHORT_HEADER = '''import {
   Grid,
   H1,
   H2,
+  Link,
   Pill,
   Row,
   Stack,
@@ -197,6 +214,7 @@ const AM_NAMES: Record<string, string> = {
 
 type PlayerRow = {
   aid: string;
+  aidUrl: string;
   agent: string;
   ltPurchase: number;
   hold: string;
@@ -280,12 +298,13 @@ COHORT_FOOTER = ''' as {
   };
 };
 
-const fmtMoney = (n: number) => `$${n.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
+const fmtMoney = (n: number) => `$${Math.round(n).toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
+const fmtInt = (n: number) => Math.round(n).toLocaleString(undefined, { maximumFractionDigits: 0 });
 const fmtNum = (n: number) => n.toLocaleString(undefined, { maximumFractionDigits: 1 });
 const fmtPct = (n: number | null) => (n == null ? "—" : `${n > 0 ? "+" : ""}${n.toFixed(1)}%`);
 const chgColor = (n: number | null) => (n == null || n === 0 ? T.text.secondary : n > 0 ? POS : NEG);
 const fmtDiffMoney = (n: number) => `${n > 0 ? "+" : ""}${fmtMoney(n)}`;
-const fmtDiffNum = (n: number) => `${n > 0 ? "+" : ""}${fmtNum(n)}`;
+const fmtDiffInt = (n: number) => `${n > 0 ? "+" : ""}${fmtInt(n)}`;
 const badge = (text: string, bg: string, color: string) => (
   <span style={{ display: "inline-block", padding: "4px 10px", borderRadius: 999, fontSize: 12, fontWeight: 600, background: bg, color }}>{text}</span>
 );
@@ -307,12 +326,23 @@ const purchaseDirection = (p: PlayerRow): "up" | "down" | "flat" => {
   if (p.purchaseAfter < p.purchaseBefore) return "down";
   return "flat";
 };
+const sortByPurchasePct = (a: PlayerRow, b: PlayerRow, asc: boolean) => {
+  const ap = a.purchasePct ?? (asc ? Number.POSITIVE_INFINITY : Number.NEGATIVE_INFINITY);
+  const bp = b.purchasePct ?? (asc ? Number.POSITIVE_INFINITY : Number.NEGATIVE_INFINITY);
+  if (ap !== bp) return asc ? ap - bp : bp - ap;
+  if (a.purchaseAfter !== b.purchaseAfter) {
+    return asc ? a.purchaseAfter - b.purchaseAfter : b.purchaseAfter - a.purchaseAfter;
+  }
+  return a.aid.localeCompare(b.aid);
+};
+const aidLink = (p: PlayerRow) =>
+  p.aidUrl ? <Link href={p.aidUrl}>{p.aid}</Link> : p.aid;
 
 function playerMetricRows(p: PlayerRow) {
   return [
     { metric: "Purchase amount ($)", before: fmtMoney(p.purchaseBefore), after: fmtMoney(p.purchaseAfter), diff: fmtDiffMoney(p.purchaseDiff), pct: fmtPct(p.purchasePct), pctNum: p.purchasePct },
-    { metric: "Number of purchases", before: fmtNum(p.purchasesBefore), after: fmtNum(p.purchasesAfter), diff: fmtDiffNum(p.purchasesDiff), pct: fmtPct(p.purchasesPct), pctNum: p.purchasesPct },
-    { metric: "Active days", before: fmtNum(p.activeBefore), after: fmtNum(p.activeAfter), diff: fmtDiffNum(p.activeDiff), pct: fmtPct(p.activePct), pctNum: p.activePct },
+    { metric: "Number of purchases", before: fmtInt(p.purchasesBefore), after: fmtInt(p.purchasesAfter), diff: fmtDiffInt(p.purchasesDiff), pct: fmtPct(p.purchasesPct), pctNum: p.purchasesPct },
+    { metric: "Active days", before: fmtInt(p.activeBefore), after: fmtInt(p.activeAfter), diff: fmtDiffInt(p.activeDiff), pct: fmtPct(p.activePct), pctNum: p.activePct },
     { metric: "Total SC bets", before: fmtMoney(p.betsBefore), after: fmtMoney(p.betsAfter), diff: fmtDiffMoney(p.betsDiff), pct: fmtPct(p.betsPct), pctNum: p.betsPct },
   ];
 }
@@ -321,8 +351,6 @@ export default function EliteBirthdayGiftActivity() {
   const summary = DATA.summaryAll;
   const reportTitle = DATA.title || "Elite Gift Players vs Rest of Elite";
   const compare = DATA.compare;
-  const [direction, setDirection] = useCanvasState<"all" | "up" | "down">("direction", "all");
-  const [amFilter, setAmFilter] = useCanvasState<string>("am", "all");
   const [showPlayerList, setShowPlayerList] = useCanvasState<boolean>("showPlayerList", true);
 
   const byKey = Object.fromEntries((compare?.metrics ?? []).map((m) => [m.key, m]));
@@ -331,74 +359,13 @@ export default function EliteBirthdayGiftActivity() {
   const activeCmp = byKey.active;
   const betsCmp = byKey.sc_bets;
 
-  const amOptions = Array.from(
-    new Set(DATA.players.map((p) => amName(p.agent)))
-  )
-    .filter((name) => name !== "Unassigned")
-    .sort((a, b) => a.localeCompare(b));
-
-  const filteredPlayers = DATA.players
-    .filter((p) => {
-      const dir = purchaseDirection(p);
-      if (direction === "up" && dir !== "up") return false;
-      if (direction === "down" && dir !== "down") return false;
-      if (amFilter !== "all" && amName(p.agent) !== amFilter) return false;
-      return true;
-    })
+  const players = DATA.players
     .slice()
-    .sort((a, b) => {
-      if (direction === "up") return b.purchasePct - a.purchasePct;
-      if (direction === "down") return a.purchasePct - b.purchasePct;
-      const rank = (p: PlayerRow) => {
-        const d = purchaseDirection(p);
-        if (d === "up") return 0;
-        if (d === "flat") return 1;
-        return 2;
-      };
-      const ra = rank(a);
-      const rb = rank(b);
-      if (ra !== rb) return ra - rb;
-      if (ra === 0) return b.purchasePct - a.purchasePct;
-      if (ra === 2) return a.purchasePct - b.purchasePct;
-      return a.aid.localeCompare(b.aid);
-    });
+    .sort((a, b) => sortByPurchasePct(a, b, false));
 
-  const upliftCount = DATA.players.filter((p) => {
-    if (amFilter !== "all" && amName(p.agent) !== amFilter) return false;
-    return purchaseDirection(p) === "up";
-  }).length;
-  const downCount = DATA.players.filter((p) => {
-    if (amFilter !== "all" && amName(p.agent) !== amFilter) return false;
-    return purchaseDirection(p) === "down";
-  }).length;
-  const allCount = DATA.players.filter((p) => {
-    if (amFilter !== "all" && amName(p.agent) !== amFilter) return false;
-    return true;
-  }).length;
-
-  const filteredUplift = filteredPlayers.filter((p) => purchaseDirection(p) === "up").length;
-  const filteredDown = filteredPlayers.filter((p) => purchaseDirection(p) === "down").length;
-  const filteredFlat = filteredPlayers.filter((p) => purchaseDirection(p) === "flat").length;
-
-  const avg = (vals: number[]) => (vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : 0);
-  const pctChange = (before: number, after: number) => (before === 0 ? (after === 0 ? 0 : 100) : ((after - before) / before) * 100);
-  const useFullSummary = direction === "all" && amFilter === "all";
-  const filterSummary = {
-    purchaseBefore: useFullSummary ? summary.purchase_amount.avgBefore : avg(filteredPlayers.map((p) => p.purchaseBefore)),
-    purchaseAfter: useFullSummary ? summary.purchase_amount.avgAfter : avg(filteredPlayers.map((p) => p.purchaseAfter)),
-    purchasesBefore: useFullSummary ? summary.number_of_purchases.avgBefore : avg(filteredPlayers.map((p) => p.purchasesBefore)),
-    purchasesAfter: useFullSummary ? summary.number_of_purchases.avgAfter : avg(filteredPlayers.map((p) => p.purchasesAfter)),
-    activeBefore: useFullSummary ? summary.active_days.avgBefore : avg(filteredPlayers.map((p) => p.activeBefore)),
-    activeAfter: useFullSummary ? summary.active_days.avgAfter : avg(filteredPlayers.map((p) => p.activeAfter)),
-    betsBefore: useFullSummary ? summary.total_sc_bets.avgBefore : avg(filteredPlayers.map((p) => p.betsBefore)),
-    betsAfter: useFullSummary ? summary.total_sc_bets.avgAfter : avg(filteredPlayers.map((p) => p.betsAfter)),
-  };
-  const filterPct = {
-    purchase: useFullSummary ? summary.purchase_amount.avgPct : pctChange(filterSummary.purchaseBefore, filterSummary.purchaseAfter),
-    purchases: useFullSummary ? summary.number_of_purchases.avgPct : pctChange(filterSummary.purchasesBefore, filterSummary.purchasesAfter),
-    active: useFullSummary ? summary.active_days.avgPct : pctChange(filterSummary.activeBefore, filterSummary.activeAfter),
-    bets: useFullSummary ? summary.total_sc_bets.avgPct : pctChange(filterSummary.betsBefore, filterSummary.betsAfter),
-  };
+  const upliftCount = players.filter((p) => purchaseDirection(p) === "up").length;
+  const downCount = players.filter((p) => purchaseDirection(p) === "down").length;
+  const flatCount = players.filter((p) => purchaseDirection(p) === "flat").length;
 
   return (
     <Stack gap={20} style={shellStyle}>
@@ -479,13 +446,13 @@ export default function EliteBirthdayGiftActivity() {
             ]}
           />
 
-          <H2>Elite Gift vs Rest (Avg per player)</H2>
+          <H2>Elite Gift vs Rest (Avg Per Player)</H2>
           <Grid columns={2} gap={16}>
             <Card style={surfaceStyle}>
               <CardHeader>Elite Gift</CardHeader>
               <CardBody>
                 <BarChart
-                  categories={["Purchase ($)", "Purchases", "Active rate", "SC bets"]}
+                  categories={["Purchase ($)", "Purchases", "Active Rate", "SC Bets"]}
                   series={[
                     {
                       name: "Before",
@@ -517,7 +484,7 @@ export default function EliteBirthdayGiftActivity() {
               <CardHeader>Rest</CardHeader>
               <CardBody>
                 <BarChart
-                  categories={["Purchase ($)", "Purchases", "Active rate", "SC bets"]}
+                  categories={["Purchase ($)", "Purchases", "Active Rate", "SC Bets"]}
                   series={[
                     {
                       name: "Before",
@@ -556,31 +523,13 @@ export default function EliteBirthdayGiftActivity() {
             {showPlayerList ? "Hide list" : "Show list"}
           </Pill>
         </Row>
-        <Row gap={8} style={{ flexWrap: "wrap" }}>
-          <Pill active={direction === "all"} onClick={() => setDirection("all")}>All ({allCount})</Pill>
-          <Pill active={direction === "up"} onClick={() => setDirection("up")}>
-            <span style={{ color: POS, fontWeight: 700 }}>Uplift ({upliftCount})</span>
-          </Pill>
-          <Pill active={direction === "down"} onClick={() => setDirection("down")}>
-            <span style={{ color: NEG, fontWeight: 700 }}>Decrease ({downCount})</span>
-          </Pill>
-        </Row>
-        <Row gap={8} style={{ flexWrap: "wrap" }}>
-          <Pill active={amFilter === "all"} onClick={() => setAmFilter("all")}>All AMs</Pill>
-          {amOptions.map((name) => (
-            <Pill key={name} active={amFilter === name} onClick={() => setAmFilter(name)}>
-              {name} ({DATA.players.filter((p) => amName(p.agent) === name).length})
-            </Pill>
-          ))}
-        </Row>
         <Text tone="secondary">
-          {filteredPlayers.length} players
-          {direction === "up" ? " · sorted best uplift first" : ""}
-          {direction === "down" ? " · sorted biggest decrease first" : ""}
+          {players.length} player{players.length === 1 ? "" : "s"}
+          {" · "}sorted by purchase % (high → low)
         </Text>
 
         {showPlayerList
-          ? filteredPlayers.map((p) => {
+          ? players.map((p) => {
               const dir = purchaseDirection(p);
               const am = amName(p.agent);
               const dirLabel = dir === "up" ? "UPLIFT" : dir === "down" ? "DECREASE" : "FLAT";
@@ -636,20 +585,20 @@ export default function EliteBirthdayGiftActivity() {
       </Stack>
 
       <Stack gap={12}>
-        <H2>All Players ({filteredPlayers.length})</H2>
+        <H2>All Players ({players.length})</H2>
         <Table
-          headers={["AID", "AM", "Direction", "LT Purchase", "Hold", "Purchase", "Purchases", "Active days", "SC bets"]}
+          headers={["AID", "AM", "Direction", "LT Purchase", "Hold", "Purchase", "Purchases", "Active Days", "SC Bets"]}
           columnAlign={["left", "left", "left", "right", "right", "right", "right", "right", "right"]}
           striped
           stickyHeader
-          rowTone={filteredPlayers.map((p) => {
+          rowTone={players.map((p) => {
             const dir = purchaseDirection(p);
             return dir === "up" ? "success" : dir === "down" ? "danger" : "neutral";
           })}
-          rows={filteredPlayers.map((p) => {
+          rows={players.map((p) => {
             const dir = purchaseDirection(p);
             return [
-              p.aid,
+              aidLink(p),
               amName(p.agent),
               <span style={{ color: dir === "up" ? POS : dir === "down" ? NEG : T.text.secondary, fontWeight: 700 }}>
                 {dir === "up" ? "UPLIFT" : dir === "down" ? "DECREASE" : "FLAT"}
@@ -657,8 +606,8 @@ export default function EliteBirthdayGiftActivity() {
               fmtMoney(p.ltPurchase),
               p.hold,
               `${fmtMoney(p.purchaseBefore)} - ${fmtMoney(p.purchaseAfter)} (${fmtPct(p.purchasePct)})`,
-              `${fmtNum(p.purchasesBefore)} - ${fmtNum(p.purchasesAfter)}`,
-              `${fmtNum(p.activeBefore)} - ${fmtNum(p.activeAfter)}`,
+              `${fmtInt(p.purchasesBefore)} - ${fmtInt(p.purchasesAfter)}`,
+              `${fmtInt(p.activeBefore)} - ${fmtInt(p.activeAfter)}`,
               `${fmtMoney(p.betsBefore)} - ${fmtMoney(p.betsAfter)}`,
             ];
           })}
@@ -666,41 +615,40 @@ export default function EliteBirthdayGiftActivity() {
 
         <H2>Summary</H2>
         <Text tone="secondary">
-          n={filteredPlayers.length}
+          n={players.length}
           {" · "}
-          <span style={{ color: POS, fontWeight: 700 }}>Uplift {filteredUplift}</span>
+          <span style={{ color: POS, fontWeight: 700 }}>Uplift {upliftCount}</span>
           {" · "}
-          <span style={{ color: NEG, fontWeight: 700 }}>Decrease {filteredDown}</span>
-          {" · "}Flat {filteredFlat}
-          {!useFullSummary ? " · filtered view" : ""}
+          <span style={{ color: NEG, fontWeight: 700 }}>Decrease {downCount}</span>
+          {" · "}Flat {flatCount}
         </Text>
         <Grid columns={4} gap={12}>
           <div style={statStyle}>
             <Stat
-              label="Avg purchase"
-              value={`${fmtMoney(filterSummary.purchaseBefore)} - ${fmtMoney(filterSummary.purchaseAfter)}`}
-              detail={fmtPct(filterPct.purchase)}
+              label="Avg Purchase"
+              value={`${fmtMoney(summary.purchase_amount.avgBefore)} - ${fmtMoney(summary.purchase_amount.avgAfter)}`}
+              detail={fmtPct(summary.purchase_amount.avgPct)}
             />
           </div>
           <div style={statStyle}>
             <Stat
-              label="Avg purchases"
-              value={`${fmtNum(filterSummary.purchasesBefore)} - ${fmtNum(filterSummary.purchasesAfter)}`}
-              detail={fmtPct(filterPct.purchases)}
+              label="Avg Purchases"
+              value={`${fmtInt(summary.number_of_purchases.avgBefore)} - ${fmtInt(summary.number_of_purchases.avgAfter)}`}
+              detail={fmtPct(summary.number_of_purchases.avgPct)}
             />
           </div>
           <div style={statStyle}>
             <Stat
-              label="Avg active days"
-              value={`${fmtNum(filterSummary.activeBefore)} - ${fmtNum(filterSummary.activeAfter)}`}
-              detail={fmtPct(filterPct.active)}
+              label="Avg Active Days"
+              value={`${fmtInt(summary.active_days.avgBefore)} - ${fmtInt(summary.active_days.avgAfter)}`}
+              detail={fmtPct(summary.active_days.avgPct)}
             />
           </div>
           <div style={statStyle}>
             <Stat
-              label="Avg SC bets"
-              value={`${fmtMoney(filterSummary.betsBefore)} - ${fmtMoney(filterSummary.betsAfter)}`}
-              detail={fmtPct(filterPct.bets)}
+              label="Avg SC Bets"
+              value={`${fmtMoney(summary.total_sc_bets.avgBefore)} - ${fmtMoney(summary.total_sc_bets.avgAfter)}`}
+              detail={fmtPct(summary.total_sc_bets.avgPct)}
             />
           </div>
         </Grid>
@@ -717,6 +665,8 @@ FULL_HEADER = '''import {
   CardHeader,
   Grid,
   H1,
+  H2,
+  Link,
   Pill,
   Row,
   Stack,
@@ -728,7 +678,10 @@ FULL_HEADER = '''import {
 
 type PlayerRow = {
   aid: string;
+  aidUrl: string;
   agent: string;
+  ltPurchase: number;
+  hold: string;
   giftMonth: string;
   giftDate: string;
   beforeFrom: string;
@@ -743,10 +696,16 @@ type PlayerRow = {
   purchasePct: number | null;
   purchasesBefore: number;
   purchasesAfter: number;
+  purchasesDiff: number;
+  purchasesPct: number | null;
   activeBefore: number;
   activeAfter: number;
+  activeDiff: number;
+  activePct: number | null;
   betsBefore: number;
   betsAfter: number;
+  betsDiff: number;
+  betsPct: number | null;
 };
 
 type SummaryMetric = {
@@ -772,23 +731,30 @@ FULL_FOOTER = ''' as {
   fullAfterCount: number;
 };
 
-const fmtMoney = (n: number) => `$${n.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
-const fmtNum = (n: number) => n.toLocaleString(undefined, { maximumFractionDigits: 0 });
-const fmtPct = (n: number | null) => (n == null ? "—" : `${n > 0 ? "+" : ""}${n.toFixed(1)}%`);
+const fmtMoney = (n: number) => `$${Math.round(n).toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
+const fmtInt = (n: number) => Math.round(n).toLocaleString(undefined, { maximumFractionDigits: 0 });
+const fmtPct = (n: number | null) => (n == null ? "-" : `${n > 0 ? "+" : ""}${n.toFixed(1)}%`);
+const sortByPurchasePct = (a: PlayerRow, b: PlayerRow, asc: boolean) => {
+  const ap = a.purchasePct ?? (asc ? Number.POSITIVE_INFINITY : Number.NEGATIVE_INFINITY);
+  const bp = b.purchasePct ?? (asc ? Number.POSITIVE_INFINITY : Number.NEGATIVE_INFINITY);
+  if (ap !== bp) return asc ? ap - bp : bp - ap;
+  if (a.purchaseAfter !== b.purchaseAfter) {
+    return asc ? a.purchaseAfter - b.purchaseAfter : b.purchaseAfter - a.purchaseAfter;
+  }
+  return a.aid.localeCompare(b.aid);
+};
+const aidLink = (p: PlayerRow) =>
+  p.aidUrl ? <Link href={p.aidUrl}>{p.aid}</Link> : p.aid;
 
 export default function EliteBirthdayGiftActivity() {
   const [month, setMonth] = useCanvasState<string>("month", "all");
   const summary = month === "all" ? DATA.summaryAll : (DATA.summaryByMonth[month] ?? DATA.summaryAll);
-  const players = month === "all" ? DATA.players : DATA.players.filter((p) => p.giftMonth === month);
+  const monthPlayers = month === "all" ? DATA.players : DATA.players.filter((p) => p.giftMonth === month);
+  const players = monthPlayers
+    .slice()
+    .sort((a, b) => sortByPurchasePct(a, b, false));
   const periods = DATA.periods;
   const reportTitle = DATA.title || "Elite Birthday Gift Activity";
-
-  const chartData = [
-    { label: "Purchase ($)", before: summary.purchase_amount.avgBefore, after: summary.purchase_amount.avgAfter },
-    { label: "Purchases", before: summary.number_of_purchases.avgBefore, after: summary.number_of_purchases.avgAfter },
-    { label: "Active days", before: summary.active_days.avgBefore, after: summary.active_days.avgAfter },
-    { label: "SC bets", before: summary.total_sc_bets.avgBefore, after: summary.total_sc_bets.avgAfter },
-  ];
 
   return (
     <Stack gap={20}>
@@ -796,58 +762,101 @@ export default function EliteBirthdayGiftActivity() {
         <H1>{reportTitle}</H1>
         <Text tone="secondary">
           Before {periods.beforeFrom} to {periods.beforeTo} · After {periods.afterFrom} to {periods.afterTo}
+          {" · "}n={monthPlayers.length}
         </Text>
       </Stack>
 
-      <Row gap={8}>
-        <Pill active={month === "all"} onClick={() => setMonth("all")}>All ({DATA.playerCount})</Pill>
-        {Object.entries(DATA.monthCounts).map(([m, n]) => (
-          <Pill key={m} active={month === m} onClick={() => setMonth(m)}>{m} ({n})</Pill>
-        ))}
-      </Row>
+      {Object.keys(DATA.monthCounts).length > 1 ? (
+        <Row gap={8}>
+          <Pill active={month === "all"} onClick={() => setMonth("all")}>All ({DATA.playerCount})</Pill>
+          {Object.entries(DATA.monthCounts).map(([m, n]) => (
+            <Pill key={m} active={month === m} onClick={() => setMonth(m)}>{m} ({n})</Pill>
+          ))}
+        </Row>
+      ) : null}
 
       <Grid columns={4} gap={12}>
-        <Stat label="Avg purchase before" value={fmtMoney(summary.purchase_amount.avgBefore)} detail={`${fmtPct(summary.purchase_amount.avgPct)} after`} />
-        <Stat label="Avg purchases before" value={fmtNum(summary.number_of_purchases.avgBefore)} detail={`${fmtPct(summary.number_of_purchases.avgPct)} after`} />
-        <Stat label="Avg active days before" value={fmtNum(summary.active_days.avgBefore)} detail={`${fmtPct(summary.active_days.avgPct)} after`} />
-        <Stat label="Avg SC bets before" value={fmtMoney(summary.total_sc_bets.avgBefore)} detail={`${fmtPct(summary.total_sc_bets.avgPct)} after`} />
+        <Stat
+          label="Avg Purchase"
+          value={`${fmtMoney(summary.purchase_amount.avgBefore)} - ${fmtMoney(summary.purchase_amount.avgAfter)}`}
+          detail={fmtPct(summary.purchase_amount.avgPct)}
+        />
+        <Stat
+          label="Avg Purchases"
+          value={`${fmtInt(summary.number_of_purchases.avgBefore)} - ${fmtInt(summary.number_of_purchases.avgAfter)}`}
+          detail={fmtPct(summary.number_of_purchases.avgPct)}
+        />
+        <Stat
+          label="Avg Active Days"
+          value={`${fmtInt(summary.active_days.avgBefore)} - ${fmtInt(summary.active_days.avgAfter)}`}
+          detail={fmtPct(summary.active_days.avgPct)}
+        />
+        <Stat
+          label="Avg SC Bets"
+          value={`${fmtMoney(summary.total_sc_bets.avgBefore)} - ${fmtMoney(summary.total_sc_bets.avgAfter)}`}
+          detail={fmtPct(summary.total_sc_bets.avgPct)}
+        />
       </Grid>
 
       <Card>
         <CardHeader trailing={<Text tone="secondary">n={summary.purchase_amount.players}</Text>}>
-          Average before vs after
+          Average Before vs After
         </CardHeader>
         <CardBody>
           <BarChart
-            title="Average metric levels (before vs after)"
-            data={chartData}
-            xKey="label"
+            categories={["Purchase ($)", "Purchases", "Active Days", "SC Bets"]}
             series={[
-              { key: "before", label: "Before", tone: "neutral" },
-              { key: "after", label: "After", tone: "accent" },
+              {
+                name: "Before",
+                data: [
+                  summary.purchase_amount.avgBefore,
+                  summary.number_of_purchases.avgBefore,
+                  summary.active_days.avgBefore,
+                  summary.total_sc_bets.avgBefore,
+                ],
+                tone: "neutral",
+              },
+              {
+                name: "After",
+                data: [
+                  summary.purchase_amount.avgAfter,
+                  summary.number_of_purchases.avgAfter,
+                  summary.active_days.avgAfter,
+                  summary.total_sc_bets.avgAfter,
+                ],
+                tone: "info",
+              },
             ]}
-            yLabel="Average value"
+            height={280}
+            showValues
           />
         </CardBody>
       </Card>
 
-      <H2>Player detail</H2>
-      <Table
-        headers={["AID", "Agent", "Gift month", "Gift date", "After days", "Purchase before", "Purchase after", "% chg"]}
-        columnAlign={["left", "left", "left", "left", "right", "right", "right", "right"]}
-        striped
-        stickyHeader
-        rows={players.map((p) => [
-          p.aid,
-          p.agent,
-          p.giftMonth,
-          p.giftDate || "—",
-          String(p.afterDays),
-          fmtMoney(p.purchaseBefore),
-          fmtMoney(p.purchaseAfter),
-          fmtPct(p.purchasePct),
-        ])}
-      />
+      <Stack gap={10}>
+        <H2>Player Data</H2>
+        <Text tone="secondary">
+          {players.length} player{players.length === 1 ? "" : "s"}
+          {" · "}values shown as before - after · sorted by purchase % (high → low)
+        </Text>
+        <Table
+          headers={["AID", "AM", "LT Purchase", "Hold", "Purchase", "Purchases", "Active Days", "SC Bets", "% Purchase"]}
+          columnAlign={["left", "left", "right", "right", "right", "right", "right", "right", "right"]}
+          striped
+          stickyHeader
+          rows={players.map((p) => [
+            aidLink(p),
+            p.agent,
+            fmtMoney(p.ltPurchase),
+            p.hold,
+            `${fmtMoney(p.purchaseBefore)} - ${fmtMoney(p.purchaseAfter)}`,
+            `${fmtInt(p.purchasesBefore)} - ${fmtInt(p.purchasesAfter)}`,
+            `${fmtInt(p.activeBefore)} - ${fmtInt(p.activeAfter)}`,
+            `${fmtMoney(p.betsBefore)} - ${fmtMoney(p.betsAfter)}`,
+            fmtPct(p.purchasePct),
+          ])}
+        />
+      </Stack>
     </Stack>
   );
 }

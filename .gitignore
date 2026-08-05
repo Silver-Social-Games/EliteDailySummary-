@@ -12,41 +12,50 @@ daily_summary/daily_summaries/*
 !daily_summary/daily_summaries/2026-07-07_elite_daily_summary_canvas.html
 !daily_summary/daily_summaries/2026-07-09_to_2026-07-11_elite_weekend_summary_canvas.html
 daily_summary/logs/
-decline_check/daily_summaries/
-decline_check/handoffs/
-decline_check/*.csv
-decline_check/*.sql
-decline_check/*.docx
-decline_check/*.xlsx
-decline_check/data/
-decline_check/_tmp*
-decline_check/ACTION_PLAYBOOK.md
-decline_check/DAILY_FLOW.md
-decline_check/FEEDBACK_CRO_CANVAS.md
-decline_check/ZENDESK_TICKET_RULES.md
-decline_check/generate_decline_protocol.py
-decline_check/generate_elite_feedback_cro_canvas.py
-decline_check/monday_skip_export.py
-decline_check/export_tuesday_compare.py
-decline_check/track_declines.py
-decline_check/wow_drop_player_handoff.py
-decline_check/register_daily_elite_task.ps1
+daily_summary/handoffs/*
+!daily_summary/handoffs/elite_daily_summary_web.html
+!daily_summary/handoffs/elite-daily-summary.template.canvas.tsx
+wow_drop_analysis/exports/
+wow_drop_analysis/handoffs/*
+!wow_drop_analysis/handoffs/wow-drop-handoff.template.canvas.tsx
+feedback_cro/exports/
+feedback_cro/handoffs/
+feedback_cro/_tmp*
+decline_protocol/decline_protocols/
+_archive/decline_check_legacy/
 exports/
 
-# Cursor — daily-elite-summary skill only
+# Cursor project rules and skills
 .cursor/*
+!.cursor/rules/
+!.cursor/rules/**
 !.cursor/skills/
-.cursor/skills/*
-!.cursor/skills/daily-elite-summary/
+!.cursor/skills/**
 
-# Other Elite initiatives (not part of EliteDailySummary)
+# Initiative source is versioned; generated or source-data artifacts are ignored.
 ceo_h1_slide/
-last_push_60d/
-new_elite_players_adding/
-purchase_lookup/
-vip_event/
+last_push_60d/exports/
+last_push_60d/handoffs/
+last_push_60d/logs/
+purchase_lookup/data/
+purchase_lookup/exports/
+purchase_lookup/handoffs/
+vip_event/data/
+vip_event/exports/
+vip_event/handoffs/
+declining_fri_sat_promo/exports/
+new_elite_players_adding/data/
+new_elite_players_adding/exports/
+new_elite_players_adding/handoffs/
+new_elite_players_adding/logs/
+new_elite_players_adding/*.csv
+new_elite_players_adding/*.xlsx
 slide_removed.png
 Elite.code-workspace
+
+# Node
+node_modules/
+dist/
 
 # Python
 __pycache__/

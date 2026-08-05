@@ -6,7 +6,7 @@ import json
 from datetime import date, timedelta
 from pathlib import Path
 
-from generate_daily_elite_summary import day_row, weekday_label, wow_change
+from daily_summary.generate_daily_elite_summary import day_row, weekday_label, wow_change
 
 DEFAULT_CANVAS_DIR = Path(
     r"C:\Users\Owner\.cursor\projects\c-Users-Owner-Downloads-Elite\canvases"
@@ -122,8 +122,8 @@ def build_report(report_date: date, day_rows: list[dict], overall_rows: list[dic
 
 
 def build_top10_rows(top10: list[dict]) -> list[dict]:
-    from generate_daily_elite_summary import looker_account_portal_url
-    from wow_drop_reason import M_NONE_IN_7D, format_agent_name, split_reason_parts
+    from daily_summary.generate_daily_elite_summary import looker_account_portal_url
+    from wow_drop_analysis.wow_drop_reason import M_NONE_IN_7D, format_agent_name, split_reason_parts
 
     rows = []
     for r in top10:
@@ -162,7 +162,7 @@ def build_top10_rows(top10: list[dict]) -> list[dict]:
 
 
 def render_canvas_tsx(report: dict, top10: list[dict], agents: list[str]) -> str:
-    from wow_drop_reason import format_urgency_legend_one_line
+    from wow_drop_analysis.wow_drop_reason import format_urgency_legend_one_line
 
     report_json = json.dumps(report, indent=2)
     top10_json = json.dumps(top10, indent=2)

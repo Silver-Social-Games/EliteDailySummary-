@@ -2,7 +2,7 @@
 
 Morning board for Coral, Gabriel, Lee, Rachel, and Alon — complementary to the Elite Daily Decline Top 20.
 
-**Definitions:** [`Elite.MD`](../Elite.MD) · **Decline reasons:** `decline_check/wow_drop_reason.py`
+**Definitions:** [`Elite.MD`](../Elite.MD) · **Decline reasons:** `wow_drop_analysis/wow_drop_reason.py`
 
 ---
 
