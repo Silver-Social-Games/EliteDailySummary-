@@ -11,7 +11,6 @@ Credentials: GOOGLE_APPLICATION_CREDENTIALS or default key path below.
 
 from __future__ import annotations
 
-import os
 import sys
 from datetime import date, datetime, timedelta
 from pathlib import Path
@@ -23,68 +22,33 @@ from elite_lib import (  # noqa: E402
     PROJECT_ID,
     dashboard_elite_ctes,
     day_row,
+    fmt_money,
+    fmt_reason,
+    format_aid_markdown,
+    format_ticket_markdown,
     get_client,
+    looker_account_portal_url,
     run_query,
+    weekday_label,
     wow_change,
+    zendesk_new_ticket_url,
+    zendesk_ticket_url,
 )
+
+# Re-exported from elite_lib for existing `from daily_summary.generate_daily_elite_summary
+# import ...` call sites. New code should import these from elite_lib directly.
+__all__ = [
+    "fmt_money",
+    "fmt_reason",
+    "format_aid_markdown",
+    "format_ticket_markdown",
+    "looker_account_portal_url",
+    "weekday_label",
+    "zendesk_new_ticket_url",
+    "zendesk_ticket_url",
+]
 
 OUTPUT_DIR = Path(__file__).resolve().parent / "daily_summaries"
-# S-Jackpota Account Portal (Looker dashboard 5207). Override via LOOKER_ACCOUNT_PORTAL_URL.
-DEFAULT_LOOKER_ACCOUNT_PORTAL_URL = (
-    "https://lookerpatrianna.cloud.looker.com/dashboards/5207?Account+ID+={aid}"
-)
-DEFAULT_ZENDESK_AGENT_BASE = "https://jackpotahelp.zendesk.com"
-
-
-def looker_account_portal_url(aid: object) -> str:
-    """Looker Jackpota Account Portal for an AID. Template uses {aid} or {account_id}."""
-    aid_s = str(aid or "").strip()
-    if not aid_s:
-        return ""
-    template = os.environ.get("LOOKER_ACCOUNT_PORTAL_URL", DEFAULT_LOOKER_ACCOUNT_PORTAL_URL)
-    return template.format(aid=aid_s, account_id=aid_s)
-
-
-def format_aid_markdown(aid: object) -> str:
-    aid_s = str(aid or "").strip()
-    if not aid_s:
-        return ""
-    url = looker_account_portal_url(aid_s)
-    return f"[{aid_s}]({url})" if url else aid_s
-
-
-def zendesk_new_ticket_url(requester_id: object = None) -> str:
-    """Zendesk Agent Workspace new ticket. Pre-selects requester when id is known."""
-    base = os.environ.get("ZENDESK_AGENT_BASE_URL", DEFAULT_ZENDESK_AGENT_BASE).rstrip("/")
-    url = f"{base}/agent/tickets/new/1"
-    rid = str(requester_id or "").strip()
-    if rid and rid.isdigit():
-        return f"{url}?requester_id={rid}"
-    return url
-
-
-def zendesk_ticket_url(ticket_id: object) -> str:
-    """Open an existing Zendesk ticket in Agent Workspace."""
-    tid = str(ticket_id or "").strip()
-    if not tid:
-        return ""
-    base = os.environ.get("ZENDESK_AGENT_BASE_URL", DEFAULT_ZENDESK_AGENT_BASE).rstrip("/")
-    return f"{base}/agent/tickets/{tid}"
-
-
-def format_ticket_markdown(draft: dict) -> str:
-    if not draft.get("ticketEnabled"):
-        return "—"
-    url = draft.get("zendeskUrl") or ""
-    subject = (draft.get("ticketSubject") or "").replace("|", "/")
-    preview = subject if len(subject) <= 48 else subject[:47].rstrip() + "…"
-    if url:
-        return f"[Draft]({url}) · _{preview}_"
-    return f"_{preview}_"
-
-
-def weekday_label(d: date) -> str:
-    return d.strftime("%A")
 
 
 def top10_table_titles(day_name: str) -> dict[str, str]:
@@ -265,28 +229,6 @@ def build_sql(report_date: date) -> dict[str, str]:
         GROUP BY 1 ORDER BY active_decliners DESC LIMIT 10
         """,
     }
-
-
-def fmt_money(v) -> str:
-    if v is None:
-        return "-"
-    return f"${round(float(v)):,}"
-
-
-REASON_LABELS = {
-    "self_exclusion": "Self-exclusion",
-    "redemption_in_progress": "Redemption in progress",
-    "big_win_last_7d": "Big win (7d)",
-    "big_loss_last_7d": "Big loss (7d)",
-    "same_weekday_skip": "Same weekday skip",
-    "account_locked": "Account locked",
-    "red_flag": "Red flag",
-    "general_spend_softening": "General spend softening",
-}
-
-
-def fmt_reason(code: str) -> str:
-    return REASON_LABELS.get(code, code.replace("_", " "))
 
 
 def _wow_marker(chg: float) -> str:

@@ -21,7 +21,7 @@ from openpyxl.utils import get_column_letter
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from daily_summary.generate_daily_elite_summary import PROJECT_ID, get_client, run_query
+from elite_lib import PROJECT_ID, get_client, run_query
 
 MODULE_DIR = Path(__file__).resolve().parent
 DATA_DIR = MODULE_DIR / "data"

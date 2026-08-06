@@ -4,25 +4,15 @@ from __future__ import annotations
 import argparse
 import csv
 import json
-import os
+import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT))
+
+from elite_lib import looker_account_portal_url  # noqa: E402
+
 EXPORT_DIR = Path(__file__).resolve().parent / "exports"
-
-DEFAULT_LOOKER_ACCOUNT_PORTAL_URL = (
-    "https://lookerpatrianna.cloud.looker.com/dashboards/5207?Account+ID+={aid}"
-)
-
-
-def looker_account_portal_url(aid: object) -> str:
-    aid_s = str(aid or "").strip()
-    if not aid_s:
-        return ""
-    template = os.environ.get(
-        "LOOKER_ACCOUNT_PORTAL_URL", DEFAULT_LOOKER_ACCOUNT_PORTAL_URL
-    )
-    return template.format(aid=aid_s, account_id=aid_s)
 
 
 def load_players(csv_path: Path) -> list[dict]:

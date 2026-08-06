@@ -122,7 +122,7 @@ def build_report(report_date: date, day_rows: list[dict], overall_rows: list[dic
 
 
 def build_top10_rows(top10: list[dict]) -> list[dict]:
-    from daily_summary.generate_daily_elite_summary import looker_account_portal_url
+    from elite_lib import looker_account_portal_url
     from wow_drop_analysis.wow_drop_reason import M_NONE_IN_7D, format_agent_name, split_reason_parts
 
     rows = []

@@ -39,7 +39,7 @@ from __future__ import annotations
 import re
 from datetime import date, timedelta
 
-from daily_summary.generate_daily_elite_summary import PROJECT_ID, fmt_money, fmt_reason, run_query
+from elite_lib import PROJECT_ID, fmt_money, fmt_reason, run_query
 
 DAY_DROP_LABELS = {
     "self_exclusion": "Self-exclusion",
@@ -1718,7 +1718,7 @@ def build_zendesk_ticket_draft(
     report_date: date | None = None,
 ) -> dict:
     """Zendesk ticket draft for agent review only — never auto-sent. See ZENDESK_TICKET_RULES.md."""
-    from daily_summary.generate_daily_elite_summary import zendesk_new_ticket_url
+    from elite_lib import zendesk_new_ticket_url
 
     code = row.get("reason_code") or ""
     recommendation = row.get("recommendation") or row.get("action") or ""
@@ -2426,7 +2426,7 @@ def classify_same_day_candidate_rows(
     rows: list[dict],
 ) -> list[dict]:
     """Enrich + classify already-selected same-day gap rows (Daily Top 20 logic)."""
-    from daily_summary.generate_daily_elite_summary import weekday_label
+    from elite_lib import weekday_label
 
     if not rows:
         return []

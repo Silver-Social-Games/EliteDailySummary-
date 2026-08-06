@@ -8,7 +8,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from daily_summary.generate_daily_elite_summary import PROJECT_ID, get_client, run_query  # noqa: E402
+from elite_lib import PROJECT_ID, get_client, run_query  # noqa: E402
 
 THIS = date(2026, 6, 8)
 PRIOR = date(2026, 6, 1)
