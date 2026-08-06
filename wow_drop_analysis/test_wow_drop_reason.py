@@ -10,9 +10,9 @@ from __future__ import annotations
 import unittest
 from datetime import date
 
+from wow_drop_analysis.ticket_draft import _ticket_outreach_disabled
 from wow_drop_analysis.wow_drop_reason import (
     URGENCY_BY_CODE,
-    _ticket_outreach_disabled,
     build_action_step,
     classify_day_drop,
     sort_top10_rows,
