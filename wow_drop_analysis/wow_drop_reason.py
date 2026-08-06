@@ -39,7 +39,7 @@ from __future__ import annotations
 import re
 from datetime import date, timedelta
 
-from elite_lib import PROJECT_ID, fmt_money, fmt_reason, run_query
+from elite_lib import HEAVY_QUERY_SCAN_CAP_BYTES, PROJECT_ID, fmt_money, fmt_reason, run_query, sql_int_list
 
 DAY_DROP_LABELS = {
     "self_exclusion": "Self-exclusion",
@@ -1871,7 +1871,7 @@ def same_day_selection_summary(rows: list[dict], elite_wow_drop: float) -> str:
 def enrich_aids_sql(aids: list[int], report_date: date) -> str:
     if not aids:
         return "SELECT 1 WHERE FALSE"
-    id_list = ",".join(str(a) for a in aids)
+    id_list = sql_int_list(aids)
     rd = report_date.isoformat()
     day_before = (report_date - timedelta(days=1)).isoformat()
     w0_start = (report_date - timedelta(days=6)).isoformat()
@@ -2431,7 +2431,12 @@ def classify_same_day_candidate_rows(
     if not rows:
         return []
     aids = [int(r["AID"]) for r in rows]
-    enrich_map = {int(e["AID"]): e for e in run_query(client, enrich_aids_sql(aids, report_date))}
+    enrich_rows = run_query(
+        client,
+        enrich_aids_sql(aids, report_date),
+        maximum_bytes_billed=HEAVY_QUERY_SCAN_CAP_BYTES,
+    )
+    enrich_map = {int(e["AID"]): e for e in enrich_rows}
     day_name = weekday_label(report_date)
     out = []
     for r in rows:

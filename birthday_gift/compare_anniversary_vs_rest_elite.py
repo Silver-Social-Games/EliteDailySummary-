@@ -8,7 +8,7 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from elite_lib import PROJECT_ID, get_client, run_query  # noqa: E402
+from elite_lib import PROJECT_ID, get_client, run_query, sql_int_list  # noqa: E402
 
 AIDS_FILE = (
     PROJECT_ROOT
@@ -39,7 +39,7 @@ def load_aids(path: Path) -> list[int]:
 
 def main() -> None:
     aids = load_aids(AIDS_FILE)
-    aid_list = ", ".join(str(a) for a in aids)
+    aid_list = sql_int_list(aids)
     print(f"Unlocked cohort AIDs: {len(aids)}")
 
     sql = f"""

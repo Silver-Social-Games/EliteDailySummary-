@@ -30,7 +30,7 @@ OUTPUT_DIR = Path(__file__).resolve().parent / "exports"
 COHORTS_DIR = Path(__file__).resolve().parent / "cohorts"
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from elite_lib import PROJECT_ID, get_client, run_query  # noqa: E402
+from elite_lib import PROJECT_ID, get_client, run_query, sql_int_list  # noqa: E402
 
 BIRTHDAY_CAMPAIGN_ID = 1816
 WINDOW_DAYS = 30
@@ -83,7 +83,7 @@ def build_cohort_sql(
     after_to: date,
     gift_month: str | None = None,
 ) -> str:
-    aid_list = ", ".join(str(a) for a in aids)
+    aid_list = sql_int_list(aids)
     bf, bt = before_from.isoformat(), before_to.isoformat()
     af, at = after_from.isoformat(), after_to.isoformat()
     label_month = gift_month or after_from.strftime("%Y-%m")

@@ -4,12 +4,18 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import Sequence
+from typing import Iterable, Sequence
 
 from google.cloud import bigquery
 from google.oauth2 import service_account
 
 PROJECT_ID = "silver-social-games-data"
+
+# Generous safety net for heavy hand-built queries (joins across KPI/Zendesk/
+# gameplay tables for a batch of AIDs). Matches the cap reward_check already
+# uses for its heaviest query. Well above normal usage; only stops a truly
+# runaway or misconfigured query from scanning unbounded data.
+HEAVY_QUERY_SCAN_CAP_BYTES = 10_000_000_000
 
 
 def _local_default_key() -> Path | None:
@@ -44,9 +50,43 @@ def get_client() -> bigquery.Client:
     return bigquery.Client(project=PROJECT_ID, location="EU")
 
 
-def run_query(client: bigquery.Client, sql: str) -> list[dict]:
-    """Execute SQL and return rows as plain dictionaries."""
-    return [dict(row.items()) for row in client.query(sql).result()]
+def run_query(
+    client: bigquery.Client,
+    sql: str,
+    *,
+    maximum_bytes_billed: int | None = None,
+    timeout: float | None = None,
+) -> list[dict]:
+    """Execute SQL and return rows as plain dictionaries.
+
+    Pass maximum_bytes_billed (e.g. HEAVY_QUERY_SCAN_CAP_BYTES) for hand-built
+    queries over wide date ranges or many joins, so a runaway query fails fast
+    instead of scanning unbounded data. Defaults to no cap, matching the
+    existing behavior of every current call site.
+    """
+    job_config = None
+    if maximum_bytes_billed is not None:
+        job_config = bigquery.QueryJobConfig(maximum_bytes_billed=maximum_bytes_billed)
+    query_job = client.query(sql, job_config=job_config)
+    result = query_job.result(timeout=timeout) if timeout is not None else query_job.result()
+    return [dict(row.items()) for row in result]
+
+
+def sql_int_list(values: Iterable[object]) -> str:
+    """Safely build a comma-joined list of ints for a SQL IN (...) clause.
+
+    Raises ValueError instead of silently interpolating non-numeric input
+    into SQL text (e.g. an unsanitized AID column from a spreadsheet import).
+    """
+    ints: list[int] = []
+    for v in values:
+        try:
+            ints.append(int(v))  # type: ignore[arg-type]
+        except (TypeError, ValueError) as exc:
+            raise ValueError(f"Expected an integer AID, got {v!r}") from exc
+    if not ints:
+        raise ValueError("sql_int_list requires at least one value")
+    return ",".join(str(i) for i in ints)
 
 
 def run_query_params(

@@ -21,7 +21,7 @@ from openpyxl.utils import get_column_letter
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from elite_lib import PROJECT_ID, get_client, run_query
+from elite_lib import PROJECT_ID, get_client, run_query, sql_int_list
 
 MODULE_DIR = Path(__file__).resolve().parent
 DATA_DIR = MODULE_DIR / "data"
@@ -96,7 +96,7 @@ def build_np_sql(aids: list[int], report_date: date) -> str:
     rd = report_date.isoformat()
     d30 = (report_date - timedelta(days=29)).isoformat()
     d60 = (report_date - timedelta(days=59)).isoformat()
-    in_list = ", ".join(str(a) for a in aids)
+    in_list = sql_int_list(aids)
     return f"""
 WITH daily AS (
   SELECT

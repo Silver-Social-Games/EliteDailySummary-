@@ -15,7 +15,7 @@ from openpyxl import load_workbook
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from elite_lib import PROJECT_ID, get_client, run_query
+from elite_lib import PROJECT_ID, get_client, run_query, sql_int_list
 
 MODULE_DIR = Path(__file__).resolve().parent
 DATA_DIR = MODULE_DIR / "data"
@@ -94,7 +94,7 @@ def fetch_bq_metrics(aids: list[int], report_date: date) -> dict[int, dict]:
     rd = report_date.isoformat()
     d30 = (report_date - timedelta(days=29)).isoformat()
     d60 = (report_date - timedelta(days=59)).isoformat()
-    in_list = ", ".join(str(a) for a in aids)
+    in_list = sql_int_list(aids)
     tbl = f"{PROJECT_ID}.jackpota_agg.daily_player_revenue_kpis"
     sql = f"""
 WITH daily AS (

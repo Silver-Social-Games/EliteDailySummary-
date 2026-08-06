@@ -24,6 +24,7 @@ from elite_lib import (  # noqa: E402
     get_client,
     latest_elite_tags_cte,
     run_query,
+    sql_int_list,
 )
 
 MODULE_DIR = Path(__file__).resolve().parent
@@ -141,7 +142,7 @@ def build_freespin_sql(
 ) -> str:
     aid_filter = ""
     if aids:
-        aid_list = ", ".join(str(a) for a in aids)
+        aid_list = sql_int_list(aids)
         aid_filter = f"AND r.account_id IN ({aid_list})"
 
   # Widen reward_date window — FS from a purchase can post up to a few days later.

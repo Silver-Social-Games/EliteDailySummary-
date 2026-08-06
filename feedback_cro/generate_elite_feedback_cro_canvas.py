@@ -20,7 +20,7 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from elite_lib import PROJECT_ID, get_client, run_query  # noqa: E402
+from elite_lib import PROJECT_ID, get_client, run_query, sql_int_list  # noqa: E402
 
 DEFAULT_XLSX = Path(
     r"c:\Users\Owner\OneDrive - Silver Social Games\Desktop\VIP\Cursor\Elite Feedback.xlsx"
@@ -361,7 +361,7 @@ def build_metrics_sql(
     after_start: date,
     after_end: date,
 ) -> str:
-    aid_list = ", ".join(aids)
+    aid_list = sql_int_list(aids)
     bs, be = before_start.isoformat(), before_end.isoformat()
     ast, ae = after_start.isoformat(), after_end.isoformat()
     return f"""

@@ -1,12 +1,14 @@
 """Shared Elite analytics helpers."""
 
 from .bigquery import (
+    HEAVY_QUERY_SCAN_CAP_BYTES,
     PROJECT_ID,
     dashboard_elite_ctes,
     get_client,
     latest_elite_tags_cte,
     run_query,
     run_query_params,
+    sql_int_list,
 )
 from .format import (
     REASON_LABELS,
@@ -22,12 +24,14 @@ from .format import (
 from .reporting import day_row, wow_change
 
 __all__ = [
+    "HEAVY_QUERY_SCAN_CAP_BYTES",
     "PROJECT_ID",
     "dashboard_elite_ctes",
     "get_client",
     "latest_elite_tags_cte",
     "run_query",
     "run_query_params",
+    "sql_int_list",
     "REASON_LABELS",
     "fmt_money",
     "fmt_reason",
