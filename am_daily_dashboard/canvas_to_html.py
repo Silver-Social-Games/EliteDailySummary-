@@ -8,24 +8,18 @@ from pathlib import Path
 
 PACKAGE_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = PACKAGE_DIR.parent
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from elite_lib import write_html_shell  # noqa: E402
+
 SHELL = PACKAGE_DIR / "handoffs" / "elite_am_brief_web.html"
 OUT_DIR = PACKAGE_DIR / "exports"
 
 
 def write_am_brief_html(payload: dict, out_path: Path) -> Path:
     """Inject payload into the interactive web shell and write HTML."""
-    if not SHELL.exists():
-        raise FileNotFoundError(f"Web shell missing: {SHELL}")
-    out = Path(out_path)
-    out.parent.mkdir(parents=True, exist_ok=True)
-    html = SHELL.read_text(encoding="utf-8").replace(
-        "__PAYLOAD_JSON__",
-        json.dumps(payload, ensure_ascii=False, default=str),
-    )
-    if "__PAYLOAD_JSON__" in html:
-        raise RuntimeError("Payload placeholder still present after replace")
-    out.write_text(html, encoding="utf-8")
-    return out
+    return write_html_shell(SHELL, payload, out_path, json_default=str)
 
 
 def publish_am_brief(html_path: Path) -> Path | None:

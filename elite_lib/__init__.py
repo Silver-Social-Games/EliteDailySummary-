@@ -21,6 +21,7 @@ from .format import (
     zendesk_new_ticket_url,
     zendesk_ticket_url,
 )
+from .html_export import render_html_shell, write_html_shell
 from .reporting import day_row, wow_change
 
 __all__ = [
@@ -41,6 +42,8 @@ __all__ = [
     "weekday_label",
     "zendesk_new_ticket_url",
     "zendesk_ticket_url",
+    "render_html_shell",
+    "write_html_shell",
     "day_row",
     "wow_change",
 ]

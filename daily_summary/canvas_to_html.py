@@ -14,6 +14,8 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
+from elite_lib import write_html_shell  # noqa: E402
+
 OUT_DIR = Path(__file__).resolve().parent / "daily_summaries"
 SHELL = Path(__file__).resolve().parent / "handoffs" / "elite_daily_summary_web.html"
 
@@ -111,8 +113,6 @@ def build_payload(canvas_path: Path) -> dict:
 
 
 def convert(canvas_path: Path, out_path: Path | None = None) -> Path:
-    if not SHELL.exists():
-        raise FileNotFoundError(f"Web shell missing: {SHELL}")
     payload = build_payload(canvas_path)
     report = payload["report"]
     if report.get("mode") == "weekend":
@@ -121,12 +121,7 @@ def convert(canvas_path: Path, out_path: Path | None = None) -> Path:
     else:
         date_key = report.get("date", "unknown")
         out = out_path or OUT_DIR / f"{date_key}_elite_daily_summary_canvas.html"
-    html = SHELL.read_text(encoding="utf-8").replace(
-        "__PAYLOAD_JSON__",
-        json.dumps(payload, ensure_ascii=False),
-    )
-    out.write_text(html, encoding="utf-8")
-    return out
+    return write_html_shell(SHELL, payload, out)
 
 
 def export_for_canvas(canvas_path: Path, out_path: Path | None = None) -> Path | None:
