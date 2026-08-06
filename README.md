@@ -26,6 +26,20 @@ cd path\to\EliteDailySummary
 pip install -r requirements.txt
 ```
 
+Optional but recommended for local dev/IDE tooling — install the repo itself
+in editable mode so `elite_lib`, `wow_drop_analysis`, `daily_summary`, etc.
+resolve from any working directory without the `sys.path.insert` fallback
+each script carries:
+
+```bash
+pip install -e .
+```
+
+Every script still works with plain `pip install -r requirements.txt` (no
+editable install) because each one falls back to inserting the repo root
+onto `sys.path` itself — that fallback is intentionally left in place so
+`pyproject.toml` is additive, not a required step for the scheduled task.
+
 ### 2. Add BigQuery credentials
 
 Either:

@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "elite-analytics"
+version = "0.1.0"
+description = "BigQuery analytics and reporting for the managed Elite book"
+requires-python = ">=3.11"
+dependencies = [
+    "google-cloud-bigquery>=3.0.0",
+    "google-auth>=2.0.0",
+    "markdown>=3.0.0",
+]
+
+[project.optional-dependencies]
+dashboard = ["streamlit>=1.59.2"]
+
+[tool.setuptools]
+packages = [
+    "elite_lib",
+    "wow_drop_analysis",
+    "daily_summary",
+    "am_daily_dashboard",
+    "reward_check",
+    "feedback_cro",
+    "decline_protocol",
+]
