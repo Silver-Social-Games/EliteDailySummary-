@@ -31,7 +31,14 @@ pip install -r requirements.txt
 Either:
 
 - Set environment variable `GOOGLE_APPLICATION_CREDENTIALS` to your service account JSON path, **or**
-- Place your key at `c:\Users\Owner\Downloads\key.json.json` (default used by the scripts)
+- Create `elite_lib/_local_credentials.py` (gitignored, machine-local) with:
+
+  ```python
+  DEFAULT_KEY_PATH = r"C:\path\to\your\key.json"
+  ```
+
+If neither is set, `elite_lib.get_client()` falls back to Application Default
+Credentials (`gcloud auth application-default login`).
 
 You need read access to `silver-social-games-data` (EU).
 

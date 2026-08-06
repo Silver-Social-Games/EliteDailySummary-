@@ -10,15 +10,28 @@ from google.cloud import bigquery
 from google.oauth2 import service_account
 
 PROJECT_ID = "silver-social-games-data"
-DEFAULT_KEY = Path(r"c:\Users\Owner\Downloads\key.json.json")
+
+
+def _local_default_key() -> Path | None:
+    """Optional machine-local credentials path — never committed to git.
+
+    To avoid setting GOOGLE_APPLICATION_CREDENTIALS every session, create
+    elite_lib/_local_credentials.py (gitignored) with:
+
+        DEFAULT_KEY_PATH = r"C:\\path\\to\\your\\key.json"
+    """
+    try:
+        from elite_lib._local_credentials import DEFAULT_KEY_PATH  # type: ignore
+    except ImportError:
+        return None
+    return Path(DEFAULT_KEY_PATH)
 
 
 def get_client() -> bigquery.Client:
-    """Create an EU BigQuery client from env credentials or ADC."""
-    key_path = Path(
-        os.environ.get("GOOGLE_APPLICATION_CREDENTIALS", str(DEFAULT_KEY))
-    )
-    if key_path.exists():
+    """Create an EU BigQuery client from env credentials, a local override, or ADC."""
+    env_path = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
+    key_path = Path(env_path) if env_path else _local_default_key()
+    if key_path is not None and key_path.exists():
         credentials = service_account.Credentials.from_service_account_file(
             str(key_path),
             scopes=["https://www.googleapis.com/auth/bigquery"],

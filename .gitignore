@@ -6,6 +6,7 @@ credentials.json
 service-account*.json
 .env
 .env.*
+elite_lib/_local_credentials.py
 
 # Generated reports & logs (regenerate on run)
 daily_summary/daily_summaries/*
