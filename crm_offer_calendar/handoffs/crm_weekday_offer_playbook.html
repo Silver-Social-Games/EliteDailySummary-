@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Jackpota Monthly Calendar: Top Offers (Seg 4-6)</title>
+<style>
+  :root {
+    --text: #14141aef;
+    --text-2: #14141abd;
+    --text-3: #1414148a;
+    --page: #ffffff;
+    --stroke: #1414141f;
+    --stroke-2: #14141433;
+    --green: #1f8a65;
+    --blue: #3685bf;
+    --yellow: #c08532;
+    --orange: #db704b;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 32px 28px 56px;
+    background: var(--page);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-size: 14px;
+    line-height: 20px;
+    -webkit-text-size-adjust: 100%;
+  }
+  .wrap { max-width: 1400px; margin: 0 auto; }
+  h1 { font-size: 24px; line-height: 30px; font-weight: 600; margin: 0; }
+  .title-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .sub { color: var(--text-2); margin: 6px 0 0; max-width: 900px; }
+  .filters { display: flex; flex-wrap: wrap; gap: 26px; margin: 24px 0 10px; }
+  .filter-label { font-size: 12px; line-height: 16px; color: var(--text-3); margin-bottom: 7px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 7px; }
+  .chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 3px 10px; border-radius: 999px; cursor: pointer;
+    border: 1px solid var(--stroke-2); background: transparent;
+    font: inherit; font-size: 12px; line-height: 18px; color: var(--text-2);
+    -webkit-tap-highlight-color: transparent;
+  }
+  .chip[aria-pressed="true"] { background: #1414141a; color: var(--text); }
+  .dot { width: 8px; height: 8px; border-radius: 999px; display: inline-block; flex-shrink: 0; }
+  .state { font-size: 12px; line-height: 16px; color: var(--text-3); margin: 0 0 16px; }
+  .nav { display: flex; gap: 8px; margin-bottom: 18px; }
+  .nav a {
+    text-decoration: none; color: var(--text-2); font-weight: 600; font-size: 13px;
+    padding: 5px 14px; border: 1px solid var(--stroke-2); border-radius: 999px;
+  }
+  .nav a.active { color: #fff; background: var(--green); border-color: var(--green); }
+
+  .board.desktop { display: grid; column-gap: 10px; row-gap: 10px; align-items: stretch; }
+  .day-head {
+    text-align: center; padding-bottom: 7px; border-bottom: 2px solid var(--stroke-2);
+    font-weight: 600;
+  }
+  .cycle-label { display: flex; flex-direction: column; justify-content: center; }
+  .cycle-label strong { font-size: 12px; line-height: 16px; color: var(--text-2); }
+  .cycle-label span { font-size: 12px; line-height: 16px; color: var(--text-3); }
+
+  .box {
+    min-height: 152px; border-radius: 8px; overflow: hidden;
+    display: flex; flex-direction: column;
+    border: 1px solid var(--stroke-2); border-left-width: 3px;
+  }
+  .box.muted { opacity: .5; background: #1414140f; border-color: var(--stroke); }
+  .box-head {
+    height: 46px; flex-shrink: 0; padding: 0 12px; display: flex; align-items: center;
+    justify-content: center; text-align: center;
+    border-bottom: 1px solid var(--stroke-2);
+  }
+  .box.muted .box-head { background: #14141414; border-color: var(--stroke); }
+  .box-head span, .box-head a {
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+    font-size: 12px; line-height: 16px; font-weight: 600;
+  }
+  /* The offer name is the click target for its campaign sheet. */
+  .box-head a { width: 100%; color: inherit; text-decoration: none; cursor: pointer; }
+  .box-head a:hover { text-decoration: underline; text-underline-offset: 2px; }
+  .box-body { flex: 1; display: flex; flex-direction: column; padding: 10px 12px 11px; }
+  .caption { font-size: 12px; line-height: 16px; color: var(--text-3); }
+  .lead { font-size: 21px; line-height: 26px; font-weight: 600; padding-top: 2px; }
+  .follow {
+    margin-top: auto; padding-top: 9px; border-top: 1px solid var(--stroke);
+    font-size: 12px; line-height: 16px; color: var(--text-2);
+  }
+  .follow b { color: var(--text); }
+
+  /* Phones and small tablets: the seven column calendar cannot fit, so each
+     weekday becomes its own block with both rotations side by side. */
+  .board.mobile { display: block; }
+  .day-block { margin-bottom: 18px; }
+  .day-block-title {
+    font-weight: 600; padding-bottom: 6px; margin-bottom: 8px;
+    border-bottom: 2px solid var(--stroke-2);
+  }
+  .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .cycle-tag { font-size: 12px; line-height: 16px; color: var(--text-3); margin-bottom: 4px; }
+  .board.mobile .box-head { height: auto; min-height: 46px; padding: 8px 10px; }
+  .board.mobile .box-head span { -webkit-line-clamp: 3; }
+  .board.mobile .lead { font-size: 19px; line-height: 24px; }
+
+  @media (max-width: 900px) {
+    body { padding: 20px 16px 40px; }
+    h1 { font-size: 20px; line-height: 26px; }
+    .filters { gap: 16px; margin: 18px 0 8px; }
+    .chip { padding: 8px 14px; font-size: 13px; line-height: 18px; }
+  }
+
+  @media print {
+    body { padding: 12px; }
+    .filters, .state, .title-row .chips { display: none; }
+    .box, .day-block { break-inside: avoid; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  
+  <div class="title-row">
+    <h1>Jackpota Monthly Calendar: Top Offers (Seg 4-6)</h1>
+    <div class="chips">
+      <button class="chip" id="quick-all">All days</button>
+      <button class="chip" id="quick-weekend">Weekend</button>
+    </div>
+  </div>
+  <p class="sub">The month's biggest campaigns by weekday, in two cycles that alternate through the month.</p>
+
+  <div class="filters">
+    <div>
+      <div class="filter-label">Days</div>
+      <div class="chips" id="day-chips"></div>
+    </div>
+    <div>
+      <div class="filter-label">First offer %</div>
+      <div class="chips" id="band-chips"></div>
+    </div>
+  </div>
+
+  <p class="state" id="state"></p>
+  <div class="board" id="board"></div>
+</div>
+
+<script>
+const dayOrder = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+const bands = [{"id": "40plus", "label": "40% and above", "min": 40, "hue": "var(--green)", "rgb": "31,138,101"}, {"id": "30to39", "label": "30% to 39%", "min": 30, "hue": "var(--blue)", "rgb": "54,133,191"}, {"id": "20to29", "label": "20% to 29%", "min": 20, "hue": "var(--yellow)", "rgb": "192,133,50"}, {"id": "below20", "label": "Below 20%", "min": 0, "hue": "var(--orange)", "rgb": "219,112,75"}];
+const cycles = [
+  {
+    "title": "Cycle A",
+    "note": "First rotation",
+    "cells": [
+      {
+        "day": "Sunday",
+        "campaign": "4 Offers",
+        "lead": "40% or 50%",
+        "lead_low": 40,
+        "follow_label": "Offers avg",
+        "follow_value": "22%",
+        "link": "https://docs.google.com/spreadsheets/d/1qclsPpxzzfnsQgFq2pnjqh7jVX4omg82AKzEGATy1F8/edit?gid=1754602509",
+        "link_label": "Daily CRM Campaigns"
+      },
+      {
+        "day": "Monday",
+        "campaign": "Extra Vaganza",
+        "lead": "10% or 30%",
+        "lead_low": 10,
+        "follow_label": "Offers avg",
+        "follow_value": "18%",
+        "link": "https://docs.google.com/spreadsheets/d/1sBfML6gMANSOkYeprMRgyeXqi6PxhcnOwiIJg9c4Il0/edit?gid=1278151603",
+        "link_label": "Gaming Features Campaigns"
+      },
+      {
+        "day": "Tuesday",
+        "campaign": "3 Offers",
+        "lead": "40%",
+        "lead_low": 40,
+        "follow_label": "Offers avg",
+        "follow_value": "24%",
+        "link": "https://docs.google.com/spreadsheets/d/1qclsPpxzzfnsQgFq2pnjqh7jVX4omg82AKzEGATy1F8/edit?gid=1256512071",
+        "link_label": "Daily CRM Campaigns"
+      },
+      {
+        "day": "Wednesday",
+        "campaign": "Extra SC on 3rd & 5th",
+        "lead": "26% to 40%",
+        "lead_low": 26,
+        "follow_label": "Offers avg",
+        "follow_value": "30%",
+        "link": "https://docs.google.com/spreadsheets/d/1qclsPpxzzfnsQgFq2pnjqh7jVX4omg82AKzEGATy1F8/edit?gid=1738637755",
+        "link_label": "Daily CRM Campaigns"
+      },
+      {
+        "day": "Thursday",
+        "campaign": "3 Offers FS",
+        "lead": "17% to 24%",
+        "lead_low": 17,
+        "follow_label": "Offers avg",
+        "follow_value": "20%",
+        "link": "https://docs.google.com/spreadsheets/d/1qclsPpxzzfnsQgFq2pnjqh7jVX4omg82AKzEGATy1F8/edit?gid=1244995399",
+        "link_label": "Daily CRM Campaigns"
+      },
+      {
+        "day": "Friday",
+        "campaign": "Lucky or Safe",
+        "lead": "20%",
+        "lead_low": 20,
+        "follow_label": "Boost up to",
+        "follow_value": "100%",
+        "link": "https://docs.google.com/spreadsheets/d/1sBfML6gMANSOkYeprMRgyeXqi6PxhcnOwiIJg9c4Il0/edit?gid=338455526",
+        "link_label": "Gaming Features Campaigns"
+      },
+      {
+        "day": "Saturday",
+        "campaign": "4 Offers + FS",
+        "lead": "43%",
+        "lead_low": 43,
+        "follow_label": "Offers avg",
+        "follow_value": "25%",
+        "link": "https://docs.google.com/spreadsheets/d/1qclsPpxzzfnsQgFq2pnjqh7jVX4omg82AKzEGATy1F8/edit?gid=1708019590",
+        "link_label": "Daily CRM Campaigns"
+      }
+    ]
+  },
+  {
+    "title": "Cycle B",
+    "note": "Second rotation",
+    "cells": [
+      {
+        "day": "Sunday",
+        "campaign": "3 Offers",
+        "lead": "40%",
+        "lead_low": 40,
+        "follow_label": "Offers avg",
+        "follow_value": "24%",
+        "link": "https://docs.google.com/spreadsheets/d/1qclsPpxzzfnsQgFq2pnjqh7jVX4omg82AKzEGATy1F8/edit?gid=1256512071",
+        "link_label": "Daily CRM Campaigns"
+      },
+      {
+        "day": "Monday",
+        "campaign": "Same Package, More FS",
+        "lead": "15%",
+        "lead_low": 15,
+        "follow_label": "Boost up to",
+        "follow_value": "31%",
+        "link": "https://docs.google.com/spreadsheets/d/1qclsPpxzzfnsQgFq2pnjqh7jVX4omg82AKzEGATy1F8/edit?gid=1476381756",
+        "link_label": "Daily CRM Campaigns"
+      },
+      {
+        "day": "Tuesday",
+        "campaign": "50% Extra on 3rd Purchase",
+        "lead": "16%",
+        "lead_low": 16,
+        "follow_label": "Boost up to",
+        "follow_value": "50%",
+        "link": "https://docs.google.com/spreadsheets/d/1qclsPpxzzfnsQgFq2pnjqh7jVX4omg82AKzEGATy1F8/edit?gid=1738637755",
+        "link_label": "Daily CRM Campaigns"
+      },
+      {
+        "day": "Wednesday",
+        "campaign": "4 Offers + FS",
+        "lead": "20% to 25%",
+        "lead_low": 20,
+        "link": "https://docs.google.com/spreadsheets/d/1qclsPpxzzfnsQgFq2pnjqh7jVX4omg82AKzEGATy1F8/edit?gid=622867478",
+        "link_label": "Daily CRM Campaigns"
+      },
+      {
+        "day": "Thursday",
+        "campaign": "4 Offers",
+        "lead": "40% or 50%",
+        "lead_low": 40,
+        "follow_label": "Offers avg",
+        "follow_value": "22%",
+        "link": "https://docs.google.com/spreadsheets/d/1qclsPpxzzfnsQgFq2pnjqh7jVX4omg82AKzEGATy1F8/edit?gid=1754602509",
+        "link_label": "Daily CRM Campaigns"
+      },
+      {
+        "day": "Friday",
+        "campaign": "2 Offers",
+        "lead": "30% to 40%",
+        "lead_low": 30,
+        "link": "https://docs.google.com/spreadsheets/d/1qclsPpxzzfnsQgFq2pnjqh7jVX4omg82AKzEGATy1F8/edit?gid=98024857",
+        "link_label": "Daily CRM Campaigns"
+      },
+      {
+        "day": "Saturday",
+        "campaign": "3 Offers FS",
+        "lead": "17% to 24%",
+        "lead_low": 17,
+        "follow_label": "Offers avg",
+        "follow_value": "20%",
+        "link": "https://docs.google.com/spreadsheets/d/1qclsPpxzzfnsQgFq2pnjqh7jVX4omg82AKzEGATy1F8/edit?gid=1244995399",
+        "link_label": "Daily CRM Campaigns"
+      }
+    ]
+  }
+];
+
+let selectedDays = dayOrder.slice();
+let selectedBands = bands.map(band => band.id);
+
+const bandFor = leadLow => bands.find(band => leadLow >= band.min) || bands[bands.length - 1];
+const isNarrow = () => window.matchMedia("(max-width: 900px)").matches;
+const escapeHtml = value => String(value).replace(/[&<>"]/g, ch =>
+  ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[ch]));
+
+function renderChips() {
+  document.getElementById("day-chips").innerHTML = dayOrder.map(day => `
+    <button class="chip" data-day="${day}" aria-pressed="${selectedDays.includes(day)}">${day}</button>
+  `).join("");
+
+  document.getElementById("band-chips").innerHTML = bands.map(band => `
+    <button class="chip" data-band="${band.id}" aria-pressed="${selectedBands.includes(band.id)}">
+      <span class="dot" style="background:${band.hue}"></span>${escapeHtml(band.label)}
+    </button>
+  `).join("");
+}
+
+function boxHtml(cell, muted) {
+  const band = bandFor(cell.lead_low);
+  const tint = muted ? "" :
+    `background: rgba(${band.rgb}, .07); border-color: rgba(${band.rgb}, .55); border-left-color: ${band.hue};`;
+  const headTint = muted ? "" : `background: rgba(${band.rgb}, .16); border-color: rgba(${band.rgb}, .5);`;
+  const follow = cell.follow_label
+    ? `<div class="follow">${escapeHtml(cell.follow_label)} <b>${escapeHtml(cell.follow_value)}</b></div>`
+    : "";
+  const name = escapeHtml(cell.campaign);
+  const heading = cell.link
+    ? `<a href="${escapeHtml(cell.link)}" target="_blank" rel="noopener noreferrer"
+          title="Open ${name} in ${escapeHtml(cell.link_label || "the campaign sheet")}">${name}</a>`
+    : `<span>${name}</span>`;
+
+  return `
+    <div class="box ${muted ? "muted" : ""}" style="${tint}">
+      <div class="box-head" style="${headTint}">
+        ${heading}
+      </div>
+      <div class="box-body">
+        <div class="caption">First offer</div>
+        <div class="lead">${escapeHtml(cell.lead)}</div>
+        ${follow}
+      </div>
+    </div>`;
+}
+
+function cellFor(cycle, day) {
+  return cycle.cells.find(entry => entry.day === day);
+}
+
+function desktopHtml(days, activeBands) {
+  let html = "<span></span>" + days.map(day => `<div class="day-head">${day}</div>`).join("");
+
+  for (const cycle of cycles) {
+    html += `<div class="cycle-label"><strong>${escapeHtml(cycle.title)}</strong>` +
+            `<span>${escapeHtml(cycle.note || "")}</span></div>`;
+    html += days.map(day => {
+      const cell = cellFor(cycle, day);
+      return boxHtml(cell, !activeBands.includes(bandFor(cell.lead_low).id));
+    }).join("");
+  }
+  return html;
+}
+
+function mobileHtml(days, activeBands) {
+  return days.map(day => `
+    <section class="day-block">
+      <div class="day-block-title">${day}</div>
+      <div class="pair">
+        ${cycles.map(cycle => {
+          const cell = cellFor(cycle, day);
+          return `<div>
+            <div class="cycle-tag">${escapeHtml(cycle.title)}</div>
+            ${boxHtml(cell, !activeBands.includes(bandFor(cell.lead_low).id))}
+          </div>`;
+        }).join("")}
+      </div>
+    </section>`).join("");
+}
+
+function render() {
+  const chosen = dayOrder.filter(day => selectedDays.includes(day));
+  const days = chosen.length ? chosen : dayOrder;
+  const activeBands = selectedBands.length ? selectedBands : bands.map(band => band.id);
+
+  document.getElementById("state").textContent =
+    `Showing ${days.length} of ${dayOrder.length} days` +
+    (activeBands.length === bands.length
+      ? ", all first offer bands highlighted"
+      : `, ${activeBands.length} of ${bands.length} first offer bands highlighted`);
+
+  const board = document.getElementById("board");
+  const narrow = isNarrow();
+  board.className = narrow ? "board mobile" : "board desktop";
+  board.style.gridTemplateColumns = narrow ? "" : `92px repeat(${days.length}, minmax(0, 1fr))`;
+  board.innerHTML = narrow ? mobileHtml(days, activeBands) : desktopHtml(days, activeBands);
+
+  renderChips();
+}
+
+document.addEventListener("click", event => {
+  const chip = event.target.closest(".chip");
+  if (!chip) return;
+
+  if (chip.id === "quick-all") {
+    selectedDays = dayOrder.slice();
+  } else if (chip.id === "quick-weekend") {
+    selectedDays = ["Friday", "Saturday"];
+  } else if (chip.dataset.day) {
+    const day = chip.dataset.day;
+    selectedDays = selectedDays.includes(day)
+      ? selectedDays.filter(entry => entry !== day)
+      : selectedDays.concat(day);
+  } else if (chip.dataset.band) {
+    const id = chip.dataset.band;
+    selectedBands = selectedBands.includes(id)
+      ? selectedBands.filter(entry => entry !== id)
+      : selectedBands.concat(id);
+  }
+  render();
+});
+
+window.matchMedia("(max-width: 900px)").addEventListener("change", render);
+render();
+</script>
+</body>
+</html>

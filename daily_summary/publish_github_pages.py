@@ -161,12 +161,28 @@ def _write_index(entries: list[dict]) -> None:
     }}
     .pill.weekend {{ background: #e7f1fa; color: var(--weekend); }}
     .foot {{ color: var(--muted); font-size: 0.85rem; margin-top: 16px; }}
+    .nav {{ display: flex; gap: 8px; margin-bottom: 20px; }}
+    .nav a {{
+      text-decoration: none;
+      color: var(--muted);
+      font-weight: 600;
+      font-size: 0.9rem;
+      padding: 6px 14px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: var(--card);
+    }}
+    .nav a.active {{ color: #fff; background: var(--accent); border-color: var(--accent); }}
   </style>
 </head>
 <body>
   <div class="wrap">
     <h1>Elite Daily Summary</h1>
     <p class="sub">Published morning reports for the Elite managed book.</p>
+    <nav class="nav">
+      <a class="active" href="./">Daily Summary</a>
+      <a href="crm/">CRM</a>
+    </nav>
     <div class="card">
       {latest_block}
       <p class="foot">Updated {updated}. Sun–Thu reports publish after each local run.</p>
