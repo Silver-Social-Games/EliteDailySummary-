@@ -79,6 +79,11 @@ the sections named.
 - **When an instruction and existing code disagree, ask.** Do not write a doc line
  that entrenches the code — that is exactly how three excluded sections stayed in
  the board for days.
+- **Run the generator before writing the doc, not after.** Batch 10 was documented
+ as finished while never having been executed once, because the write-up came first
+ and the session then ran out of room. Passing unit tests and a JS syntax check do
+ not tell you the payload reaches the renderer. Verification is the deliverable;
+ documentation is the receipt.
 
 ---
 
