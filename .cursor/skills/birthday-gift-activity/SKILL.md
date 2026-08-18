@@ -114,9 +114,9 @@ Run via Python generator (not BigQuery MCP) — KPI scans exceed MCP limits.
 
 | Artifact | Path |
 |----------|------|
-| Detail CSV | `birthday_gift/exports/birthday_gift_activity_{run_name}.csv` |
-| Summary CSV | `birthday_gift/exports/birthday_gift_activity_{run_name}_summary.csv` |
-| HTML | `birthday_gift/exports/birthday_gift_activity_{run_name}.html` |
+| Detail CSV | `VIP\Elite_Cursor\Birthday Gift\birthday_gift_activity_{run_name}.csv` |
+| Summary CSV | `VIP\Elite_Cursor\Birthday Gift\birthday_gift_activity_{run_name}_summary.csv` |
+| HTML | `VIP\Elite_Cursor\Birthday Gift\birthday_gift_activity_{run_name}.html` |
 | Canvas | `~/.cursor/projects/<workspace>/canvases/elite-birthday-gift-{run_name}.canvas.tsx` |
 
 Player Data is sorted high → low by purchase % change. AID columns link to Looker Account Portal. No Player Data filter/sort pills.

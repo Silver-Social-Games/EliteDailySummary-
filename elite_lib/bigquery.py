@@ -114,16 +114,46 @@ def dashboard_elite_ctes(
     elite_name: str = "elite_accounts",
     aid_alias: str = "AID",
     agent_alias: str = "agent",
+    as_of: str | None = None,
 ) -> str:
     """Return canonical dashboard-book and latest-agent CTEs.
 
     The revenue book is dbt_aninditac.elite. The tag mart supplies the current
     agent label but never replaces the dashboard book filter.
+
+    `as_of` (ISO date) pins the book to that date instead of to today. Pass it
+    whenever a query is scored or compared for a past date: books move, so an
+    unpinned query silently mixes today's roster with that date's activity and
+    re-running the same report on a later day returns different numbers. Leave it
+    off for genuinely live views (locks, pending redemptions), where the current
+    roster is what an AM needs.
+
+    Pinning takes two filters, and both are required. The tag snapshot is the
+    obvious one. The second is agent_start_managed_date: the agent resolves as
+    COALESCE(tag, e.agent_name), and agent_name is current state, so an account
+    assigned today still entered a report pinned to a past date through the
+    fallback whenever it had no tag row on that date. That is not a rare edge —
+    on 2026-08-17 it moved 32 accounts into Rachel's book and overstated her
+    Daily Avg Net Purchase by 11%, while Coral and Lee, who gained nobody that
+    day, matched to the dollar. With both filters the AM's own figures reproduce
+    exactly for all four.
+
+    NULL managed dates are kept: they are legacy rows with no assignment date
+    recorded, not late arrivals.
     """
+    snapshot_filter = (
+        f"\n  WHERE snapshot_date <= DATE '{as_of}'" if as_of else ""
+    )
+    managed_filter = (
+        f"\n  WHERE e.agent_start_managed_date IS NULL"
+        f"\n     OR e.agent_start_managed_date <= DATE '{as_of}'"
+        if as_of
+        else ""
+    )
     return f"""
 {latest_name} AS (
   SELECT MAX(snapshot_date) AS snapshot_date
-  FROM `{PROJECT_ID}.dbt_utils.elite_account_tags`
+  FROM `{PROJECT_ID}.dbt_utils.elite_account_tags`{snapshot_filter}
 ),
 {elite_name} AS (
   SELECT DISTINCT
@@ -135,7 +165,7 @@ def dashboard_elite_ctes(
     ON e.account_id = t.account_id
     AND t.snapshot_date = l.snapshot_date
     AND t.category = 'Elite'
-    AND t.tag_agent_1 IS NOT NULL
+    AND t.tag_agent_1 IS NOT NULL{managed_filter}
 )
 """.strip()
 

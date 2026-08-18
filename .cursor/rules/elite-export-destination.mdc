@@ -1,0 +1,40 @@
+---
+description: Two homes — Elite is the workshop, Elite_Cursor is where files are opened
+alwaysApply: true
+---
+
+# Two homes
+
+- **Workshop (stays):** `C:\Users\Owner\Downloads\Elite` — generators, skills, git, Pages `docs/`. Never delete or empty this.
+- **Filing cabinet (open here):** `C:\Users\Owner\OneDrive - Silver Social Games\Desktop\VIP\Elite_Cursor\<Project>`
+- The old `VIP\Cursor` folder is gone. Never recreate it or write there.
+- Do not drop Cursor outputs into other VIP folders (`Birthday`, `Buckets`, `Elite Players`). Keep them in `Elite_Cursor`.
+
+After every generate, write the local working copy, then:
+
+```python
+from elite_lib.export_paths import mirror_to_cursor
+mirror_to_cursor("am_brief", html_path, json_path)
+```
+
+In chat, give the **Elite_Cursor** path as the place to open the file.
+
+| Key | Folder |
+|---|---|
+| `am_brief` | AM Brief |
+| `automated_offers` | Automated Offers |
+| `birthday_gift` | Birthday Gift |
+| `campaign_readers` | Campaign Readers |
+| `crm_playbook` | CRM Offer Playbook |
+| `daily_summary` | Daily Summaries |
+| `declining_fri_sat` | Declining Fri-Sat Promo |
+| `feedback_cro` | Feedback CRO |
+| `last_push_60d` | Last Push 60d |
+| `new_elite_players` | New Elite Players |
+| `purchase_lookup` | Purchase Lookup |
+| `roster` | Roster and Drop Lists |
+| `vip_event` | VIP Event |
+| `wow_drop` | WoW Drop Analysis |
+
+Feedback source: `Elite_Cursor\Feedback CRO\Elite Feedback.xlsx`.
+Canvases stay in the canvases folder. Daily/weekend also publish to Pages. AM Brief is Elite_Cursor only, not Pages.

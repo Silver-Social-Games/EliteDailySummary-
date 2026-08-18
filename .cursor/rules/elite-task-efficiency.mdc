@@ -1,0 +1,20 @@
+---
+description: During each multi-step task, pick the faster path before implementing
+alwaysApply: true
+---
+
+# Task efficiency stage
+
+On every **multi-step** task, before implementing, pick the cheaper path.
+Do this during the work, not only at wrap.
+
+1. Reuse an existing generator, Skill, or `elite_lib` helper. Do not start a
+   new script or folder if one already owns the job.
+2. Do not re-ask defaults we already know (Elite_Cursor path, Elite vs VIP,
+   AID, Pages vs AM Brief, Sun–Thu schedule).
+3. Skip extra copies, status Markdown, and unused VIP folders.
+4. If one small change would remove a step this run (default a flag, call
+   `mirror_to_cursor`, reuse a query), do it now.
+
+Say the Elite_Cursor path when a file is the deliverable. After the task
+succeeds, `@collaboration-wrap` still runs the post-task efficiency pass.

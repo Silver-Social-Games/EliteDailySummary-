@@ -1,6 +1,6 @@
 ---
 name: daily-elite-summary
-description: Generates the Elite Sun–Thu morning report through the weekday router, including same-weekday comparison and the Top 20 Same Day Comparison. Use when the user asks for an Elite daily summary, morning Elite report, weekend summary, or the 10:00 AM Israel workflow.
+description: Generates the Elite Sun–Thu morning report through the weekday router, including same-weekday comparison and the Top 20 Same Day Comparison, then publishes to GitHub Pages. Use when the user asks for an Elite daily summary, morning Elite report, weekend summary, or the 10:00 AM Israel workflow.
 ---
 
 # Elite Morning Flow (Sun–Thu, 10:00 AM Israel)
@@ -22,8 +22,25 @@ decline reasons**.
 | **In Cursor** | `@daily-elite-summary` or "run morning elite" |
 
 Register Windows task (once): `powershell -ExecutionPolicy Bypass -File daily_summary\register_daily_summary_task.ps1`
+(Registered task includes `-EnablePagesAutoPublish` so scheduled runs push to Pages.)
 
 Router entry point: `daily_summary/generate_morning_elite.py`
+
+## Required steps (Cursor / ad hoc)
+
+1. `python daily_summary/generate_morning_elite.py` (or `--force` / `--date` as needed)
+2. **Always publish to the live site** (unless the user says keep local only):
+   ```bash
+   python daily_summary/publish_pages_git.py
+   ```
+3. Confirm live:
+   - Site: https://silver-social-games.github.io/EliteDailySummary-/
+   - New report listed in `reports.json` / index
+4. Open the dated canvas beside chat and summarize WoW headlines
+
+`Published GitHub Pages:` from the generator only means files were copied into
+`docs/`. Without step 2 the public site stays stale. See
+`.cursor/rules/github-pages-publish.mdc`.
 
 ## Format baselines (locked)
 
@@ -39,13 +56,14 @@ The HTML files are the durable layout references. Regenerate the corresponding
 
 ## Output
 
+Open HTML from `VIP\Elite_Cursor\Daily Summaries`. Also published to GitHub Pages.
+
+- **HTML (open here):** `VIP\Elite_Cursor\Daily Summaries\YYYY-MM-DD_elite_daily_summary_canvas.html`
 - **Markdown (daily):** `daily_summary/daily_summaries/YYYY-MM-DD_elite_daily_summary.md`
 - **Canvas (daily):** `canvases/elite-daily-summary-YYYY-MM-DD.canvas.tsx` (search + agent + reason filters)
 - **Canvas (weekend):** `canvases/elite-weekend-summary-YYYY-MM-DD_to_YYYY-MM-DD.canvas.tsx` (3-day bundle, 60 players)
 - **Report date:** yesterday by default for daily (`--date YYYY-MM-DD` to pin)
 - **Day compare:** report date vs **prior same weekday**
-
-After running, open the dated canvas beside chat.
 
 ## Report sections (in order)
 

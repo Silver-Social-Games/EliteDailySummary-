@@ -22,7 +22,14 @@ from .format import (
     zendesk_ticket_url,
 )
 from .html_export import render_html_shell, write_html_shell
+from .export_paths import (
+    PROJECTS as ELITE_CURSOR_PROJECTS,
+    cursor_export_dir,
+    cursor_root,
+    mirror_to_cursor,
+)
 from .reporting import day_row, wow_change
+from .slack_post import SlackPostError, post_message, resolve_token as resolve_slack_token
 
 __all__ = [
     "HEAVY_QUERY_SCAN_CAP_BYTES",
@@ -44,6 +51,13 @@ __all__ = [
     "zendesk_ticket_url",
     "render_html_shell",
     "write_html_shell",
+    "ELITE_CURSOR_PROJECTS",
+    "cursor_export_dir",
+    "cursor_root",
+    "mirror_to_cursor",
     "day_row",
     "wow_change",
+    "SlackPostError",
+    "post_message",
+    "resolve_slack_token",
 ]

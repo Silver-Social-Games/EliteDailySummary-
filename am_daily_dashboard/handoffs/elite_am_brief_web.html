@@ -6,157 +6,572 @@
   <title>Elite AM Brief</title>
   <style>
     :root {
-      --fg: #141414F0;
-      --fg2: #141414BD;
-      --fg3: #1414148A;
-      --fg4: #1414145C;
-      --bg-editor: #FCFCFC;
-      --stroke-secondary: #1414141F;
-      --stroke-tertiary: #14141414;
-      --fill-secondary: #14141424;
-      --fill-tertiary: #14141414;
-      --fill-quaternary: #1414140F;
-      --cat-green: #1F8A65;
-      --cat-yellow: #C08532;
-      --cat-cyan: #4C7F8C;
-      --marker-success: #1F8A65;
-      --marker-danger: #CF2D56;
-      --marker-warning: #DB704B;
-      --marker-info: #3685BF;
-      --marker-neutral: #1414148A;
-      --font: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+      --sidebar-w: 268px;
+
+      --ink:      #0F172A;
+      --ink-2:    #334155;
+      --ink-3:    #64748B;
+      --ink-4:    #94A3B8;
+      --line:     #E3E8EF;
+      --line-soft:#EFF2F7;
+      --surface:  #FFFFFF;
+      --canvas:   #F4F6FB;
+
+      --brand:      #4F46E5;
+      --brand-ink:  #4338CA;
+      --brand-soft: #EEF0FF;
+
+      --success: #0E9F6E; --success-soft: #E6F7F1;
+      --danger:  #E11D48; --danger-soft:  #FEECF1;
+      --warning: #D97706; --warning-soft: #FEF3E4;
+      --info:    #2563EB; --info-soft:    #E9F0FE;
+      --neutral: #64748B; --neutral-soft: #F1F5F9;
+
+      --shadow-sm: 0 1px 2px rgba(15,23,42,.05), 0 1px 3px rgba(15,23,42,.04);
+      --shadow-md: 0 6px 20px rgba(15,23,42,.08);
+      --shadow-lg: 0 24px 60px rgba(15,23,42,.22);
+
+      --radius:    14px;
+      --radius-sm: 9px;
+      --font: "Segoe UI", -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif;
+      --mono: ui-monospace, SFMono-Regular, "SF Mono", Consolas, monospace;
     }
+
     * { box-sizing: border-box; }
     html { scroll-behavior: smooth; }
-    html, body { margin: 0; background: var(--bg-editor); color: var(--fg); font-family: var(--font); }
-    .wrap { padding: 20px; max-width: 100%; }
-    .stack { display: flex; flex-direction: column; gap: 16px; }
-    .stack-8 { display: flex; flex-direction: column; gap: 8px; }
-    .stack-6 { display: flex; flex-direction: column; gap: 6px; }
-    .stack-2 { display: flex; flex-direction: column; gap: 2px; }
-    .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
-    .row-start { align-items: flex-start; }
-    .spacer { flex: 1 1 auto; }
-    .col-main { flex: 1 1 560px; min-width: 320px; }
-    .col-side { flex: 0 1 460px; min-width: 280px; }
-    h1 { margin: 0; font-size: 24px; line-height: 30px; font-weight: 590; }
-    h2 { margin: 0; font-size: 18px; line-height: 24px; font-weight: 590; }
-    .t-body { font-size: 14px; line-height: 20px; }
-    .t-small { font-size: 12px; line-height: 16px; }
-    .t-secondary { color: var(--fg2); }
-    .t-tertiary { color: var(--fg3); }
-    .t-quaternary { color: var(--fg4); }
-    .t-danger { color: var(--marker-danger); }
-    .t-warning { color: var(--cat-yellow); }
-    .t-success { color: var(--marker-success); }
-    .t-info { color: var(--marker-info); }
-    .w-semibold { font-weight: 590; }
-    a { color: var(--marker-info); text-decoration: none; }
+    html, body {
+      margin: 0; height: 100%;
+      background: var(--canvas); color: var(--ink);
+      font-family: var(--font); font-size: 14px; line-height: 20px;
+      -webkit-font-smoothing: antialiased;
+    }
+    a { color: var(--brand-ink); text-decoration: none; }
     a:hover { text-decoration: underline; }
-    a.jump { text-decoration: underline; cursor: pointer; }
-    input[type="search"], select {
-      font-family: inherit; font-size: 13px; line-height: 18px; color: var(--fg); outline: none;
+
+    /* ---------- icons ---------- */
+    .ic {
+      width: 18px; height: 18px; flex: none; display: inline-block; vertical-align: -3px;
+      fill: none; stroke: currentColor; stroke-width: 1.75;
+      stroke-linecap: round; stroke-linejoin: round;
     }
+    .ic-xs { width: 13px; height: 13px; vertical-align: -2px; stroke-width: 2; }
+    .ic-sm { width: 15px; height: 15px; vertical-align: -2.5px; }
+    .ic-lg { width: 22px; height: 22px; }
+    .ic-xl { width: 26px; height: 26px; }
+
+    /* ---------- app frame ---------- */
+    .app { display: flex; min-height: 100vh; }
+
+    .sidebar {
+      width: var(--sidebar-w); flex: none; position: sticky; top: 0;
+      height: 100vh; overflow-y: auto; overflow-x: hidden;
+      background: linear-gradient(178deg, #131C33 0%, #16203C 42%, #101827 100%);
+      color: #CBD5E1; display: flex; flex-direction: column;
+      border-right: 1px solid rgba(255,255,255,.06);
+    }
+    .sidebar::-webkit-scrollbar { width: 8px; }
+    .sidebar::-webkit-scrollbar-thumb { background: rgba(255,255,255,.12); border-radius: 8px; }
+    .app.collapsed .sidebar { width: 68px; }
+    .app.collapsed .side-label, .app.collapsed .side-group-title,
+    .app.collapsed .brand-text, .app.collapsed .am-switch, .app.collapsed .side-foot,
+    .app.collapsed .nav-count { display: none; }
+    .app.collapsed .nav-item { justify-content: center; padding-left: 0; padding-right: 0; }
+    .app.collapsed .brand { justify-content: center; }
+
+    .brand {
+      display: flex; align-items: center; gap: 11px;
+      padding: 18px 18px 16px; border-bottom: 1px solid rgba(255,255,255,.07);
+    }
+    .brand-mark {
+      width: 36px; height: 36px; flex: none; border-radius: 11px;
+      background: linear-gradient(140deg, #6366F1, #8B5CF6 55%, #D946A6);
+      display: grid; place-items: center; color: #fff;
+      box-shadow: 0 4px 14px rgba(99,102,241,.42);
+    }
+    .brand-text { min-width: 0; }
+    .brand-title { font-size: 14px; font-weight: 650; color: #F8FAFC; letter-spacing: -.01em; }
+    .brand-sub { font-size: 11.5px; color: #7C8DA8; margin-top: 1px; white-space: nowrap; }
+
+    .am-switch { padding: 14px 14px 4px; }
+    .am-switch-title {
+      font-size: 10px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase;
+      color: #6B7C99; margin: 0 4px 8px;
+    }
+    .am-chips { display: flex; flex-wrap: wrap; gap: 5px; }
+    .am-chip {
+      font: inherit; font-size: 12px; font-weight: 550; line-height: 16px;
+      padding: 5px 10px; border-radius: 8px; cursor: pointer;
+      background: rgba(255,255,255,.06); color: #B4C2D6;
+      border: 1px solid transparent; transition: background .12s, color .12s;
+    }
+    .am-chip:hover { background: rgba(255,255,255,.12); color: #F1F5F9; }
+    .am-chip.active {
+      background: linear-gradient(135deg, #6366F1, #7C4DEA);
+      color: #fff; border-color: rgba(255,255,255,.18);
+      box-shadow: 0 3px 10px rgba(99,102,241,.4);
+    }
+
+    .side-nav { padding: 10px 12px 18px; flex: 1 1 auto; }
+    .side-group-title {
+      font-size: 10px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase;
+      color: #62748F; margin: 16px 8px 6px;
+    }
+    .nav-item {
+      display: flex; align-items: center; gap: 10px; width: 100%;
+      padding: 8px 10px; margin-bottom: 2px; border-radius: 9px;
+      font: inherit; font-size: 13.5px; text-align: left; cursor: pointer;
+      background: transparent; border: none; color: #AFBDD1;
+      transition: background .12s, color .12s;
+    }
+    .nav-item:hover { background: rgba(255,255,255,.07); color: #F1F5F9; }
+    .nav-item.active { background: rgba(99,102,241,.20); color: #FFFFFF; font-weight: 600; }
+    .nav-item.active .ic { color: #A5B4FC; }
+    .nav-item .ic { color: #7B8CA8; }
+    .side-label { flex: 1 1 auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .nav-count {
+      font-size: 11px; font-weight: 650; font-variant-numeric: tabular-nums;
+      padding: 1px 7px; border-radius: 999px;
+      background: rgba(255,255,255,.09); color: #93A5BF;
+    }
+    .nav-count.hot { background: rgba(225,29,72,.20); color: #FDA4AF; }
+    .nav-count.warm { background: rgba(217,119,6,.20); color: #FCD9A0; }
+    .nav-count.good { background: rgba(14,159,110,.18); color: #86EFC4; }
+    .side-foot {
+      padding: 12px 18px 16px; border-top: 1px solid rgba(255,255,255,.07);
+      font-size: 11px; color: #64748B; line-height: 1.5;
+    }
+
+    /* ---------- main ---------- */
+    .main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; }
+    .topbar {
+      position: sticky; top: 0; z-index: 20;
+      display: flex; align-items: center; gap: 14px;
+      padding: 14px 26px; background: rgba(255,255,255,.86);
+      backdrop-filter: saturate(1.6) blur(10px);
+      border-bottom: 1px solid var(--line);
+    }
+    .icon-btn {
+      width: 32px; height: 32px; flex: none; display: grid; place-items: center;
+      border-radius: 8px; border: 1px solid var(--line); background: var(--surface);
+      color: var(--ink-3); cursor: pointer; transition: all .12s;
+    }
+    .icon-btn:hover { color: var(--ink); border-color: var(--ink-4); box-shadow: var(--shadow-sm); }
+    .crumb { min-width: 0; }
+    .crumb-top {
+      font-size: 10.5px; font-weight: 700; letter-spacing: .09em;
+      text-transform: uppercase; color: var(--ink-4);
+    }
+    .crumb-title {
+      font-size: 19px; font-weight: 650; letter-spacing: -.02em; color: var(--ink);
+      line-height: 25px; display: flex; align-items: center; gap: 9px;
+    }
+    .spacer { flex: 1 1 auto; }
+    .who {
+      display: flex; align-items: center; gap: 9px; padding: 5px 12px 5px 6px;
+      border-radius: 999px; background: var(--surface); border: 1px solid var(--line);
+      box-shadow: var(--shadow-sm);
+    }
+    .who-dot {
+      width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center;
+      color: #fff; font-size: 11.5px; font-weight: 700; letter-spacing: .02em;
+      background: linear-gradient(140deg, #6366F1, #A855F7);
+    }
+    .who-name { font-size: 13px; font-weight: 600; }
+    .who-role { font-size: 11px; color: var(--ink-4); }
+
+    .content { padding: 24px 26px 64px; display: flex; flex-direction: column; gap: 22px; }
+
+    /* ---------- primitives ---------- */
+    .stack { display: flex; flex-direction: column; gap: 16px; }
+    .stack-10 { display: flex; flex-direction: column; gap: 10px; }
+    .stack-6 { display: flex; flex-direction: column; gap: 6px; }
+    .row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+    .grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); gap: 18px; align-items: start; }
+
+    .card {
+      background: var(--surface); border: 1px solid var(--line);
+      border-radius: var(--radius); box-shadow: var(--shadow-sm);
+    }
+    .card-head {
+      display: flex; align-items: center; gap: 10px;
+      padding: 14px 16px; border-bottom: 1px solid var(--line-soft);
+    }
+    .card-title { font-size: 14.5px; font-weight: 650; letter-spacing: -.01em; }
+    .card-sub { font-size: 12px; color: var(--ink-4); }
+    .card-body { padding: 16px; }
+    .card-body.flush { padding: 0; }
+    .card-icon {
+      width: 30px; height: 30px; flex: none; border-radius: 9px; display: grid; place-items: center;
+      background: var(--brand-soft); color: var(--brand);
+    }
+    .card-icon.success { background: var(--success-soft); color: var(--success); }
+    .card-icon.danger  { background: var(--danger-soft);  color: var(--danger); }
+    .card-icon.warning { background: var(--warning-soft); color: var(--warning); }
+    .card-icon.info    { background: var(--info-soft);    color: var(--info); }
+    .card-icon.neutral { background: var(--neutral-soft); color: var(--neutral); }
+
+    /* greeting / hero */
+    .hero {
+      position: relative; overflow: hidden; border-radius: var(--radius);
+      padding: 22px 24px; color: #E7ECF6;
+      background: linear-gradient(125deg, #1B2440 0%, #232C52 45%, #2C2450 100%);
+      box-shadow: var(--shadow-md);
+    }
+    .hero::after {
+      content: ""; position: absolute; right: -80px; top: -110px;
+      width: 320px; height: 320px; border-radius: 50%;
+      background: radial-gradient(circle, rgba(139,92,246,.34), transparent 68%);
+    }
+    .hero-line { position: relative; font-size: 14.5px; line-height: 1.65; color: #C3CDE2; }
+    .hero-line.lead { font-size: 18px; line-height: 1.5; font-weight: 620; color: #FFFFFF; letter-spacing: -.01em; }
+    .hero-line em { font-style: normal; color: #86EFC4; font-weight: 650; }
+
+    /* stat cards */
+    .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; }
+    .stat {
+      position: relative; text-align: left; font: inherit; cursor: pointer;
+      background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+      padding: 14px 15px; box-shadow: var(--shadow-sm);
+      transition: transform .12s, box-shadow .12s, border-color .12s;
+      display: flex; flex-direction: column; gap: 9px; overflow: hidden;
+    }
+    .stat::before {
+      content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
+      background: var(--accent, var(--neutral)); opacity: .85;
+    }
+    .stat:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); border-color: var(--ink-4); }
+    .stat.flat { cursor: default; }
+    .stat.flat:hover { transform: none; box-shadow: var(--shadow-sm); border-color: var(--line); }
+    .stat-top { display: flex; align-items: center; gap: 8px; }
+    .stat-chip {
+      width: 28px; height: 28px; flex: none; border-radius: 8px; display: grid; place-items: center;
+      background: var(--accent-soft, var(--neutral-soft)); color: var(--accent, var(--neutral));
+    }
+    .stat-label {
+      font-size: 11.5px; font-weight: 600; letter-spacing: .02em; color: var(--ink-3);
+      text-transform: uppercase;
+    }
+    .stat-value {
+      font-size: 25px; line-height: 30px; font-weight: 680; letter-spacing: -.025em;
+      color: var(--ink); font-variant-numeric: tabular-nums;
+    }
+    .stat-value.sm { font-size: 20px; line-height: 26px; }
+    .stat-foot { font-size: 11.5px; color: var(--ink-4); }
+    .stat.t-success { --accent: var(--success); --accent-soft: var(--success-soft); }
+    .stat.t-danger  { --accent: var(--danger);  --accent-soft: var(--danger-soft); }
+    .stat.t-warning { --accent: var(--warning); --accent-soft: var(--warning-soft); }
+    .stat.t-info    { --accent: var(--info);    --accent-soft: var(--info-soft); }
+    .stat.t-brand   { --accent: var(--brand);   --accent-soft: var(--brand-soft); }
+    .stat.t-neutral { --accent: var(--neutral); --accent-soft: var(--neutral-soft); }
+
+    /* text tones */
+    .t-secondary { color: var(--ink-2); }
+    .t-tertiary  { color: var(--ink-3); }
+    .t-quaternary{ color: var(--ink-4); }
+    .t-danger    { color: var(--danger); }
+    .t-warning   { color: var(--warning); }
+    .t-success   { color: var(--success); }
+    .t-info      { color: var(--info); }
+    .t-neutral   { color: var(--ink-3); }
+    .t-small { font-size: 12px; line-height: 17px; }
+    .w-semibold { font-weight: 640; }
+    .num { font-variant-numeric: tabular-nums; }
+
+    /* badges */
+    .badge {
+      display: inline-flex; align-items: center; gap: 5px; white-space: nowrap;
+      font-size: 11.5px; font-weight: 620; line-height: 16px;
+      padding: 3px 9px; border-radius: 999px;
+      background: var(--neutral-soft); color: var(--ink-2);
+    }
+    .badge.success { background: var(--success-soft); color: #0B7B56; }
+    .badge.danger  { background: var(--danger-soft);  color: #BE123C; }
+    .badge.warning { background: var(--warning-soft); color: #B45309; }
+    .badge.info    { background: var(--info-soft);    color: #1D4ED8; }
+    .badge.brand   { background: var(--brand-soft);   color: var(--brand-ink); }
+
+    /* controls */
+    .toolbar {
+      display: flex; flex-wrap: wrap; gap: 9px; align-items: center;
+      padding: 12px 16px; border-bottom: 1px solid var(--line-soft);
+    }
+    .search {
+      position: relative; display: inline-flex; align-items: center;
+      flex: 1 1 240px; max-width: 340px; min-width: 190px;
+    }
+    .search .ic { position: absolute; left: 10px; color: var(--ink-4); pointer-events: none; }
     input[type="search"] {
-      box-sizing: border-box;
-      width: 280px; max-width: 100%; height: 28px; padding: 4px 8px;
-      border: 1px solid var(--stroke-secondary); border-radius: 6px; background: var(--fill-tertiary);
-      appearance: none; -webkit-appearance: none;
+      width: 100%; height: 34px; padding: 4px 10px 4px 32px;
+      font: inherit; font-size: 13px; color: var(--ink);
+      border: 1px solid var(--line); border-radius: var(--radius-sm);
+      background: var(--surface); outline: none; appearance: none; -webkit-appearance: none;
+      transition: border-color .12s, box-shadow .12s;
     }
+    input[type="search"]:focus { border-color: var(--brand); box-shadow: 0 0 0 3px rgba(79,70,229,.13); }
     input[type="search"]::-webkit-search-decoration,
     input[type="search"]::-webkit-search-cancel-button,
     input[type="search"]::-webkit-search-results-button,
-    input[type="search"]::-webkit-search-results-decoration {
-      -webkit-appearance: none; appearance: none; display: none;
-    }
-    .row > input[type="search"] {
-      flex: 1 1 220px; width: auto; min-width: 180px; max-width: 360px;
-    }
+    input[type="search"]::-webkit-search-results-decoration { -webkit-appearance: none; appearance: none; display: none; }
+
     .select-wrap { position: relative; display: inline-flex; align-items: center; }
+    .select-wrap .ic { position: absolute; right: 9px; pointer-events: none; color: var(--ink-4); }
     select {
-      appearance: none; -webkit-appearance: none; background: transparent;
-      border: 1px solid var(--stroke-tertiary); border-radius: 6px;
-      padding: 4px 20px 4px 8px; cursor: pointer;
+      font: inherit; font-size: 13px; color: var(--ink); height: 34px;
+      padding: 4px 30px 4px 11px; cursor: pointer; outline: none;
+      border: 1px solid var(--line); border-radius: var(--radius-sm);
+      background: var(--surface); appearance: none; -webkit-appearance: none;
+      transition: border-color .12s, box-shadow .12s;
     }
-    .select-wrap::after {
-      content: "▾"; position: absolute; right: 6px; pointer-events: none; color: var(--fg2); font-size: 10px;
+    select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px rgba(79,70,229,.13); }
+
+    .chip {
+      font: inherit; font-size: 12px; font-weight: 550; line-height: 16px;
+      padding: 5px 11px; border-radius: 999px; cursor: pointer; white-space: nowrap;
+      background: var(--surface); color: var(--ink-2); border: 1px solid var(--line);
+      transition: all .12s;
     }
-    .pills { display: flex; flex-wrap: wrap; gap: 6px; }
-    .pill {
-      display: inline-flex; align-items: center; justify-content: center;
-      border-radius: 9999px; white-space: nowrap; user-select: none;
-      font-size: 10px; line-height: 12px; padding: 2px 8px;
-      background: var(--fill-quaternary); color: var(--fg2); border: none; cursor: pointer;
+    .chip:hover { border-color: var(--ink-4); color: var(--ink); }
+    .chip.active { background: var(--ink); color: #fff; border-color: var(--ink); }
+    .chip-row { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 16px 12px; }
+
+    .btn {
+      display: inline-flex; align-items: center; gap: 7px; font: inherit; font-size: 13px;
+      font-weight: 560; padding: 7px 13px; border-radius: var(--radius-sm); cursor: pointer;
+      border: 1px solid var(--line); background: var(--surface); color: var(--ink-2);
+      transition: all .12s;
     }
-    .pill.active { background: var(--fill-secondary); color: var(--fg); font-weight: 500; }
-    .table-frame {
-      width: 100%; border: 1px solid var(--stroke-tertiary); border-radius: 8px;
-      background: var(--bg-editor); overflow-x: auto;
+    .btn:hover { border-color: var(--ink-4); color: var(--ink); box-shadow: var(--shadow-sm); }
+    .btn.primary { background: var(--brand); border-color: var(--brand); color: #fff; }
+    .btn.primary:hover { background: var(--brand-ink); border-color: var(--brand-ink); color: #fff; }
+    .btn:disabled { opacity: .4; cursor: not-allowed; box-shadow: none; }
+
+    /* tables */
+    .table-frame { width: 100%; overflow-x: auto; }
+    .table-frame.compact { width: max-content; max-width: 100%; }
+    table.grid {
+      min-width: 100%; border-collapse: separate; border-spacing: 0;
+      font-size: 13.5px; color: var(--ink);
     }
-    table.canvas {
-      min-width: 100%; border-collapse: collapse; font-size: 14px; line-height: 20px; color: var(--fg);
+    .table-frame.compact table.grid { min-width: 0; }
+    table.grid th {
+      position: sticky; top: 0; z-index: 2; white-space: nowrap;
+      padding: 10px 14px; text-align: left;
+      font-size: 10.5px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase;
+      color: var(--ink-3); background: #FAFBFD;
+      border-bottom: 1px solid var(--line);
     }
-    table.canvas th {
-      padding: 8px 12px; text-align: left; font-weight: 600; color: var(--fg);
-      border-bottom: 1px solid var(--stroke-secondary); position: sticky; top: 0; z-index: 2;
-      background: var(--bg-editor); background-image: linear-gradient(var(--fill-quaternary), var(--fill-quaternary));
-      white-space: nowrap;
+    table.grid td {
+      padding: 10px 14px; vertical-align: top;
+      border-bottom: 1px solid var(--line-soft);
     }
-    table.canvas td {
-      padding: 8px 12px; vertical-align: top; border-bottom: 1px solid var(--stroke-tertiary);
+    table.grid tbody tr:last-child td { border-bottom: none; }
+    table.grid tbody tr:hover td { background: #FAFBFF; }
+    table.grid tbody tr.total-row td { background: #F8FAFC; font-weight: 600; }
+    table.grid tbody tr.total-row:hover td { background: #F8FAFC; }
+    table.grid .num { text-align: right; font-variant-numeric: tabular-nums; }
+    table.grid .center { text-align: center; }
+    table.grid .empty { padding: 34px 14px; text-align: center; color: var(--ink-4); }
+
+    .cell-marker { display: inline-flex; align-items: flex-start; gap: 7px; min-width: 0; max-width: 100%; }
+    .marker { width: 6px; height: 6px; margin-top: 7px; border-radius: 50%; flex: none; }
+    .marker-success { background: var(--success); }
+    .marker-danger  { background: var(--danger); }
+    .marker-warning { background: var(--warning); }
+    .marker-info    { background: var(--info); }
+    .marker-neutral { background: var(--ink-4); }
+
+    .reason-cell { min-width: 300px; max-width: 620px; white-space: normal; line-height: 1.65; font-size: 12.5px; }
+    .action-cell { min-width: 210px; max-width: 420px; white-space: normal; line-height: 1.55; font-size: 12.5px; }
+    .p7d-cell { display: inline-block; min-width: 150px; max-width: 220px; font-size: 12.5px; line-height: 1.5; }
+    .sep { padding: 0 7px; color: var(--ink-4); }
+    .players-table { min-width: 2900px; width: max-content; }
+    .ticket-preview { font-size: 10.5px; color: var(--ink-4); max-width: 150px; line-height: 1.35; margin-top: 3px; }
+
+    /* pagination */
+    .pager {
+      display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+      padding: 11px 16px; border-top: 1px solid var(--line-soft); background: #FCFDFF;
+      border-radius: 0 0 var(--radius) var(--radius);
     }
-    table.canvas tbody tr:last-child td { border-bottom: none; }
-    table.canvas tbody tr.striped td { background: var(--fill-quaternary); }
-    table.canvas .num { text-align: right; }
-    table.canvas .center { text-align: center; }
-    .cell-marker { display: inline-flex; align-items: flex-start; gap: 6px; min-width: 0; max-width: 100%; }
-    .marker { width: 6px; height: 6px; margin-top: 7px; border-radius: 50%; flex-shrink: 0; }
-    .marker-success { background: var(--marker-success); }
-    .marker-danger { background: var(--marker-danger); }
-    .marker-warning { background: var(--marker-warning); }
-    .marker-info { background: var(--marker-info); }
-    .marker-neutral { background: var(--marker-neutral); }
-    .reason-cell, .action-cell { min-width: 280px; max-width: 620px; white-space: normal; line-height: 1.6; font-size: 12px; }
-    .action-cell { min-width: 200px; max-width: 420px; line-height: 1.5; }
-    .p7d-cell { min-width: 160px; max-width: 220px; font-size: 12px; line-height: 1.45; }
-    .sep { padding: 0 8px; font-weight: 700; color: var(--fg3); font-size: 15px; }
-    .players-table { min-width: 2950px; width: max-content; }
-    .section-anchor { scroll-margin-top: 24px; }
+    .pager-info { font-size: 12px; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+    .pg {
+      min-width: 30px; height: 30px; padding: 0 8px; display: inline-grid; place-items: center;
+      font: inherit; font-size: 12.5px; font-weight: 560; font-variant-numeric: tabular-nums;
+      border: 1px solid var(--line); border-radius: 8px; background: var(--surface);
+      color: var(--ink-2); cursor: pointer; transition: all .12s;
+    }
+    .pg:hover:not(:disabled) { border-color: var(--ink-4); color: var(--ink); }
+    .pg.active { background: var(--ink); border-color: var(--ink); color: #fff; }
+    .pg:disabled { opacity: .35; cursor: not-allowed; }
+    .pg-gap { color: var(--ink-4); padding: 0 2px; }
+    .pager select { height: 30px; font-size: 12.5px; padding: 3px 26px 3px 9px; }
+
+    /* goals */
+    .goal-score { display: flex; align-items: baseline; gap: 10px; }
+    .goal-pct { font-size: 34px; line-height: 38px; font-weight: 700; letter-spacing: -.03em; }
+    .meter { height: 7px; border-radius: 999px; background: var(--neutral-soft); overflow: hidden; }
+    .meter > span { display: block; height: 100%; border-radius: 999px; background: linear-gradient(90deg, #6366F1, #8B5CF6); }
+    .meter.success > span { background: linear-gradient(90deg, #0E9F6E, #34D399); }
+    .meter.warning > span { background: linear-gradient(90deg, #D97706, #FBBF24); }
+    .meter.danger  > span { background: linear-gradient(90deg, #E11D48, #FB7185); }
+    .note { font-size: 11.5px; line-height: 1.6; color: var(--ink-4); }
+
+    /* gate */
+    .gate {
+      max-width: 430px; margin: 60px auto; text-align: center;
+      background: var(--surface); border: 1px solid var(--line); border-radius: 18px;
+      padding: 34px 30px; box-shadow: var(--shadow-md);
+    }
+    .gate-mark {
+      width: 56px; height: 56px; margin: 0 auto 16px; border-radius: 16px; display: grid; place-items: center;
+      background: linear-gradient(140deg, #1E293B, #4338CA); color: #fff;
+      box-shadow: 0 8px 22px rgba(67,56,202,.32);
+    }
+    .gate h2 { margin: 0 0 6px; font-size: 19px; font-weight: 660; letter-spacing: -.02em; }
+    .gate p { margin: 0 0 20px; font-size: 13px; color: var(--ink-3); line-height: 1.6; }
+    .gate input {
+      width: 100%; height: 40px; text-align: center; letter-spacing: .28em; font: inherit; font-size: 15px;
+      border: 1px solid var(--line); border-radius: var(--radius-sm); outline: none; color: var(--ink);
+      background: var(--surface);
+    }
+    .gate input:focus { border-color: var(--brand); box-shadow: 0 0 0 3px rgba(79,70,229,.13); }
+    .gate .err { color: var(--danger); font-size: 12.5px; margin-top: 10px; min-height: 17px; }
+
+    /* modal */
     .modal-backdrop {
-      position: fixed; inset: 0; background: rgba(0,0,0,0.45); display: flex;
-      align-items: center; justify-content: center; z-index: 1000; padding: 20px;
+      position: fixed; inset: 0; background: rgba(15,23,42,.52); backdrop-filter: blur(3px);
+      display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 22px;
     }
     .modal-card {
-      background: var(--bg-editor); border-radius: 12px; padding: 20px; max-width: 680px;
-      width: 100%; max-height: 90vh; overflow: auto; box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+      background: var(--surface); border-radius: 18px; max-width: 700px; width: 100%;
+      max-height: 90vh; overflow: auto; box-shadow: var(--shadow-lg);
     }
-    .modal-card input, .modal-card textarea {
-      width: 100%; margin-top: 4px; margin-bottom: 12px; padding: 8px 10px; font-size: 13px;
-      border-radius: 6px; border: 1px solid var(--stroke-secondary); font-family: inherit;
-      color: var(--fg); background: var(--bg-editor);
+    .modal-head {
+      display: flex; align-items: flex-start; gap: 12px;
+      padding: 18px 20px 14px; border-bottom: 1px solid var(--line-soft);
     }
-    .modal-card textarea { resize: vertical; min-height: 180px; }
-    .ticket-preview { font-size: 11px; color: var(--fg4); max-width: 140px; line-height: 1.35; margin-top: 2px; }
+    .modal-body { padding: 18px 20px; }
+    .modal-foot {
+      display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+      padding: 14px 20px; border-top: 1px solid var(--line-soft); background: #FBFCFE;
+      border-radius: 0 0 18px 18px;
+    }
+    .field-label {
+      font-size: 10.5px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase;
+      color: var(--ink-3); margin-bottom: 6px;
+    }
+    .modal-card input[type="text"], .modal-card textarea {
+      width: 100%; margin-bottom: 16px; padding: 9px 11px; font: inherit; font-size: 13px;
+      border-radius: var(--radius-sm); border: 1px solid var(--line);
+      color: var(--ink); background: var(--surface); outline: none;
+    }
+    .modal-card input[type="text"]:focus, .modal-card textarea:focus {
+      border-color: var(--brand); box-shadow: 0 0 0 3px rgba(79,70,229,.13);
+    }
+    .modal-card textarea { resize: vertical; min-height: 190px; line-height: 1.6; }
+
+    .toast {
+      position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%);
+      background: var(--ink); color: #fff; font-size: 13px; font-weight: 550;
+      padding: 9px 16px; border-radius: 999px; z-index: 1200; box-shadow: var(--shadow-lg);
+      display: flex; align-items: center; gap: 7px;
+    }
+
+    @media (max-width: 900px) {
+      .sidebar { position: fixed; z-index: 50; transform: translateX(-100%); transition: transform .18s; }
+      .app.mobile-open .sidebar { transform: translateX(0); }
+      .content, .topbar { padding-left: 16px; padding-right: 16px; }
+    }
+    @media print {
+      .sidebar, .topbar, .toolbar, .pager, .chip-row { display: none !important; }
+      .content { padding: 0; }
+      .card { break-inside: avoid; box-shadow: none; }
+    }
   </style>
 </head>
 <body>
-  <div class="wrap stack" id="app"></div>
-  <div id="ticketModalRoot"></div>
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><defs>
+    <symbol id="i-spark" viewBox="0 0 24 24"><path d="M12 3v4M12 17v4M3 12h4M17 12h4M5.6 5.6l2.8 2.8M15.6 15.6l2.8 2.8M18.4 5.6l-2.8 2.8M8.4 15.6l-2.8 2.8"/><circle cx="12" cy="12" r="3"/></symbol>
+    <symbol id="i-gauge" viewBox="0 0 24 24"><path d="m12 14 4-4"/><path d="M3.34 19a10 10 0 1 1 17.32 0"/></symbol>
+    <symbol id="i-sunrise" viewBox="0 0 24 24"><path d="M12 2v6"/><path d="m4.93 10.93 1.41 1.41"/><path d="M2 18h2"/><path d="M20 18h2"/><path d="m17.66 12.34 1.41-1.41"/><path d="M22 22H2"/><path d="m8 6 4-4 4 4"/><path d="M16 18a4 4 0 0 0-8 0"/></symbol>
+    <symbol id="i-target" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></symbol>
+    <symbol id="i-crown" viewBox="0 0 24 24"><path d="M11.56 3.27a.5.5 0 0 1 .88 0l2.95 5.6a1 1 0 0 0 1.52.3L21.18 5.5a.5.5 0 0 1 .8.52l-2.83 10.25a1 1 0 0 1-.96.73H5.81a1 1 0 0 1-.96-.73L2.02 6.02a.5.5 0 0 1 .8-.52L7.1 9.17a1 1 0 0 0 1.51-.3z"/><path d="M5 21h14"/></symbol>
+    <symbol id="i-medal" viewBox="0 0 24 24"><path d="M7.21 15 2.66 7.14a2 2 0 0 1 .13-2.2L4.4 2.8A2 2 0 0 1 6 2h12a2 2 0 0 1 1.6.8l1.6 2.14a2 2 0 0 1 .14 2.2L16.79 15"/><path d="M11 12 5.12 2.2"/><path d="m13 12 5.88-9.8"/><path d="M8 7h8"/><circle cx="12" cy="17" r="5"/></symbol>
+    <symbol id="i-trend-down" viewBox="0 0 24 24"><path d="M16 17h6v-6"/><path d="m22 17-8.5-8.5-5 5L2 7"/></symbol>
+    <symbol id="i-trend-up" viewBox="0 0 24 24"><path d="M16 7h6v6"/><path d="m22 7-8.5 8.5-5-5L2 17"/></symbol>
+    <symbol id="i-user-minus" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 11h-6"/></symbol>
+    <symbol id="i-activity" viewBox="0 0 24 24"><path d="M22 12h-2.48a2 2 0 0 0-1.93 1.46l-2.35 8.36a.25.25 0 0 1-.48 0L9.24 2.18a.25.25 0 0 0-.48 0l-2.35 8.36A2 2 0 0 1 4.49 12H2"/></symbol>
+    <symbol id="i-banknote" viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 12h.01M18 12h.01"/></symbol>
+    <symbol id="i-sparkles" viewBox="0 0 24 24"><path d="M9.94 15.5A2 2 0 0 0 8.5 14.06l-6.14-1.58a.5.5 0 0 1 0-.96L8.5 9.94A2 2 0 0 0 9.94 8.5l1.58-6.14a.5.5 0 0 1 .96 0l1.58 6.14A2 2 0 0 0 15.5 9.94l6.14 1.58a.5.5 0 0 1 0 .96L15.5 14.06a2 2 0 0 0-1.44 1.44l-1.58 6.14a.5.5 0 0 1-.96 0z"/></symbol>
+    <symbol id="i-ticket" viewBox="0 0 24 24"><path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z"/><path d="M13 5v2M13 11v2M13 17v2"/></symbol>
+    <symbol id="i-lock" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></symbol>
+    <symbol id="i-unlock" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/></symbol>
+    <symbol id="i-gift" viewBox="0 0 24 24"><rect x="3" y="8" width="18" height="4" rx="1"/><path d="M12 8v13"/><path d="M19 12v7a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-7"/><path d="M7.5 8a2.5 2.5 0 0 1 0-5C11 3 12 8 12 8s1-5 4.5-5a2.5 2.5 0 0 1 0 5"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></symbol>
+    <symbol id="i-chev-left" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></symbol>
+    <symbol id="i-chev-right" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></symbol>
+    <symbol id="i-chevs-left" viewBox="0 0 24 24"><path d="m11 17-5-5 5-5"/><path d="m18 17-5-5 5-5"/></symbol>
+    <symbol id="i-chevs-right" viewBox="0 0 24 24"><path d="m13 17 5-5-5-5"/><path d="m6 17 5-5-5-5"/></symbol>
+    <symbol id="i-chev-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+    <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></symbol>
+    <symbol id="i-copy" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></symbol>
+    <symbol id="i-external" viewBox="0 0 24 24"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></symbol>
+    <symbol id="i-alert" viewBox="0 0 24 24"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></symbol>
+    <symbol id="i-check-circle" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></symbol>
+    <symbol id="i-shield" viewBox="0 0 24 24"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67 0C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/></symbol>
+    <symbol id="i-flag" viewBox="0 0 24 24"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><path d="M4 22v-7"/></symbol>
+    <symbol id="i-ban" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m4.9 4.9 14.2 14.2"/></symbol>
+    <symbol id="i-hourglass" viewBox="0 0 24 24"><path d="M5 22h14M5 2h14"/><path d="M17 22v-4.17a2 2 0 0 0-.59-1.41L12 12l-4.41 4.41A2 2 0 0 0 7 17.83V22"/><path d="M7 2v4.17a2 2 0 0 0 .59 1.41L12 12l4.41-4.41A2 2 0 0 0 17 6.17V2"/></symbol>
+    <symbol id="i-file" viewBox="0 0 24 24"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v5h5"/><path d="M16 13H8M16 17H8M10 9H8"/></symbol>
+    <symbol id="i-clipboard" viewBox="0 0 24 24"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/></symbol>
+    <symbol id="i-calendar" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></symbol>
+    <symbol id="i-x-circle" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/></symbol>
+    <symbol id="i-slots" viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 12h4M8 10v4"/><path d="M15 13h.01M18 11h.01"/></symbol>
+    <symbol id="i-arrow-right" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></symbol>
+    <symbol id="i-scale" viewBox="0 0 24 24"><path d="m16 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1"/><path d="m2 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1"/><path d="M7 21h10"/><path d="M12 3v18"/><path d="M3 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2"/></symbol>
+    <symbol id="i-dollar" viewBox="0 0 24 24"><path d="M12 2v20"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></symbol>
+    <symbol id="i-card" viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></symbol>
+    <symbol id="i-wrench" viewBox="0 0 24 24"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></symbol>
+    <symbol id="i-message" viewBox="0 0 24 24"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></symbol>
+    <symbol id="i-phone" viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.79 19.79 0 0 1 2.12 4.18 2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/></symbol>
+    <symbol id="i-hand" viewBox="0 0 24 24"><path d="M18 11V6a2 2 0 0 0-4 0v5"/><path d="M14 10V4a2 2 0 0 0-4 0v6"/><path d="M10 10.5V6a2 2 0 0 0-4 0v8"/><path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-6-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"/></symbol>
+    <symbol id="i-zap" viewBox="0 0 24 24"><path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"/></symbol>
+    <symbol id="i-users" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></symbol>
+    <symbol id="i-panel" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18"/></symbol>
+    <symbol id="i-printer" viewBox="0 0 24 24"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8" rx="1"/></symbol>
+    <symbol id="i-key" viewBox="0 0 24 24"><path d="m15.5 7.5 2.3 2.3a1 1 0 0 0 1.4 0l2.1-2.1a1 1 0 0 0 0-1.4L19 4"/><path d="m21 2-9.6 9.6"/><circle cx="7.5" cy="15.5" r="5.5"/></symbol>
+    <symbol id="i-list" viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13"/><path d="M3 6h.01M3 12h.01M3 18h.01"/></symbol>
+    <symbol id="i-pie" viewBox="0 0 24 24"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></symbol>
+  </defs></svg>
+
+  <div id="root"></div>
+  <div id="modalRoot"></div>
+  <div id="toastRoot"></div>
+
   <script>
-    const DATA = __PAYLOAD_JSON__;
-    const REPORT = DATA.report || {};
-    const OVERVIEW = DATA.overview || [];
-    const AGENTS = DATA.agents || [];
-    const AM_SHARES = DATA.amShares || [];
-    const AM_ORDER = DATA.amOrder || [];
-    const day = REPORT.weekday || "";
+    "use strict";
+
+    const DATA       = __PAYLOAD_JSON__;
+    const REPORT     = DATA.report || {};
+    const OVERVIEW   = DATA.overview || [];
+    const AGENTS     = DATA.agents || [];
+    const AM_SHARES  = DATA.amShares || [];
+    const AM_ORDER   = DATA.amOrder || [];
+    const SINGLE_AM  = !!DATA.singleAm;
+    /* Fallback matches config.manager_gate_token("elite") so briefs generated
+       before the gate existed still open the Dashboard. */
+    const GATE_TOKEN = DATA.managerGate || "09dcfdd4";
+
+    const day      = REPORT.weekday || "";
     const dayShort = REPORT.dayShort || day.slice(0, 3);
     const TITLES = {
-      thisPurchase: `This ${day} Purchase`,
+      thisPurchase:  `This ${day} Purchase`,
       priorPurchase: `Prior ${day} Purchase`,
-      purchase7d: "7D Purchase",
+      purchase7d:    "7D Purchase",
       lifetimePurchase: "LT Purchase",
-      lifetimeHold: "Lifetime Hold",
+      lifetimeHold:  "Lifetime Hold",
       favouriteGame7d: "Favourite Game (7D)",
     };
     const URGENCY_RANK = { Today: 0, "48h": 1, Watch: 2, None: 3 };
@@ -165,25 +580,117 @@
       "Spend Softening", "Offline Since", "Pending RD", "RD $", "Redeem Status ",
       "Take a break", "No Purchases", "Played Today", "Account locked", "Red flag",
     ];
+    const PAGE_SIZES = [25, 50, 100];
+    const PAGINATE_ABOVE = 25;
 
-    let tab = "Overview";
-    let ticketDraft = null;
-    const state = {};
+    /* ---------------- section registry: drives nav + routing ---------------- */
+    const GROUP_ORDER = ["Command", "Today", "Performance", "Risk", "Operations", "Care"];
+    const VIEWS = {
+      dashboard: { label: "Manager Dashboard", short: "Dashboard", icon: "gauge",
+                   group: "Command", managerOnly: true, gated: true,
+                   sub: "Cross-AM roll-up — manager only" },
+      home:      { label: "Morning Brief", icon: "sunrise", group: "Today",
+                   sub: "Where to start today" },
+      goals:     { label: "Elite Goals", icon: "target", group: "Performance",
+                   sub: "Month to date against target" },
+      top10:     { label: "Top 10 Purchasers", icon: "crown", group: "Performance",
+                   key: "top10", sub: "Yesterday's biggest spenders" },
+      milestones:{ label: "Milestone Alerts", icon: "medal", group: "Performance",
+                   key: "milestones", sub: "Lifetime purchase tiers just crossed" },
+      top20:     { label: "Top 20 · WoW Gaps", icon: "trend-down", group: "Risk",
+                   key: "decline", sub: `Same-weekday drops vs last ${day}` },
+      churn:     { label: "Churned (7d)", icon: "user-minus", group: "Risk",
+                   key: "churn", sub: "No purchase in the trailing 7 days" },
+      adec:      { label: "Active Decliners", icon: "activity", group: "Risk",
+                   key: "activeDecline", sub: "Still buying, but less than the prior 7 days" },
+      rd:        { label: "Pending Redemptions", icon: "banknote", group: "Operations",
+                   key: "rdOver5k", sub: "Locked withdrawals awaiting release" },
+      rdfirst:   { label: "First-Time Locked RD", icon: "sparkles", group: "Operations",
+                   key: "rdFirstTime", sub: "First-ever redemption — under review" },
+      tickets:   { label: "Open Tickets", icon: "ticket", group: "Operations",
+                   key: "zendesk", sub: "Open Zendesk tickets on your book" },
+      locks:     { label: "Locked & Take A Break", icon: "lock", group: "Operations",
+                   key: "locks", sub: "New locks and breaks due to end" },
+      birthdays: { label: "Birthdays · Last 3 Days", short: "Birthdays", icon: "gift",
+                   group: "Care", key: "birthdays", sub: "A reason to reach out" },
+    };
+    const NAV_ORDER = ["dashboard", "home", "goals", "top10", "milestones", "top20",
+                       "churn", "adec", "rd", "rdfirst", "tickets", "locks", "birthdays"];
 
-    function esc(s) {
-      return String(s ?? "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
-    }
+    /* ---------------- state ---------------- */
+    const firstAgent = (AGENTS[0] && AGENTS[0].agentName) || AM_ORDER[0] || "";
+    const app = {
+      view: SINGLE_AM ? "home" : "dashboard",
+      agent: SINGLE_AM ? (DATA.singleAmName || firstAgent) : firstAgent,
+      unlocked: sessionStorage.getItem("eliteAmBriefUnlocked") === GATE_TOKEN,
+      gateError: "",
+      collapsed: false,
+      mobileOpen: false,
+      ticket: null,
+    };
+    const tstate = {};
+    let focusKey = null;
+
     function getState(key, fallback) {
-      if (!(key in state)) state[key] = fallback;
-      return state[key];
+      if (!(key in tstate)) tstate[key] = fallback;
+      return tstate[key];
     }
+    /* Any control that changes the result set sends the table back to page 1 —
+       otherwise a search that narrows 260 rows to 3 lands you on an empty page 7. */
+    const RESET_SUFFIXES = ["_q", "_search", "_sort", "_sortBy", "_agent", "_reason", "_size"];
     function setState(key, value) {
-      state[key] = value;
+      tstate[key] = value;
+      for (const suffix of RESET_SUFFIXES) {
+        if (key.endsWith(suffix)) { tstate[key.slice(0, -suffix.length) + "_page"] = 1; break; }
+      }
+      focusKey = key;
       render();
     }
-    function marker(tone) {
-      return `<span class="marker marker-${tone || "neutral"}" aria-hidden="true"></span>`;
+    function go(view) {
+      app.view = view;
+      app.mobileOpen = false;
+      render();
+      window.scrollTo({ top: 0, behavior: "auto" });
     }
+
+    /* ---------------- helpers ---------------- */
+    function esc(s) {
+      return String(s ?? "")
+        .replace(/&/g, "&amp;").replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+    }
+    function icon(name, cls) {
+      return `<svg class="ic ${cls || ""}" aria-hidden="true"><use href="#i-${name}"></use></svg>`;
+    }
+    function gateToken(s) {
+      let h = 5381;
+      for (const ch of String(s)) h = (((h * 33) >>> 0) ^ ch.codePointAt(0)) >>> 0;
+      return h.toString(16).padStart(8, "0");
+    }
+    function toNum(v) {
+      const n = parseFloat(String(v ?? "").replace(/[^0-9.\-]/g, ""));
+      return Number.isNaN(n) ? 0 : n;
+    }
+    function money(n) { return "$" + Math.round(n).toLocaleString(); }
+    function compactMoney(n) {
+      const a = Math.abs(n);
+      if (a >= 1e6) return "$" + (n / 1e6).toFixed(a >= 1e7 ? 0 : 1) + "M";
+      if (a >= 1e4) return "$" + Math.round(n / 1e3) + "K";
+      return money(n);
+    }
+    function agentBlock() { return AGENTS.find(a => a.agentName === app.agent) || AGENTS[0] || {}; }
+    function rowsFor(key) { return (agentBlock()[key]) || []; }
+    function initials(name) {
+      return String(name || "?").trim().split(/\s+/).map(w => w[0]).join("").slice(0, 2).toUpperCase();
+    }
+    function toast(msg) {
+      const root = document.getElementById("toastRoot");
+      root.innerHTML = `<div class="toast">${icon("check", "ic-sm")}${esc(msg)}</div>`;
+      clearTimeout(toast._t);
+      toast._t = setTimeout(() => { root.innerHTML = ""; }, 1800);
+    }
+
+    function marker(tone) { return `<span class="marker marker-${tone || "neutral"}"></span>`; }
     function markerCell(tone, content) {
       return `<span class="cell-marker">${marker(tone)}<span>${content}</span></span>`;
     }
@@ -193,71 +700,128 @@
       const n = pct != null ? Number(pct) : NaN;
       const up = (!Number.isNaN(n) && n > 0) || (v.startsWith("+") && !v.startsWith("+$0") && !v.startsWith("+0"));
       const down = (!Number.isNaN(n) && n < 0) || v.startsWith("-") || v.startsWith("$-");
-      const cls = up ? "t-success w-semibold" : down ? "t-danger w-semibold" : "";
-      return `<span class="${cls}">${esc(value)}</span>`;
+      if (up) return `<span class="t-success w-semibold">${icon("trend-up", "ic-xs")} ${esc(value)}</span>`;
+      if (down) return `<span class="t-danger w-semibold">${icon("trend-down", "ic-xs")} ${esc(value)}</span>`;
+      return esc(value);
     }
     function moneyHtml(value, emphasize) {
-      return `<span class="${emphasize ? "t-danger w-semibold" : ""}">${esc(value)}</span>`;
+      return emphasize ? `<span class="t-danger w-semibold">${esc(value)}</span>` : esc(value);
     }
     function holdHtml(value) {
       const pct = parseFloat(value);
-      const high = !Number.isNaN(pct) && pct >= 70;
-      return `<span class="${high ? "t-success w-semibold" : ""}">${esc(value)}</span>`;
+      return (!Number.isNaN(pct) && pct >= 70)
+        ? `<span class="t-success w-semibold">${esc(value)}</span>` : esc(value);
+    }
+    function unlockHtml(detail, remainingDays) {
+      if (!detail) return '<span class="t-quaternary">—</span>';
+      const urgent = typeof remainingDays === "number" && remainingDays <= 0;
+      return urgent
+        ? `<span class="t-danger w-semibold">${icon("alert", "ic-xs")} ${esc(detail)}</span>`
+        : esc(detail);
+    }
+    function agingHtml(created, daysPending, agingFlag) {
+      const suffix = typeof daysPending === "number" ? ` (${daysPending}d ago)` : "";
+      return agingFlag
+        ? `<span class="t-small t-danger w-semibold">${icon("clock", "ic-xs")} ${esc(created)}${esc(suffix)}</span>`
+        : `<span class="t-small">${esc(created)}${esc(suffix)}</span>`;
     }
     function p7dHtml(value) {
       const none = value === "None In 7D";
       return `<span class="p7d-cell ${none ? "t-warning w-semibold" : ""}">${esc(value)}</span>`;
     }
     function urgencyHtml(u) {
-      if (u === "Today") return '<span class="t-danger w-semibold">⚡ Today</span>';
-      return esc(u);
+      if (u === "Today") return `<span class="badge danger">${icon("zap", "ic-xs")}Today</span>`;
+      if (u === "48h") return `<span class="badge warning">48h</span>`;
+      if (u === "Watch") return `<span class="badge info">Watch</span>`;
+      return `<span class="t-quaternary">${esc(u || "—")}</span>`;
     }
     function aidHtml(p) {
       const aid = esc(p.aid);
       return p.aidUrl
-        ? `<a href="${esc(p.aidUrl)}" target="_blank" rel="noopener noreferrer">${aid}</a>`
-        : aid;
+        ? `<a href="${esc(p.aidUrl)}" target="_blank" rel="noopener noreferrer">${aid}</a>` : aid;
     }
-    function richText(text, weight) {
+    function richText(text, lead) {
       const parts = String(text || "").split(/(\*\*[^*]+\*\*)/g);
-      const inner = parts.map((part) => {
-        if (part.startsWith("**") && part.endsWith("**") && part.length >= 4) {
-          return `<span class="t-success w-semibold">${esc(part.slice(2, -2))}</span>`;
-        }
-        return esc(part);
-      }).join("");
-      return `<div class="t-body ${weight === "semibold" ? "w-semibold" : ""}" style="line-height:1.55">${inner}</div>`;
+      const inner = parts.map(part =>
+        (part.startsWith("**") && part.endsWith("**") && part.length >= 4)
+          ? `<em>${esc(part.slice(2, -2))}</em>` : esc(part)
+      ).join("");
+      return `<div class="hero-line ${lead ? "lead" : ""}">${inner}</div>`;
     }
-    function reasonPartEmoji(part) {
+    function sortBySoonestUnlock(rows) {
+      return (rows || []).slice().sort((a, b) => {
+        const av = a.unlockRemainingDays, bv = b.unlockRemainingDays;
+        if (av == null && bv == null) return 0;
+        if (av == null) return 1;
+        if (bv == null) return -1;
+        return av - bv;
+      });
+    }
+    function sortByNumKey(rows, key, desc) {
+      const d = desc !== false;
+      return (rows || []).slice().sort((a, b) => {
+        const av = Number(a[key]), bv = Number(b[key]);
+        if (Number.isNaN(av) && Number.isNaN(bv)) return 0;
+        if (Number.isNaN(av)) return 1;
+        if (Number.isNaN(bv)) return -1;
+        return d ? bv - av : av - bv;
+      });
+    }
+    function sortPlayers(rows, mode) {
+      const copy = [...rows];
+      if (mode === "priorHigh") return copy.sort((a, b) => (b.priorPriorNum || 0) - (a.priorPriorNum || 0));
+      if (mode === "lifetimeHigh") return copy.sort((a, b) => (b.lifetimePurchasedNum || 0) - (a.lifetimePurchasedNum || 0));
+      if (mode === "gapHigh") return copy.sort((a, b) => (b.sortGap || 0) - (a.sortGap || 0));
+      return copy.sort((a, b) => {
+        const ra = URGENCY_RANK[a.urgency] ?? 9, rb = URGENCY_RANK[b.urgency] ?? 9;
+        return ra !== rb ? ra - rb : (b.sortGap || 0) - (a.sortGap || 0);
+      });
+    }
+    function matchesDecline(row, q) {
+      if (!q.trim()) return true;
+      const s = q.trim().toLowerCase();
+      return [row.name, row.aid, row.agent, row.agentName, row.reason, row.reasonTable,
+              row.purchase7d, row.favouriteGame7d, row.recommendation]
+        .some(v => String(v || "").toLowerCase().includes(s));
+    }
+    function matchesAid(row, q, extraKeys) {
+      if (!q.trim()) return true;
+      const s = q.trim().toLowerCase();
+      if (String(row.name || "").toLowerCase().includes(s) || String(row.aid || "").includes(s)) return true;
+      return (extraKeys || []).some(k => String(row[k] ?? "").toLowerCase().includes(s));
+    }
+
+    /* ---------------- reason / action icons (SVG, not emoji) ---------------- */
+    function reasonPartIcon(part) {
       const pl = part.toLowerCase();
-      if (part.startsWith("Red flag")) return "🚩 ";
-      if (part.startsWith("Redemption Blocked")) return "🚫 ";
-      if (part.startsWith("Redemption in progress")) return "⏳ ";
-      if (part.startsWith("Account locked") || part.includes("Suspended")) return "🔒 ";
-      if (part.startsWith("Needs Recent Acceptable POA") || pl.includes("poa")) return "📄 ";
-      if (part.startsWith("Needs KYC") || pl.includes("verification document")) return "📋 ";
-      if (part.startsWith("RD $") || part.startsWith("Pending RD")) return "💸 ";
-      if (part.startsWith("Same weekday skip")) return "📅 ";
-      if (part.startsWith("Payment failed")) return "❌ ";
-      if (part.startsWith("No Purchases")) return "⚠️ ";
-      if (part.startsWith("Played Today")) return "🎰 ";
-      if (part.startsWith("Redeem Status")) return "📋 ";
-      if (part.startsWith("Take a break")) return "⏰ ";
-      if (part.startsWith("Spend Softening")) return "📉 ";
+      if (part.startsWith("Red flag")) return "flag";
+      if (part.startsWith("Redemption Blocked")) return "ban";
+      if (part.startsWith("Redemption in progress")) return "hourglass";
+      if (part.startsWith("Account locked") || part.includes("Suspended")) return "lock";
+      if (part.startsWith("Needs Recent Acceptable POA") || pl.includes("poa")) return "file";
+      if (part.startsWith("Needs KYC") || pl.includes("verification document")) return "clipboard";
+      if (part.startsWith("RD $") || part.startsWith("Pending RD")) return "banknote";
+      if (part.startsWith("Same weekday skip")) return "calendar";
+      if (part.startsWith("Payment failed")) return "x-circle";
+      if (part.startsWith("No Purchases")) return "alert";
+      if (part.startsWith("Played Today")) return "slots";
+      if (part.startsWith("Redeem Status")) return "clipboard";
+      if (part.startsWith("Take a break")) return "clock";
+      if (part.startsWith("Spend Softening")) return "trend-down";
       return "";
     }
-    function actionHeadEmoji(head) {
+    function actionHeadIcon(head) {
       const hl = head.toLowerCase();
-      if (head.startsWith("Escalate Ops")) return "➡️ ";
-      if (head.startsWith("Escalate Compliance")) return "⚖️ ";
-      if (head.startsWith("Push purchase")) return "💰 ";
-      if (head.startsWith("Fix payment method")) return "💳 ";
-      if (head.startsWith("Remove restriction")) return "🔓 ";
-      if (head.startsWith("Send to Ops")) return "🔧 ";
-      if (head.startsWith("Soft check-in")) return "💬 ";
-      if (head.startsWith("Agent call") || head.startsWith("Reactivation")) return "📞 ";
-      if (head.startsWith("No action")) return "✓ ";
-      if (hl.includes("no outreach") || hl.includes("no purchase push")) return "🛑 ";
+      if (head.startsWith("Escalate Ops")) return "arrow-right";
+      if (head.startsWith("Escalate Compliance")) return "scale";
+      if (head.startsWith("Push purchase")) return "dollar";
+      if (head.startsWith("Fix payment method")) return "card";
+      if (head.startsWith("Remove restriction")) return "unlock";
+      if (head.startsWith("Send to Ops")) return "wrench";
+      if (head.startsWith("Soft check-in")) return "message";
+      if (head.startsWith("Agent call") || head.startsWith("Reactivation")) return "phone";
+      if (head.startsWith("No action")) return "check-circle";
+      if (hl.includes("no outreach") || hl.includes("no purchase push")) return "hand";
       return "";
     }
     function reasonPartClass(part) {
@@ -268,377 +832,764 @@
       return "";
     }
     function renderReason(parts, text) {
-      const segments = (parts && parts.length) ? parts : String(text || "").split("●").map(p => p.trim()).filter(Boolean);
+      const segments = (parts && parts.length)
+        ? parts
+        : String(text || "").split("●").map(p => p.trim()).filter(Boolean);
       return segments.map((part, i) => {
         const emphasize = i === 0 || REASON_EMPHASIS.some(pfx => part.startsWith(pfx));
-        const emoji = reasonPartEmoji(part);
+        const name = reasonPartIcon(part);
         const cls = emphasize ? (reasonPartClass(part) || "w-semibold") : "";
-        const sep = i > 0 ? '<span class="sep">●</span>' : "";
-        return sep + `<span class="${cls}">${emoji}${esc(part)}</span>`;
+        const sep = i > 0 ? '<span class="sep">·</span>' : "";
+        return sep + `<span class="${cls}">${name ? icon(name, "ic-xs") + " " : ""}${esc(part)}</span>`;
       }).join("");
     }
     function renderAction(text) {
       const chunks = String(text || "").split(" · ").filter(Boolean);
       const head = chunks[0] || text || "";
       const tail = chunks.slice(1).join(" · ");
-      return `<span class="w-semibold">${actionHeadEmoji(head)}${esc(head)}</span>` + (tail ? ` · ${esc(tail)}` : "");
+      const name = actionHeadIcon(head);
+      return `<span class="w-semibold">${name ? icon(name, "ic-xs") + " " : ""}${esc(head)}</span>`
+           + (tail ? `<span class="t-tertiary"> · ${esc(tail)}</span>` : "");
     }
     function ticketHtml(p) {
-      if (!p.ticketEnabled) return '<span class="t-quaternary">—</span>';
+      if (!p.ticketEnabled) {
+        return p.ticketDisabledReason
+          ? `<span class="badge">${icon("lock", "ic-xs")}${esc(p.ticketDisabledReason)}</span>`
+          : '<span class="t-quaternary">—</span>';
+      }
       const subj = p.ticketSubject || "";
-      const preview = subj.length > 28 ? subj.slice(0, 27) + "…" : (subj || "Draft");
-      return `<div><button type="button" class="pill" data-ticket-aid="${esc(p.aid)}">Draft</button><div class="ticket-preview">${esc(preview)}</div></div>`;
+      const preview = subj.length > 30 ? subj.slice(0, 29) + "…" : (subj || "Draft");
+      return `<div><button type="button" class="chip" data-ticket-aid="${esc(p.aid)}">`
+           + `${icon("ticket", "ic-xs")} Draft</button>`
+           + `<div class="ticket-preview">${esc(preview)}</div></div>`;
     }
     function ticketIdsHtml(p) {
       const list = p.tickets || [];
       if (!list.length) return `<span class="t-quaternary">${esc(p.ticketIds || "—")}</span>`;
-      return list.map((t, i) => `${i ? ", " : ""}<a href="${esc(t.url)}" target="_blank" rel="noopener noreferrer">${esc(t.id)}</a>`).join("");
+      return list.map((t, i) =>
+        `${i ? ", " : ""}<a href="${esc(t.url)}" target="_blank" rel="noopener noreferrer">${esc(t.id)}</a>`
+      ).join("");
     }
-    function sortPlayers(rows, mode) {
-      const copy = [...rows];
-      if (mode === "priorHigh") return copy.sort((a,b) => (b.priorPriorNum||0) - (a.priorPriorNum||0));
-      if (mode === "lifetimeHigh") return copy.sort((a,b) => (b.lifetimePurchasedNum||0) - (a.lifetimePurchasedNum||0));
-      if (mode === "gapHigh") return copy.sort((a,b) => (b.sortGap||0) - (a.sortGap||0));
-      return copy.sort((a,b) => {
-        const ra = URGENCY_RANK[a.urgency] ?? 9;
-        const rb = URGENCY_RANK[b.urgency] ?? 9;
-        if (ra !== rb) return ra - rb;
-        return (b.sortGap||0) - (a.sortGap||0);
-      });
-    }
-    function matchesDecline(row, q) {
-      if (!q.trim()) return true;
-      const s = q.trim().toLowerCase();
-      return [row.name, row.aid, row.agent, row.agentName, row.reason, row.reasonTable, row.purchase7d, row.favouriteGame7d, row.recommendation]
-        .some(v => String(v || "").toLowerCase().includes(s));
-    }
-    function matchesAid(row, q, extraKeys) {
-      if (!q.trim()) return true;
-      const s = q.trim().toLowerCase();
-      if (String(row.name||"").toLowerCase().includes(s) || String(row.aid||"").includes(s)) return true;
-      return (extraKeys || []).some(k => String(row[k] ?? "").toLowerCase().includes(s));
-    }
-    function fmtTotalMoney(n) { return "$" + Math.round(n).toLocaleString(); }
 
+    /* ---------------- table + pagination ---------------- */
     function tableHtml(headers, rows, align, tones, opts) {
       opts = opts || {};
       const th = headers.map((h, i) => {
         const a = (align && align[i]) || "left";
         return `<th class="${a === "right" ? "num" : a === "center" ? "center" : ""}">${esc(h)}</th>`;
       }).join("");
-      const body = rows.length ? rows.map((cells, ri) => {
-        const tone = (tones && tones[ri]) || "neutral";
-        const striped = ri % 2 === 1 ? " striped" : "";
-        const tds = cells.map((c, i) => {
-          const a = (align && align[i]) || "left";
-          const cls = a === "right" ? "num" : a === "center" ? "center" : "";
-          const content = (i === 0 || opts.noMarker) ? c : markerCell(tone, c);
-          return `<td class="${cls}">${i === 0 || opts.noMarker ? c : content}</td>`;
-        }).join("");
-        // first column often label; apply marker on first text column for segment-style
-        return `<tr class="${striped}">${cells.map((c, i) => {
-          const a = (align && align[i]) || "left";
-          const cls = a === "right" ? "num" : a === "center" ? "center" : "";
-          if (opts.markerCol === i) {
-            return `<td class="${cls}">${markerCell(tone, c)}</td>`;
-          }
-          return `<td class="${cls}">${c}</td>`;
-        }).join("")}</tr>`;
-      }).join("") : `<tr><td colspan="${headers.length}" class="t-tertiary">${esc(opts.empty || "No players match the current filters.")}</td></tr>`;
-      return `<div class="table-frame"><table class="canvas ${opts.tableClass || ""}"><thead><tr>${th}</tr></thead><tbody>${body}</tbody></table></div>`;
+      const body = rows.length
+        ? rows.map((cells, ri) => {
+            const tone = (tones && tones[ri]) || "neutral";
+            const isTotal = opts.totalRowIndex === ri;
+            const tds = cells.map((c, i) => {
+              const a = (align && align[i]) || "left";
+              const cls = a === "right" ? "num" : a === "center" ? "center" : "";
+              const content = (opts.markerCol === i && !isTotal) ? markerCell(tone, c) : c;
+              return `<td class="${cls}">${content}</td>`;
+            }).join("");
+            return `<tr class="${isTotal ? "total-row" : ""}">${tds}</tr>`;
+          }).join("")
+        : `<tr><td colspan="${headers.length}" class="empty">${esc(opts.empty || "Nothing to show here.")}</td></tr>`;
+      return `<div class="table-frame ${opts.frameClass || ""}">`
+           + `<table class="grid ${opts.tableClass || ""}"><thead><tr>${th}</tr></thead>`
+           + `<tbody>${body}</tbody></table></div>`;
     }
 
-    function segmentTable() {
+    /* Returns the visible slice plus the pager markup for it. */
+    function paginate(rows, stateKey, forceOn) {
+      const total = rows.length;
+      const on = forceOn || total > PAGINATE_ABOVE;
+      if (!on) return { slice: rows, pager: "", from: total ? 1 : 0, to: total, total };
+      const sizeKey = stateKey + "_size", pageKey = stateKey + "_page";
+      const raw = getState(sizeKey, String(PAGE_SIZES[0]));
+      const size = raw === "all" ? total : Number(raw) || PAGE_SIZES[0];
+      const pages = Math.max(1, Math.ceil(total / size));
+      const page = Math.min(Math.max(1, Number(getState(pageKey, 1)) || 1), pages);
+      tstate[pageKey] = page;
+      const start = (page - 1) * size;
+      const slice = rows.slice(start, start + size);
+      const from = total ? start + 1 : 0;
+      const to = Math.min(start + size, total);
+
+      const btn = (label, target, disabled, extraCls) =>
+        `<button type="button" class="pg ${extraCls || ""}" data-page-key="${esc(pageKey)}" `
+        + `data-page="${target}"${disabled ? " disabled" : ""}>${label}</button>`;
+
+      let nums = "";
+      if (pages > 1) {
+        const window_ = new Set([1, pages, page, page - 1, page + 1]);
+        if (page <= 3) [2, 3, 4].forEach(n => window_.add(n));
+        if (page >= pages - 2) [pages - 1, pages - 2, pages - 3].forEach(n => window_.add(n));
+        const list = [...window_].filter(n => n >= 1 && n <= pages).sort((a, b) => a - b);
+        let prev = 0;
+        for (const n of list) {
+          if (prev && n - prev > 1) nums += `<span class="pg-gap">…</span>`;
+          nums += btn(String(n), n, false, n === page ? "active" : "");
+          prev = n;
+        }
+      }
+      const sizeSel = `<span class="select-wrap"><select data-state="${esc(sizeKey)}">`
+        + PAGE_SIZES.map(n => `<option value="${n}" ${raw === String(n) ? "selected" : ""}>${n} per page</option>`).join("")
+        + `<option value="all" ${raw === "all" ? "selected" : ""}>Show all (${total})</option>`
+        + `</select>${icon("chev-down", "ic-xs")}</span>`;
+
+      const pager = `<div class="pager">
+        <div class="pager-info">Showing <strong>${from.toLocaleString()}–${to.toLocaleString()}</strong> of ${total.toLocaleString()}</div>
+        <div class="spacer"></div>
+        ${sizeSel}
+        ${pages > 1 ? btn(icon("chevs-left", "ic-xs"), 1, page === 1) : ""}
+        ${pages > 1 ? btn(icon("chev-left", "ic-xs"), page - 1, page === 1) : ""}
+        ${nums}
+        ${pages > 1 ? btn(icon("chev-right", "ic-xs"), page + 1, page === pages) : ""}
+        ${pages > 1 ? btn(icon("chevs-right", "ic-xs"), pages, page === pages) : ""}
+      </div>`;
+      return { slice, pager, from, to, total };
+    }
+
+    /* Generic search + sort + paginate section rendered as a card. */
+    function tableCard(opts) {
+      const all = opts.rows || [];
+      const searchEnabled = opts.showSearch !== false;
+      const sortEnabled = !!(opts.sortOptions && opts.sortOptions.length && opts.sortFn);
+      const qKey = opts.stateKey + "_q", sortKey = opts.stateKey + "_sort";
+      const q = searchEnabled ? getState(qKey, "") : "";
+      const sortBy = getState(sortKey, opts.defaultSort
+        || (opts.sortOptions && opts.sortOptions[0] ? opts.sortOptions[0].value : ""));
+
+      const searched = searchEnabled ? all.filter(r => matchesAid(r, q, opts.extraKeys || [])) : all;
+      const ordered = opts.sortFn ? opts.sortFn(searched, sortBy) : searched;
+      const { slice, pager, total } = paginate(ordered, opts.stateKey);
+
+      const filtered = q.trim() !== "";
+      const countBadge = filtered
+        ? `<span class="badge brand">${ordered.length} of ${all.length}</span>`
+        : `<span class="badge">${all.length} ${all.length === 1 ? "player" : "players"}</span>`;
+
+      const toolbar = (searchEnabled || sortEnabled) ? `<div class="toolbar">
+        ${searchEnabled ? `<label class="search">${icon("search", "ic-sm")}
+          <input type="search" placeholder="Search name, AID…" value="${esc(q)}" data-state="${esc(qKey)}">
+        </label>` : ""}
+        ${sortEnabled ? `<span class="select-wrap"><select data-state="${esc(sortKey)}">`
+          + opts.sortOptions.map(o => `<option value="${esc(o.value)}" ${sortBy === o.value ? "selected" : ""}>${esc(o.label)}</option>`).join("")
+          + `</select>${icon("chev-down", "ic-xs")}</span>` : ""}
+        <div class="spacer"></div>
+        ${countBadge}
+      </div>` : "";
+
+      return `<div class="card">
+        ${toolbar}
+        ${tableHtml(opts.headers, slice.map(opts.renderRow), opts.align,
+                    slice.map(r => r.tone || "neutral"),
+                    { markerCol: opts.markerCol, empty: opts.empty, tableClass: opts.tableClass,
+                      frameClass: opts.compact ? "compact" : "" })}
+        ${total ? pager : ""}
+      </div>`;
+    }
+
+    /* ---------------- shared blocks ---------------- */
+    function segmentCard() {
       const segments = REPORT.segments || [];
       const title = REPORT.segmentTitle || `${day} vs last ${day} · Elite & Jackpota`;
       const rows = segments.map(s => [
-        esc(s.label),
-        esc(s.revThis),
-        esc(s.revPrior),
-        wowHtml(s.revWow),
-        esc(s.plyThis),
-        esc(s.plyPrior),
-        wowHtml(s.plyWow),
-        esc(s.share || ""),
+        esc(s.label), esc(s.revThis), esc(s.revPrior), wowHtml(s.revWow),
+        esc(s.plyThis), esc(s.plyPrior), wowHtml(s.plyWow), esc(s.share || ""),
       ]);
-      return `<div class="stack-8">
-        <h2>${esc(title)}</h2>
+      return `<div class="card">
+        <div class="card-head">
+          <span class="card-icon info">${icon("pie", "ic-sm")}</span>
+          <div><div class="card-title">${esc(title)}</div>
+          ${REPORT.headline ? `<div class="card-sub">${esc(REPORT.headline)}</div>` : ""}</div>
+        </div>
         ${tableHtml(
           ["Segment", `This ${dayShort} Purchase`, `Prior ${dayShort} Purchase`, "Purchase WoW",
-           `This ${dayShort} Purchased Players`, `Prior ${dayShort} Purchased Players`, "Purchased Players WoW", "Share"],
-          rows,
-          ["left","right","right","right","right","right","right","left"],
+           `This ${dayShort} Purchased Players`, `Prior ${dayShort} Purchased Players`,
+           "Purchased Players WoW", "Share"],
+          rows, ["left", "right", "right", "right", "right", "right", "right", "right"],
           segments.map(s => s.tone || "neutral"),
           { markerCol: 0, empty: "No segment data." }
         )}
-        ${REPORT.headline ? `<div class="t-small t-tertiary">${esc(REPORT.headline)}</div>` : ""}
       </div>`;
     }
 
-    function amShareTable() {
-      const rows = AM_SHARES.map(r => [
-        `<button type="button" class="pill" data-tab="${esc(r.agentName)}">${esc(r.agentName)}</button>`,
-        `<span class="t-success w-semibold">${esc(r.purchase)}</span>`,
-        esc(r.purchaseShare),
-        esc(r.purchasedOfBook || r.purchasedPlayers),
-      ]);
-      return `<div class="stack-8">
-        <h2>AM Share Of Elite</h2>
-        ${tableHtml(
-          ["AM", "Purchase $", "Share", "Purchased / Book"],
-          rows,
-          ["left","right","right","right"],
-          AM_SHARES.map(() => "success"),
-          { markerCol: 1, empty: "No AM share data." }
-        )}
-      </div>`;
+    function statCard(o) {
+      const tag = o.view ? "button" : "div";
+      const attrs = o.view ? ` data-go="${esc(o.view)}"` : ' class-flat';
+      return `<${tag} class="stat t-${o.tone || "neutral"}${o.view ? "" : " flat"}"${o.view ? ` data-go="${esc(o.view)}"` : ""}>
+        <div class="stat-top">
+          <span class="stat-chip">${icon(o.icon, "ic-sm")}</span>
+          <span class="stat-label">${esc(o.label)}</span>
+        </div>
+        <div class="stat-value ${o.small ? "sm" : ""}">${esc(o.value)}</div>
+        ${o.foot ? `<div class="stat-foot">${o.foot}</div>` : ""}
+      </${tag}>`;
     }
 
-    function checklistHtml(focus, prefix) {
-      const rows = [
-        ["Open Tickets", focus.openZd, focus.openZd ? "info" : "success", `${prefix}-zendesk`],
-        ["Take A Break (Past Day)", focus.takeABreak, focus.takeABreak ? "warning" : "success", `${prefix}-locks`],
-        ["Other Locked", focus.otherLocked, focus.otherLocked ? "warning" : "success", `${prefix}-locks`],
-        ["Self-Exclusion", focus.selfExclusion, "neutral", `${prefix}-locks`],
-        ["Pending Redemptions", focus.rdOver5k, focus.rdOver5k ? "warning" : "success", `${prefix}-pending-rd`],
-        ["Birthdays (3d)", focus.birthdays, "success", `${prefix}-birthdays`],
-        ["Top 20 Decline", focus.declineCount, focus.declineCount ? "warning" : "success", `${prefix}-top20`],
+    /* ---------------- views ---------------- */
+    function viewHome() {
+      const b = agentBlock();
+      const f = b.focus || {};
+      const greet = (b.greetingLines || []).map((line, i) => richText(line, i === 0)).join("");
+      const cards = [
+        { label: "Open Tickets", value: f.openZd ?? 0, icon: "ticket", view: "tickets",
+          tone: f.openZd ? "info" : "success" },
+        { label: "Top 20 Decline", value: f.declineCount ?? 0, icon: "trend-down", view: "top20",
+          tone: f.declineCount ? "warning" : "success" },
+        { label: "Churned (7d)", value: f.churned ?? 0, icon: "user-minus", view: "churn",
+          tone: f.churned ? "danger" : "success" },
+        { label: "Active Decliners", value: f.activeDecliners ?? 0, icon: "activity", view: "adec",
+          tone: f.activeDecliners ? "warning" : "success" },
+        { label: "Pending RD", value: f.rdOver5k ?? 0, icon: "banknote", view: "rd",
+          tone: f.rdOver5k ? "warning" : "success" },
+        { label: "Take A Break", value: f.takeABreak ?? 0, icon: "clock", view: "locks",
+          tone: f.takeABreak ? "warning" : "success" },
+        { label: "Other Locked", value: f.otherLocked ?? 0, icon: "lock", view: "locks",
+          tone: f.otherLocked ? "warning" : "success" },
+        { label: "Self-Exclusion", value: f.selfExclusion ?? 0, icon: "shield", view: "locks",
+          tone: "neutral" },
+        { label: "Birthdays (3d)", value: f.birthdays ?? 0, icon: "gift", view: "birthdays",
+          tone: f.birthdays ? "brand" : "neutral" },
       ];
-      return tableHtml(
-        ["Metric", "Count"],
-        rows.map(r => [`<a class="jump" href="#${esc(r[3])}">${esc(r[0])}</a>`, `<span class="w-semibold t-${r[2]}">${r[1]}</span>`]),
-        ["left", "right"],
-        rows.map(r => r[2]),
-        { markerCol: 1, empty: "" }
-      );
-    }
-
-    function searchableSection(opts) {
-      const key = opts.stateKey + "_q";
-      const q = getState(key, "");
-      const filtered = (opts.rows || []).filter(r => matchesAid(r, q, opts.extraKeys || []));
-      const filterActive = q.trim() !== "";
-      const count = filterActive ? `Showing ${filtered.length} of ${opts.rows.length}` : `${opts.rows.length} players`;
-      return `<div class="stack-8 section-anchor" id="${esc(opts.sectionId || "")}">
-        <div class="row"><h2>${esc(opts.title)}</h2><div class="spacer"></div><div class="t-small t-tertiary">${esc(count)}</div></div>
-        <div class="row"><input type="search" placeholder="Search name, AID…" value="${esc(q)}" data-state="${esc(key)}" /></div>
-        ${tableHtml(opts.headers, filtered.map(opts.renderRow), opts.align, filtered.map(r => r.tone || "neutral"), { markerCol: opts.markerCol, empty: opts.keepWhenEmpty && !filtered.length ? "" : undefined, tableClass: opts.tableClass })}
+      return `<div class="stack">
+        ${greet ? `<div class="hero"><div class="stack-6">${greet}</div></div>` : ""}
+        <div class="stats">${cards.map(statCard).join("")}</div>
+        ${goalsSummaryCard(b.goals)}
+        ${segmentCard()}
       </div>`;
     }
 
-    function top20Section(players, stateKey, showAgentSelect, sectionId) {
+    function goalsSummaryCard(goals) {
+      if (!goals || !goals.available) return "";
+      const pct = Number(goals.weightedTrackedPct);
+      const kpis = goals.kpis || [];
+      const onTrack = kpis.filter(k => k.statusTone === "success").length;
+      const behind = kpis.filter(k => k.statusTone === "danger" || k.statusTone === "warning").length;
+      const meterTone = pct >= 90 ? "success" : pct >= 70 ? "warning" : "danger";
+      return `<div class="card">
+        <div class="card-head">
+          <span class="card-icon ${meterTone}">${icon("target", "ic-sm")}</span>
+          <div><div class="card-title">Elite Goals</div>
+          <div class="card-sub">${esc(goals.monthLabel || "")}${goals.asOf ? ` · as of ${esc(goals.asOf)}` : ""}</div></div>
+          <div class="spacer"></div>
+          <button type="button" class="btn" data-go="goals">Open ${icon("chev-right", "ic-xs")}</button>
+        </div>
+        <div class="card-body stack-10">
+          <div class="goal-score">
+            <span class="goal-pct t-${meterTone}">${Number.isFinite(pct) ? pct.toFixed(1) + "%" : "—"}</span>
+            <span class="t-tertiary">of the included ${esc(goals.weightUsed ?? goals.includedWeightTotal ?? 80)}% weight</span>
+          </div>
+          <div class="meter ${meterTone}"><span style="width:${Number.isFinite(pct) ? Math.max(0, Math.min(100, pct)) : 0}%"></span></div>
+          <div class="row">
+            <span class="badge success">${icon("check-circle", "ic-xs")}${onTrack} on track</span>
+            <span class="badge ${behind ? "danger" : ""}">${icon("alert", "ic-xs")}${behind} need attention</span>
+          </div>
+        </div>
+      </div>`;
+    }
+
+    function viewGoals() {
+      const goals = agentBlock().goals;
+      if (!goals) {
+        return emptyState("target", "No goals for this AM",
+          "Goals are tracked for Coral, Gabriel, Lee and Rachel.");
+      }
+      if (!goals.available) {
+        return emptyState("target", "Goals unavailable", goals.note || "No goals for this AM.");
+      }
+      const kpis = goals.kpis || [];
+      const pct = Number(goals.weightedTrackedPct);
+      const meterTone = pct >= 90 ? "success" : pct >= 70 ? "warning" : "danger";
+      const subtitle = [
+        goals.monthLabel || "",
+        goals.asOf ? `as of ${goals.asOf}` : "",
+        (goals.elapsedDays && goals.daysInMonth) ? `day ${goals.elapsedDays} of ${goals.daysInMonth}` : "",
+      ].filter(Boolean).join(" · ");
+      const rows = kpis.map(k => [
+        esc(k.label), esc(k.weightLabel), esc(k.goalDisplay), esc(k.actualDisplay),
+        esc(k.paceDisplay), esc(k.gapDisplay),
+        `<span class="badge ${k.statusTone || ""}">${esc(k.status)}</span>`,
+      ]);
+      return `<div class="stack">
+        <div class="card">
+          <div class="card-body stack-10">
+            <div class="row">
+              <div class="goal-score">
+                <span class="goal-pct t-${meterTone}">${Number.isFinite(pct) ? pct.toFixed(1) + "%" : "—"}</span>
+                <span class="t-tertiary">weighted tracking</span>
+              </div>
+              <div class="spacer"></div>
+              <span class="badge">${esc(subtitle)}</span>
+            </div>
+            <div class="meter ${meterTone}"><span style="width:${Number.isFinite(pct) ? Math.max(0, Math.min(100, pct)) : 0}%"></span></div>
+            <div class="t-small t-tertiary">${esc(goals.weightedTrackedDisplay || "")}</div>
+          </div>
+        </div>
+        <div class="card">
+          ${tableHtml(["KPI", "Weight", "Goal", "Actual", "Pace", "Gap", "Status"], rows,
+            ["left", "right", "right", "right", "right", "right", "left"],
+            kpis.map(k => k.statusTone || "neutral"), { markerCol: 0 })}
+        </div>
+        <div class="note">${esc(goals.definitionsNote || "")}</div>
+        <div class="note">${esc(goals.achievementCapNote || "")}</div>
+      </div>`;
+    }
+
+    function viewTop20() {
+      const players = rowsFor("decline");
+      const stateKey = `dec_${app.agent}`;
       const search = getState(stateKey + "_search", "");
-      const agent = getState(stateKey + "_agent", "all");
       const reason = getState(stateKey + "_reason", "all");
       const sortBy = getState(stateKey + "_sortBy", "urgency");
-      const agentOptions = [...new Set(players.map(p => p.agent).filter(Boolean))].sort();
       const reasons = [...new Set(players.map(p => p.reason).filter(Boolean))].sort();
-      const filtered = sortPlayers(players.filter(row => {
-        if (showAgentSelect && agent !== "all" && row.agent !== agent) return false;
-        if (reason !== "all" && row.reason !== reason) return false;
-        return matchesDecline(row, search);
-      }), sortBy);
-      const priorTotal = filtered.reduce((sum, p) => sum + (p.priorPriorNum || 0), 0);
-      const filterActive = search.trim() !== "" || (showAgentSelect && agent !== "all") || reason !== "all" || sortBy !== "urgency";
-      const count = filterActive ? `Showing ${filtered.length} of ${players.length}` : `${players.length} players`;
-      const headers = ["#", "Agent Name", "AID", "Name", TITLES.lifetimePurchase, TITLES.lifetimeHold, TITLES.thisPurchase, TITLES.priorPurchase, TITLES.purchase7d, TITLES.favouriteGame7d, "Urgency", "Reason", "Recommendation", "Ticket"];
-      const rows = filtered.map((p, i) => [
-        String(i + 1),
-        esc(p.agentName),
-        aidHtml(p),
-        esc(p.name),
+      const ordered = sortPlayers(players.filter(row =>
+        (reason === "all" || row.reason === reason) && matchesDecline(row, search)), sortBy);
+      const { slice, pager, total } = paginate(ordered, stateKey);
+      const priorTotal = ordered.reduce((sum, p) => sum + (p.priorPriorNum || 0), 0);
+      const active = search.trim() !== "" || reason !== "all";
+
+      const headers = ["#", "Agent Name", "AID", "Name", TITLES.lifetimePurchase, TITLES.lifetimeHold,
+        TITLES.thisPurchase, TITLES.priorPurchase, TITLES.purchase7d, TITLES.favouriteGame7d,
+        "Urgency", "Reason", "Recommendation", "Ticket"];
+      const rows = slice.map((p, i) => [
+        String(ordered.indexOf(p) + 1),
+        esc(p.agentName), aidHtml(p), esc(p.name),
         moneyHtml(p.lifetimePurchase, (p.lifetimePurchasedNum || 0) >= 50000),
         holdHtml(p.lifetimeHold),
         moneyHtml(p.thisDay, p.zeroDay),
         moneyHtml(p.priorDay, (p.sortGap || 0) >= 2000),
-        p7dHtml(p.purchase7d),
-        esc(p.favouriteGame7d),
-        urgencyHtml(p.urgency),
+        p7dHtml(p.purchase7d), esc(p.favouriteGame7d), urgencyHtml(p.urgency),
         `<div class="reason-cell">${renderReason(p.reasonParts, p.reasonTable || p.reason)}</div>`,
         `<div class="action-cell">${renderAction(p.recommendation)}</div>`,
         ticketHtml(p),
       ]);
-      if (filtered.length) {
-        rows.push(["", "", "", `<span class="w-semibold">Total</span>`, "", "", "", `<span class="w-semibold">${fmtTotalMoney(priorTotal)}</span>`, "", "", "", "", "", ""]);
+      const tones = slice.map(p => p.tone || "neutral");
+      if (rows.length) {
+        rows.push(["", "", "", "Total (all filtered)", "", "", "", money(priorTotal), "", "", "", "", "", ""]);
+        tones.push("neutral");
       }
-      const tones = [...filtered.map(p => p.tone || "neutral"), ...(filtered.length ? ["neutral"] : [])];
-      const anchorId = sectionId || (stateKey.startsWith("dec_")
-        ? `am-${stateKey.slice(4)}-top20`
-        : stateKey);
-      return `<div class="stack-8 section-anchor" id="${esc(anchorId)}">
-        <div class="row"><h2>Top 20 · WoW Purchase Gaps</h2><div class="spacer"></div><div class="t-small t-tertiary">${esc(count)}</div></div>
-        <div class="row">
-          <input type="search" placeholder="Search name, AID, agent, reason…" value="${esc(search)}" data-state="${esc(stateKey + "_search")}" />
-          ${showAgentSelect ? `<span class="select-wrap"><select data-state="${esc(stateKey + "_agent")}"><option value="all">All agents</option>${agentOptions.map(a => `<option value="${esc(a)}" ${agent===a?"selected":""}>${esc(a)}</option>`).join("")}</select></span>` : ""}
+      return `<div class="card">
+        <div class="toolbar">
+          <label class="search">${icon("search", "ic-sm")}
+            <input type="search" placeholder="Search name, AID, reason…" value="${esc(search)}" data-state="${esc(stateKey + "_search")}">
+          </label>
           <span class="select-wrap"><select data-state="${esc(stateKey + "_sortBy")}">
-            <option value="urgency" ${sortBy==="urgency"?"selected":""}>Sort: Urgency + gap</option>
-            <option value="priorHigh" ${sortBy==="priorHigh"?"selected":""}>Prior purchase ↓</option>
-            <option value="lifetimeHigh" ${sortBy==="lifetimeHigh"?"selected":""}>Lifetime purchase ↓</option>
-            <option value="gapHigh" ${sortBy==="gapHigh"?"selected":""}>WoW gap ↓</option>
-          </select></span>
+            <option value="urgency" ${sortBy === "urgency" ? "selected" : ""}>Sort: Urgency + gap</option>
+            <option value="priorHigh" ${sortBy === "priorHigh" ? "selected" : ""}>Prior purchase ↓</option>
+            <option value="lifetimeHigh" ${sortBy === "lifetimeHigh" ? "selected" : ""}>Lifetime purchase ↓</option>
+            <option value="gapHigh" ${sortBy === "gapHigh" ? "selected" : ""}>WoW gap ↓</option>
+          </select>${icon("chev-down", "ic-xs")}</span>
+          <div class="spacer"></div>
+          <span class="badge ${active ? "brand" : ""}">${active ? `${ordered.length} of ${players.length}` : `${players.length} players`}</span>
         </div>
-        <div class="pills">
-          <button type="button" class="pill ${reason==="all"?"active":""}" data-reason-state="${esc(stateKey + "_reason")}" data-reason="all">All reasons</button>
-          ${reasons.map(r => `<button type="button" class="pill ${reason===r?"active":""}" data-reason-state="${esc(stateKey + "_reason")}" data-reason="${esc(r)}">${esc(r)}</button>`).join("")}
-        </div>
-        ${tableHtml(headers, rows, ["center","left","left","left","right","right","right","right","left","left","center","left","left","center"], tones, { tableClass: "players-table", empty: "No players match the current filters." })}
+        ${reasons.length ? `<div class="chip-row">
+          <button type="button" class="chip ${reason === "all" ? "active" : ""}" data-reason-state="${esc(stateKey + "_reason")}" data-reason="all">All reasons</button>
+          ${reasons.map(r => `<button type="button" class="chip ${reason === r ? "active" : ""}" data-reason-state="${esc(stateKey + "_reason")}" data-reason="${esc(r)}">${esc(r)}</button>`).join("")}
+        </div>` : ""}
+        ${tableHtml(headers, rows,
+          ["center", "left", "left", "left", "right", "right", "right", "right", "left", "left", "center", "left", "left", "center"],
+          tones,
+          { tableClass: "players-table", totalRowIndex: rows.length - 1,
+            empty: "No players match the current filters." })}
+        ${total ? pager : ""}
       </div>`;
     }
 
-    function agentPanel(block) {
-      const prefix = `am-${block.agentName}`;
-      const greet = (block.greetingLines || []).map((line, i) => richText(line, i === 0 ? "semibold" : "normal")).join("");
-      return `<div class="stack">
-        <div class="stack-6">${greet}</div>
-        ${segmentTable()}
-        <div class="stack-8"><h2>Morning Checklist</h2>${checklistHtml(block.focus || {}, prefix)}</div>
-        ${searchableSection({
-          title: "Top 10 Purchasers",
-          rows: block.top10 || [],
-          stateKey: `t10_${block.agentName}`,
-          sectionId: `${prefix}-top10`,
-          extraKeys: ["offerCode", "offerTitle"],
-          headers: ["#", "AID", "Name", "Purchased $", "Purchases (#)", "Top Offer"],
-          align: ["center","left","left","right","right","left"],
-          markerCol: 3,
-          renderRow: (p) => [esc(p.rank), aidHtml(p), esc(p.name), `<span class="t-success">${esc(p.purchased)}</span>`, esc(p.orderCount), esc(p.offerCode)],
-        })}
-        ${top20Section(block.decline || [], `dec_${block.agentName}`, false, `${prefix}-top20`)}
-        ${searchableSection({
-          title: "Pending Redemptions",
-          rows: block.rdOver5k || [],
-          stateKey: `rd5_${block.agentName}`,
-          sectionId: `${prefix}-pending-rd`,
-          headers: ["AID", "Name", "RD ID", "Amount", "Status", "Created"],
-          align: ["left","left","left","right","left","left"],
-          markerCol: 3,
-          renderRow: (p) => [aidHtml(p), esc(p.name), esc(p.redeemId), `<span class="t-warning">${esc(p.amount)}</span>`, esc(p.status), esc(p.created)],
-        })}
-        ${searchableSection({
-          title: "First-Time Locked RD",
-          rows: block.rdFirstTime || [],
-          stateKey: `rdf_${block.agentName}`,
-          sectionId: `${prefix}-first-rd`,
-          keepWhenEmpty: true,
-          headers: ["AID", "Name", "RD ID", "Amount", "Status", "Created"],
-          align: ["left","left","left","right","left","left"],
-          markerCol: 3,
-          renderRow: (p) => [aidHtml(p), esc(p.name), esc(p.redeemId), `<span class="t-warning">${esc(p.amount)}</span>`, esc(p.status), esc(p.created)],
-        })}
-        ${searchableSection({
-          title: "Birthdays · Last 3 Days",
-          rows: block.birthdays || [],
-          stateKey: `bd_${block.agentName}`,
-          sectionId: `${prefix}-birthdays`,
-          headers: ["AID", "Name", "Email", "DOB", "Age"],
-          align: ["left","left","left","left","right"],
-          markerCol: 3,
-          renderRow: (p) => [aidHtml(p), esc(p.name), esc(p.email), `<span class="t-success">${esc(p.dob)}</span>`, esc(p.age ?? "—")],
-        })}
-        ${searchableSection({
-          title: "Open Tickets",
-          rows: block.zendesk || [],
-          stateKey: `zd_${block.agentName}`,
-          sectionId: `${prefix}-zendesk`,
-          extraKeys: ["ticketIds"],
-          headers: ["AID", "Name", "LTP", "Hold", "7D Purchase", "Open Tickets", "Ticket"],
-          align: ["left","left","right","right","right","right","left"],
-          markerCol: 2,
-          renderRow: (p) => [
-            aidHtml(p), esc(p.name),
-            moneyHtml(p.lifetimePurchase || "$0", (p.lifetimePurchasedNum || 0) >= 50000),
-            holdHtml(p.lifetimeHold || "n/a"),
-            moneyHtml(p.purchase7d || "$0"),
-            esc(p.openTickets),
-            ticketIdsHtml(p),
-          ],
-        })}
-        ${searchableSection({
-          title: "Locked And Take A Break",
-          rows: block.locks || [],
-          stateKey: `lk_${block.agentName}`,
-          sectionId: `${prefix}-locks`,
-          extraKeys: ["lockReason", "unlockDetail"],
-          headers: ["AID", "Name", "Lock Reason", "Days Remaining / Unlock"],
-          align: ["left","left","left","left"],
-          markerCol: 2,
-          renderRow: (p) => [aidHtml(p), esc(p.name), `<span class="t-${p.tone || "warning"}">${esc(p.lockReason)}</span>`, esc(p.unlockDetail || "—")],
-        })}
-      </div>`;
+    function viewTop10() {
+      return tableCard({
+        rows: rowsFor("top10"), stateKey: `t10_${app.agent}`,
+        extraKeys: ["offerCode", "offerTitle"], compact: true,
+        headers: ["#", "AID", "Name", "Purchased $", "Purchases (#)", "Top Offer"],
+        align: ["center", "left", "left", "right", "right", "left"], markerCol: 3,
+        empty: "No purchasers yesterday.",
+        renderRow: p => [esc(p.rank), aidHtml(p), esc(p.name),
+          `<span class="t-success w-semibold">${esc(p.purchased)}</span>`,
+          esc(p.orderCount), esc(p.offerCode)],
+      });
     }
 
-    function overviewPanel() {
-      const greet = (REPORT.overviewGreetingLines || []).map((line, i) => richText(line, i === 0 ? "semibold" : "normal")).join("");
+    function viewChurn() {
+      return tableCard({
+        rows: rowsFor("churn"), stateKey: `churn_${app.agent}`,
+        headers: ["AID", "Name", "Last Purchase"], align: ["left", "left", "left"], markerCol: 2,
+        empty: "Nobody churned — the whole book bought in the last 7 days.",
+        renderRow: p => [aidHtml(p), esc(p.name),
+          `<span class="t-${p.tone || "warning"}">${esc(p.lastPurchase)}</span>`],
+      });
+    }
+
+    function viewActiveDecline() {
+      return tableCard({
+        rows: rowsFor("activeDecline"), stateKey: `adec_${app.agent}`,
+        headers: ["AID", "Name", "This 7D Purchase", "Prior 7D Purchase", "Drop"],
+        align: ["left", "left", "right", "right", "right"], markerCol: 4,
+        empty: "No active decliners.",
+        renderRow: p => [aidHtml(p), esc(p.name),
+          `<span class="t-warning">${esc(p.thisWeek)}</span>`, esc(p.priorWeek),
+          moneyHtml(p.dropAmount, (p.dropNum || 0) >= 2000)],
+      });
+    }
+
+    function viewPendingRd() {
+      return tableCard({
+        rows: rowsFor("rdOver5k"), stateKey: `rd5_${app.agent}`, showSearch: false,
+        sortOptions: [{ value: "amount", label: "Sort: Amount ↓" }, { value: "oldest", label: "Sort: Oldest first" }],
+        defaultSort: "amount",
+        sortFn: (rows, s) => s === "oldest" ? sortByNumKey(rows, "daysPending", true) : sortByNumKey(rows, "amountNum", true),
+        headers: ["AID", "Name", "RD ID", "Amount", "Status", "Created"],
+        align: ["left", "left", "left", "right", "left", "left"], markerCol: 3,
+        empty: "No pending redemptions.",
+        renderRow: p => [aidHtml(p), esc(p.name), esc(p.redeemId),
+          `<span class="t-warning w-semibold">${esc(p.amount)}</span>`, esc(p.status),
+          agingHtml(p.created, p.daysPending, p.agingFlag)],
+      });
+    }
+
+    function viewFirstRd() {
+      return tableCard({
+        rows: rowsFor("rdFirstTime"), stateKey: `rdf_${app.agent}`, showSearch: false,
+        headers: ["AID", "Name", "RD ID", "Amount", "Status", "Created", "Ticket"],
+        align: ["left", "left", "left", "right", "left", "left", "center"], markerCol: 3,
+        empty: "No first-time redemptions today.",
+        renderRow: p => [aidHtml(p), esc(p.name), esc(p.redeemId),
+          `<span class="t-warning w-semibold">${esc(p.amount)}</span>`, esc(p.status),
+          esc(p.created), ticketHtml(p)],
+      });
+    }
+
+    function viewBirthdays() {
+      return tableCard({
+        rows: rowsFor("birthdays"), stateKey: `bd_${app.agent}`, showSearch: false,
+        headers: ["AID", "Name", "Email", "DOB", "Age", "Ticket"],
+        align: ["left", "left", "left", "left", "right", "center"], markerCol: 3,
+        empty: "No birthdays in the last 3 days.",
+        renderRow: p => [aidHtml(p), esc(p.name), esc(p.email),
+          `<span class="t-success w-semibold">${esc(p.dob)}</span>`, esc(p.age ?? "—"), ticketHtml(p)],
+      });
+    }
+
+    function viewMilestones() {
+      return tableCard({
+        rows: rowsFor("milestones"), stateKey: `ms_${app.agent}`,
+        headers: ["AID", "Name", "Milestone", "Crossed", "Lifetime Purchase"],
+        align: ["left", "left", "right", "left", "right"], markerCol: 2,
+        empty: "No milestones crossed in the window.",
+        renderRow: p => [aidHtml(p), esc(p.name),
+          `<span class="t-success w-semibold">${icon("medal", "ic-xs")} ${esc(p.milestone)}</span>`,
+          esc(p.crossedDate), moneyHtml(p.lifetimePurchase)],
+      });
+    }
+
+    function viewTickets() {
+      return tableCard({
+        rows: rowsFor("zendesk"), stateKey: `zd_${app.agent}`, extraKeys: ["ticketIds"],
+        sortOptions: [
+          { value: "ltp", label: "Sort: LTP ↓" },
+          { value: "tickets", label: "Sort: Open Tickets ↓" },
+          { value: "purchase7d", label: "Sort: 7D Purchase ↓" },
+        ],
+        defaultSort: "ltp",
+        sortFn: (rows, s) => s === "tickets" ? sortByNumKey(rows, "openTickets", true)
+          : s === "purchase7d" ? sortByNumKey(rows, "purchase7dNum", true)
+          : sortByNumKey(rows, "lifetimePurchasedNum", true),
+        headers: ["AID", "Name", "LTP", "Hold", "7D Purchase", "Open Tickets", "Ticket"],
+        align: ["left", "left", "right", "right", "right", "right", "left"], markerCol: 2,
+        empty: "No open tickets.",
+        renderRow: p => [aidHtml(p), esc(p.name),
+          moneyHtml(p.lifetimePurchase || "$0", (p.lifetimePurchasedNum || 0) >= 50000),
+          holdHtml(p.lifetimeHold || "n/a"), moneyHtml(p.purchase7d || "$0"),
+          esc(p.openTickets), ticketIdsHtml(p)],
+      });
+    }
+
+    function viewLocks() {
+      return tableCard({
+        rows: rowsFor("locks"), stateKey: `lk_${app.agent}`, showSearch: false,
+        sortFn: rows => sortBySoonestUnlock(rows),
+        headers: ["AID", "Name", "Lock Reason", "Days Remaining / Unlock"],
+        align: ["left", "left", "left", "left"], markerCol: 2,
+        empty: "No new locks and no breaks due to end.",
+        renderRow: p => [aidHtml(p), esc(p.name),
+          `<span class="t-${p.tone || "warning"}">${esc(p.lockReason)}</span>`,
+          unlockHtml(p.unlockDetail, p.unlockRemainingDays)],
+      });
+    }
+
+    function emptyState(ico, title, body) {
+      return `<div class="card"><div class="card-body" style="text-align:center;padding:48px 20px">
+        <div class="card-icon neutral" style="margin:0 auto 12px;width:44px;height:44px">${icon(ico, "ic-lg")}</div>
+        <div class="card-title" style="margin-bottom:5px">${esc(title)}</div>
+        <div class="t-tertiary t-small">${esc(body)}</div>
+      </div></div>`;
+    }
+
+    /* ---------------- manager dashboard ---------------- */
+    function viewDashboard() {
+      if (!app.unlocked) return gateHtml();
+
+      const purchase = AM_SHARES.reduce((s, r) => s + toNum(r.purchase), 0);
+      const purchasedPlayers = AM_SHARES.reduce((s, r) => s + (Number(r.purchasedPlayers) || 0), 0);
+      const book = AM_SHARES.reduce((s, r) => s + (Number(r.totalPlayers) || 0), 0);
+      const sum = k => OVERVIEW.reduce((s, r) => s + (Number(r[k]) || 0), 0);
+      const openZd = sum("openZd"), rd = sum("rdOver5k"), locked = sum("locked");
+      const churned = sum("churned"), activeDec = sum("activeDecliners");
+      const decline = sum("declineCount"), birthdays = sum("birthdays");
+      const rate = book ? (purchasedPlayers / book) * 100 : 0;
+
+      const cards = [
+        { label: `Elite Purchase · ${dayShort}`, value: compactMoney(purchase), icon: "dollar", tone: "success",
+          foot: `${money(purchase)} across ${AM_SHARES.length} AMs` },
+        { label: "Purchased Players", value: purchasedPlayers.toLocaleString(), icon: "users", tone: "brand",
+          foot: `${rate.toFixed(1)}% of the book` },
+        { label: "Book Size", value: book.toLocaleString(), icon: "list", tone: "neutral",
+          foot: "Tagged Elite accounts" },
+        { label: "Open Tickets", value: openZd.toLocaleString(), icon: "ticket", tone: openZd ? "info" : "success" },
+        { label: "Pending RD", value: rd.toLocaleString(), icon: "banknote", tone: rd ? "warning" : "success" },
+        { label: "Locked", value: locked.toLocaleString(), icon: "lock", tone: locked ? "warning" : "success" },
+        { label: "Churned (7d)", value: churned.toLocaleString(), icon: "user-minus", tone: churned ? "danger" : "success" },
+        { label: "Active Decliners", value: activeDec.toLocaleString(), icon: "activity", tone: activeDec ? "warning" : "success" },
+        { label: "Top 20 Decline", value: decline.toLocaleString(), icon: "trend-down", tone: decline ? "warning" : "success" },
+        { label: "Birthdays (3d)", value: birthdays.toLocaleString(), icon: "gift", tone: "brand" },
+      ];
+
+      /* Goals leaderboard, best weighted tracking first. */
+      const scored = AGENTS
+        .filter(a => a.goals && a.goals.available)
+        .map(a => {
+          const kpis = a.goals.kpis || [];
+          return {
+            name: a.agentName,
+            pct: Number(a.goals.weightedTrackedPct),
+            onTrack: kpis.filter(k => k.statusTone === "success").length,
+            behind: kpis.filter(k => k.statusTone === "danger" || k.statusTone === "warning").length,
+            total: kpis.length,
+          };
+        })
+        .sort((a, b) => (b.pct || 0) - (a.pct || 0));
+
+      const leaderRows = scored.map((s, i) => {
+        const tone = s.pct >= 90 ? "success" : s.pct >= 70 ? "warning" : "danger";
+        return [
+          `<span class="badge ${i === 0 ? "brand" : ""}">${i + 1}</span>`,
+          `<button type="button" class="chip" data-agent="${esc(s.name)}">${esc(s.name)}</button>`,
+          `<span class="w-semibold t-${tone}">${Number.isFinite(s.pct) ? s.pct.toFixed(1) + "%" : "—"}</span>`,
+          `<div class="meter ${tone}" style="min-width:130px"><span style="width:${Number.isFinite(s.pct) ? Math.max(0, Math.min(100, s.pct)) : 0}%"></span></div>`,
+          `<span class="t-success w-semibold">${s.onTrack}</span>`,
+          `<span class="${s.behind ? "t-danger w-semibold" : "t-quaternary"}">${s.behind}</span>`,
+        ];
+      });
+
+      const shareRows = AM_SHARES.map(r => [
+        `<button type="button" class="chip" data-agent="${esc(r.agentName)}">${esc(r.agentName)}</button>`,
+        `<span class="t-success w-semibold">${esc(r.purchase)}</span>`,
+        esc(r.purchaseShare),
+        esc(r.purchasedOfBook || r.purchasedPlayers),
+      ]);
+
       const ovRows = OVERVIEW.map(r => [
-        `<button type="button" class="pill" data-tab="${esc(r.agentName)}">${esc(r.agentName)}</button>`,
+        `<button type="button" class="chip" data-agent="${esc(r.agentName)}">${esc(r.agentName)}</button>`,
         `<span class="t-success w-semibold">${esc(r.purchase)}</span>`,
         esc(r.purchasedOfBook || r.purchasedPlayers),
-        esc(r.openZd),
-        esc(r.takeABreak),
-        esc(r.locked),
-        esc(r.rdOver5k),
-        `<span class="t-success">${esc(r.birthdays)}</span>`,
-        esc(r.declineCount),
+        esc(r.openZd), esc(r.takeABreak), esc(r.locked), esc(r.rdOver5k),
+        `<span class="t-success">${esc(r.birthdays)}</span>`, esc(r.declineCount),
       ]);
+
+      const greet = (REPORT.overviewGreetingLines || []).map((line, i) => richText(line, i === 0)).join("");
+
       return `<div class="stack">
-        <div class="stack-2">${greet}</div>
-        <div class="row row-start">
-          <div class="col-main">${segmentTable()}</div>
-          <div class="col-side">${amShareTable()}</div>
+        ${greet ? `<div class="hero"><div class="stack-6">${greet}</div></div>` : ""}
+        <div class="stats">${cards.map(statCard).join("")}</div>
+
+        ${scored.length ? `<div class="card">
+          <div class="card-head">
+            <span class="card-icon">${icon("target", "ic-sm")}</span>
+            <div><div class="card-title">Goals Leaderboard</div>
+            <div class="card-sub">Weighted tracking against the included 80% KPI weight</div></div>
+          </div>
+          ${tableHtml(["#", "AM", "Tracking", "", "On track", "Needs attention"], leaderRows,
+            ["center", "left", "right", "left", "right", "right"],
+            scored.map(s => s.pct >= 90 ? "success" : s.pct >= 70 ? "warning" : "danger"),
+            { markerCol: 1 })}
+        </div>` : ""}
+
+        <div class="grid-2">
+          <div class="card">
+            <div class="card-head">
+              <span class="card-icon success">${icon("pie", "ic-sm")}</span>
+              <div class="card-title">AM Share Of Elite</div>
+            </div>
+            ${tableHtml(["AM", "Purchase $", "Share", "Purchased Of Portfolio"], shareRows,
+              ["left", "right", "right", "right"], AM_SHARES.map(() => "success"), { markerCol: 1 })}
+          </div>
+          ${segmentCard()}
         </div>
-        <div class="stack-8">
-          <h2>AM Overview</h2>
+
+        <div class="card">
+          <div class="card-head">
+            <span class="card-icon info">${icon("list", "ic-sm")}</span>
+            <div><div class="card-title">AM Overview</div>
+            <div class="card-sub">Click an AM to open their board</div></div>
+          </div>
           ${tableHtml(
-            ["AM", "Purchase $", "Purchased / Book", "Open Tickets", "Take A Break", "Locked", "Pending RD", "Birthdays", "Top 20 Decline"],
-            ovRows,
-            ["left","right","right","right","right","right","right","right","right"],
-            OVERVIEW.map(() => "success"),
-            { markerCol: 1 }
-          )}
+            ["AM", "Purchase $", "Purchased Of Portfolio", "Open Tickets", "Take A Break",
+             "Locked", "Pending RD", "Birthdays", "Top 20 Decline"],
+            ovRows, ["left", "right", "right", "right", "right", "right", "right", "right", "right"],
+            OVERVIEW.map(() => "success"), { markerCol: 1 })}
         </div>
       </div>`;
     }
 
-    function renderTicketModal() {
-      const root = document.getElementById("ticketModalRoot");
-      if (!ticketDraft) { root.innerHTML = ""; return; }
-      const p = ticketDraft;
-      root.innerHTML = `<div class="modal-backdrop" id="ticketBackdrop">
-        <div class="modal-card" id="ticketCard">
-          <div class="w-semibold">Zendesk ticket draft · ${esc(p.name)} (AID ${esc(p.aid)})</div>
-          <div class="t-small t-quaternary" style="margin:4px 0 12px">Review only. Edit, copy, then open Zendesk and send manually. Never auto-sent.</div>
-          <div class="t-small w-semibold">Subject</div>
-          <input id="ticketSubject" value="${esc(p.ticketSubject || "")}" />
-          <div class="t-small w-semibold">Message</div>
-          <textarea id="ticketBody" rows="10">${esc(p.ticketBody || "")}</textarea>
-          <div class="row">
-            <button type="button" class="pill" id="copySubject">Copy subject</button>
-            <button type="button" class="pill" id="copyBody">Copy message</button>
-            <button type="button" class="pill" id="copyBoth">Copy subject + message</button>
-            <button type="button" class="pill" id="openZd">Open Zendesk</button>
+    function gateHtml() {
+      return `<div class="gate">
+        <div class="gate-mark">${icon("key", "ic-xl")}</div>
+        <h2>Manager Dashboard</h2>
+        <p>Cross-AM revenue, goals and risk roll-up. Enter the passcode to view.</p>
+        <input type="password" id="gateInput" placeholder="••••••" autocomplete="off" spellcheck="false">
+        <div class="err">${esc(app.gateError)}</div>
+        <button type="button" class="btn primary" id="gateSubmit" style="width:100%;justify-content:center">
+          ${icon("unlock", "ic-sm")} Unlock
+        </button>
+      </div>`;
+    }
+
+    /* ---------------- chrome ---------------- */
+    function navCount(viewId) {
+      const v = VIEWS[viewId];
+      if (!v || !v.key) return null;
+      return rowsFor(v.key).length;
+    }
+    function countTone(viewId, n) {
+      if (!n) return "";
+      if (viewId === "churn") return "hot";
+      if (["top20", "adec", "rd", "locks", "rdfirst"].includes(viewId)) return "warm";
+      if (["top10", "milestones", "birthdays"].includes(viewId)) return "good";
+      return "";
+    }
+    function sidebar() {
+      const visible = NAV_ORDER.filter(id => !(VIEWS[id].managerOnly && SINGLE_AM));
+      let nav = "";
+      for (const group of GROUP_ORDER) {
+        const items = visible.filter(id => VIEWS[id].group === group);
+        if (!items.length) continue;
+        nav += `<div class="side-group-title">${esc(group)}</div>`;
+        nav += items.map(id => {
+          const v = VIEWS[id];
+          const n = navCount(id);
+          return `<button type="button" class="nav-item ${app.view === id ? "active" : ""}" data-go="${esc(id)}">
+            ${icon(v.icon)}
+            <span class="side-label">${esc(v.short || v.label)}</span>
+            ${v.gated && !app.unlocked ? icon("lock", "ic-xs")
+              : (n !== null ? `<span class="nav-count ${countTone(id, n)}">${n}</span>` : "")}
+          </button>`;
+        }).join("");
+      }
+      const amSwitch = (!SINGLE_AM && AM_ORDER.length > 1) ? `<div class="am-switch">
+        <div class="am-switch-title">Account Manager</div>
+        <div class="am-chips">${AM_ORDER.map(name =>
+          `<button type="button" class="am-chip ${app.agent === name ? "active" : ""}" data-agent="${esc(name)}">${esc(name)}</button>`
+        ).join("")}</div>
+      </div>` : "";
+
+      return `<aside class="sidebar">
+        <div class="brand">
+          <span class="brand-mark">${icon("spark", "ic-lg")}</span>
+          <div class="brand-text">
+            <div class="brand-title">${esc(REPORT.title || "Elite AM Brief")}</div>
+            <div class="brand-sub">${esc(REPORT.subtitle || "")}</div>
+          </div>
+        </div>
+        ${amSwitch}
+        <nav class="side-nav">${nav}</nav>
+        <div class="side-foot">
+          ${SINGLE_AM ? esc(app.agent) + " · personal board" : "Manager view · all AMs"}<br>
+          Report date ${esc(REPORT.date || "")}
+        </div>
+      </aside>`;
+    }
+
+    function topbar() {
+      const v = VIEWS[app.view] || VIEWS.home;
+      const isManager = app.view === "dashboard";
+      const who = isManager ? "All AMs" : app.agent;
+      return `<header class="topbar">
+        <button type="button" class="icon-btn" id="toggleSidebar" title="Toggle menu">${icon("panel", "ic-sm")}</button>
+        <div class="crumb">
+          <div class="crumb-top">${esc(v.group)}</div>
+          <div class="crumb-title">${icon(v.icon, "ic-lg")}${esc(v.label)}</div>
+        </div>
+        <div class="spacer"></div>
+        <button type="button" class="icon-btn" id="printBtn" title="Print / save as PDF">${icon("printer", "ic-sm")}</button>
+        <div class="who">
+          <span class="who-dot">${esc(isManager ? "ALL" : initials(who))}</span>
+          <div><div class="who-name">${esc(who)}</div>
+          <div class="who-role">${esc(v.sub || "")}</div></div>
+        </div>
+      </header>`;
+    }
+
+    const VIEW_FN = {
+      dashboard: viewDashboard, home: viewHome, goals: viewGoals, top10: viewTop10,
+      milestones: viewMilestones, top20: viewTop20, churn: viewChurn, adec: viewActiveDecline,
+      rd: viewPendingRd, rdfirst: viewFirstRd, tickets: viewTickets, locks: viewLocks,
+      birthdays: viewBirthdays,
+    };
+
+    /* ---------------- ticket modal ---------------- */
+    function renderModal() {
+      const root = document.getElementById("modalRoot");
+      const p = app.ticket;
+      if (!p) { root.innerHTML = ""; return; }
+      root.innerHTML = `<div class="modal-backdrop" id="backdrop">
+        <div class="modal-card" id="card">
+          <div class="modal-head">
+            <span class="card-icon">${icon("ticket", "ic-sm")}</span>
+            <div>
+              <div class="card-title">Zendesk draft · ${esc(p.name)}</div>
+              <div class="card-sub">AID ${esc(p.aid)} · review only, nothing is auto-sent</div>
+            </div>
             <div class="spacer"></div>
-            <button type="button" class="pill" id="closeTicket">Close</button>
+            <button type="button" class="icon-btn" id="closeX">${icon("x", "ic-sm")}</button>
+          </div>
+          <div class="modal-body">
+            <div class="field-label">Subject</div>
+            <input type="text" id="tSubject" value="${esc(p.ticketSubject || "")}">
+            <div class="field-label">Message</div>
+            <textarea id="tBody" rows="11">${esc(p.ticketBody || "")}</textarea>
+          </div>
+          <div class="modal-foot">
+            <button type="button" class="btn" id="copySubject">${icon("copy", "ic-xs")} Subject</button>
+            <button type="button" class="btn" id="copyBody">${icon("copy", "ic-xs")} Message</button>
+            <button type="button" class="btn" id="copyBoth">${icon("copy", "ic-xs")} Both</button>
+            <div class="spacer"></div>
+            <button type="button" class="btn primary" id="openZd">${icon("external", "ic-xs")} Open Zendesk</button>
           </div>
         </div>
       </div>`;
-      document.getElementById("ticketBackdrop").onclick = (e) => { if (e.target.id === "ticketBackdrop") { ticketDraft = null; render(); } };
-      document.getElementById("ticketCard").onclick = (e) => e.stopPropagation();
-      document.getElementById("closeTicket").onclick = () => { ticketDraft = null; render(); };
-      document.getElementById("copySubject").onclick = () => navigator.clipboard.writeText(document.getElementById("ticketSubject").value);
-      document.getElementById("copyBody").onclick = () => navigator.clipboard.writeText(document.getElementById("ticketBody").value);
-      document.getElementById("copyBoth").onclick = () => {
-        const s = document.getElementById("ticketSubject").value;
-        const b = document.getElementById("ticketBody").value;
-        navigator.clipboard.writeText(`Subject: ${s}\n\n${b}`);
-      };
+      const close = () => { app.ticket = null; render(); };
+      const val = id => document.getElementById(id).value;
+      const copy = (text, what) => { navigator.clipboard.writeText(text); toast(what + " copied"); };
+      document.getElementById("backdrop").onclick = e => { if (e.target.id === "backdrop") close(); };
+      document.getElementById("closeX").onclick = close;
+      document.getElementById("copySubject").onclick = () => copy(val("tSubject"), "Subject");
+      document.getElementById("copyBody").onclick = () => copy(val("tBody"), "Message");
+      document.getElementById("copyBoth").onclick = () =>
+        copy(`Subject: ${val("tSubject")}\n\n${val("tBody")}`, "Subject + message");
       document.getElementById("openZd").onclick = () => {
         if (p.zendeskUrl) window.open(p.zendeskUrl, "_blank", "noopener,noreferrer");
       };
     }
 
+    /* ---------------- binding ---------------- */
     function bind() {
-      document.querySelectorAll("[data-tab]").forEach(el => {
-        el.onclick = () => { tab = el.getAttribute("data-tab"); render(); window.scrollTo(0, 0); };
+      document.querySelectorAll("[data-go]").forEach(el => {
+        el.onclick = () => go(el.getAttribute("data-go"));
+      });
+      document.querySelectorAll("[data-agent]").forEach(el => {
+        el.onclick = () => {
+          app.agent = el.getAttribute("data-agent");
+          if (app.view === "dashboard") app.view = "home";
+          render();
+          window.scrollTo({ top: 0, behavior: "auto" });
+        };
       });
       document.querySelectorAll("input[data-state]").forEach(el => {
         el.oninput = () => setState(el.getAttribute("data-state"), el.value);
@@ -649,34 +1600,77 @@
       document.querySelectorAll("[data-reason-state]").forEach(el => {
         el.onclick = () => setState(el.getAttribute("data-reason-state"), el.getAttribute("data-reason"));
       });
+      document.querySelectorAll("[data-page-key]").forEach(el => {
+        el.onclick = () => {
+          tstate[el.getAttribute("data-page-key")] = Number(el.getAttribute("data-page"));
+          focusKey = null;
+          render();
+        };
+      });
       document.querySelectorAll("[data-ticket-aid]").forEach(el => {
         el.onclick = () => {
           const aid = el.getAttribute("data-ticket-aid");
-          const active = AGENTS.find(a => a.agentName === tab);
-          const pool = active ? (active.decline || []) : AGENTS.flatMap(a => a.decline || []);
+          const b = agentBlock();
+          const pool = [...(b.decline || []), ...(b.rdFirstTime || []), ...(b.birthdays || [])];
           const p = pool.find(x => String(x.aid) === aid);
-          if (p) { ticketDraft = p; render(); }
+          if (p) { app.ticket = p; render(); }
         };
       });
+
+      const toggle = document.getElementById("toggleSidebar");
+      if (toggle) toggle.onclick = () => {
+        if (window.matchMedia("(max-width: 900px)").matches) app.mobileOpen = !app.mobileOpen;
+        else app.collapsed = !app.collapsed;
+        render();
+      };
+      const printBtn = document.getElementById("printBtn");
+      if (printBtn) printBtn.onclick = () => window.print();
+
+      const gateInput = document.getElementById("gateInput");
+      if (gateInput) {
+        const submit = () => {
+          if (gateToken(gateInput.value) === GATE_TOKEN) {
+            app.unlocked = true;
+            app.gateError = "";
+            sessionStorage.setItem("eliteAmBriefUnlocked", GATE_TOKEN);
+          } else {
+            app.gateError = "That passcode does not match.";
+          }
+          render();
+        };
+        gateInput.onkeydown = e => { if (e.key === "Enter") submit(); };
+        document.getElementById("gateSubmit").onclick = submit;
+        if (!app.gateError) gateInput.focus();
+      }
+
+      /* Full re-render on every keystroke would otherwise drop the caret. */
+      if (focusKey) {
+        const el = document.querySelector(`[data-state="${CSS.escape(focusKey)}"]`);
+        if (el && el.tagName === "INPUT") {
+          el.focus();
+          const end = el.value.length;
+          try { el.setSelectionRange(end, end); } catch (e) { /* type doesn't support it */ }
+        }
+        focusKey = null;
+      }
     }
 
     function render() {
-      const active = AGENTS.find(a => a.agentName === tab);
-      const pills = [
-        `<button type="button" class="pill ${tab==="Overview"?"active":""}" data-tab="Overview">Overview</button>`,
-        ...AM_ORDER.map(name => `<button type="button" class="pill ${tab===name?"active":""}" data-tab="${esc(name)}">${esc(name)}</button>`),
-      ].join("");
-      document.getElementById("app").innerHTML = `
-        <div class="stack-8">
-          <h1>${esc(REPORT.title || "Elite AM Brief")}</h1>
-          <div class="t-small t-tertiary">${esc(REPORT.subtitle || "")}</div>
+      /* An AM with no goals (Alon) must not sit on a Goals view. */
+      if (app.view === "goals" && !(agentBlock().goals)) app.view = "home";
+      if (VIEWS[app.view] && VIEWS[app.view].managerOnly && SINGLE_AM) app.view = "home";
+
+      const body = (VIEW_FN[app.view] || viewHome)();
+      document.getElementById("root").innerHTML = `<div class="app${app.collapsed ? " collapsed" : ""}${app.mobileOpen ? " mobile-open" : ""}">
+        ${sidebar()}
+        <div class="main">
+          ${topbar()}
+          <div class="content">${body}</div>
         </div>
-        <div class="row pills">${pills}</div>
-        ${tab === "Overview" ? overviewPanel() : (active ? agentPanel(active) : "")}
-      `;
+      </div>`;
       document.title = `${REPORT.title || "Elite AM Brief"} · ${REPORT.date || ""}`;
       bind();
-      renderTicketModal();
+      renderModal();
     }
 
     render();

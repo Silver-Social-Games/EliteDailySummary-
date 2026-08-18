@@ -1,0 +1,18 @@
+---
+description: Elite morning report + Slack send schedule (Sun–Thu only)
+alwaysApply: true
+---
+
+# Elite morning send schedule
+
+Reports and Slack posts run **Sunday through Thursday only** (10:00 AM Israel).
+**Never** generate, publish, or Slack-post on **Friday** or **Saturday**.
+
+| Run day | Report | Slack |
+|---------|--------|-------|
+| **Sunday** | Weekend summary — prior **Thu–Sat** compiled | Weekend link only |
+| **Monday–Thursday** | Daily summary — **yesterday** | Daily link only |
+| **Friday / Saturday** | Skip | No send |
+
+Slack follows the same calendar: Sun–Thu only; Fri/Sat silent.
+Order when sending: generate → git Pages publish → Slack.

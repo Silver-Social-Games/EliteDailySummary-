@@ -1,0 +1,36 @@
+---
+description: Always push Elite daily/weekend summaries to GitHub Pages after generate
+alwaysApply: true
+---
+
+# GitHub Pages publish (EliteDailySummary-)
+
+Live site: https://silver-social-games.github.io/EliteDailySummary-/
+
+## Two steps — do not confuse them
+
+1. **Local `docs/` copy** — generators call `publish_github_pages.py` /
+   `publish_html`. Console text like `Published GitHub Pages:` only means files
+   landed under `docs/`. The site is **not** updated yet.
+2. **Git push** — required for the live site:
+   `python daily_summary/publish_pages_git.py`
+   (stages only allowlisted `docs/` paths, commits, pushes).
+
+## Required after every daily / weekend summary
+
+When generating a daily or weekend Elite summary (scheduled task, Cursor skill,
+or manual router run), **always** finish with the git publish step unless the
+user explicitly says to keep it local. Then confirm the new report appears on
+the live site (index / `reports.json` / report URL).
+
+Scheduled path already opts in via
+`run_morning_elite_scheduled.ps1 -EnablePagesAutoPublish`. Cursor / ad hoc runs
+must still run `publish_pages_git.py` themselves.
+
+Dry-run: `python daily_summary/publish_pages_git.py --dry-run`
+
+## Out of scope by default
+
+- **AM Brief** stays local review only (`am_daily_dashboard/`). Do not push it
+  unless the user asks for `--publish` and an explicit Pages update.
+- Never stage non-allowlisted paths, force-push, or amend via the publisher.

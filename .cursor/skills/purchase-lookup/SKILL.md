@@ -51,8 +51,8 @@ In Elite-wide mode, use the canvas **Find purchases by AID** search bar to filte
 | Live canvas | `~/.cursor/projects/<workspace>/canvases/purchase-lookup[-{AID}].canvas.tsx` |
 | Canvas backup | `purchase_lookup/handoffs/purchase-lookup[-{AID}].canvas.tsx` |
 | JSON snapshot | `purchase_lookup/handoffs/YYYY-MM-DD_{slug}_purchase_lookup.json` |
-| HTML export | `purchase_lookup/exports/purchase-lookup-{slug}-{date}.html` |
-| CSV export | `purchase_lookup/exports/purchase-lookup-{slug}-{date}.csv` |
+| HTML export | `VIP\Elite_Cursor\Purchase Lookup\purchase-lookup-{slug}-{date}.html` |
+| CSV export | `VIP\Elite_Cursor\Purchase Lookup\purchase-lookup-{slug}-{date}.csv` |
 
 ## Terminology
 

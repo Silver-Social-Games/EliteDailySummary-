@@ -67,7 +67,7 @@ python wow_drop_analysis/monday_skip_export.py
 ```
 
 Edit `THIS` / `PRIOR` dates at top of script, or parameterize before run.  
-Output: `wow_drop_analysis/exports/monday_skip_YYYY-MM-DD.csv` (AID, name, email, account manager, Delta).
+Output: `VIP\Elite_Cursor\WoW Drop Analysis\monday_skip_YYYY-MM-DD.csv` (AID, name, email, account manager, Delta).
 
 **Always show top 10 by Delta** in chat before deep dive.
 

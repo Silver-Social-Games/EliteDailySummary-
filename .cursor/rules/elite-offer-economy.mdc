@@ -1,0 +1,42 @@
+---
+description: Elite Bloomreach offer economy, ladder shape, sheet layout, and working agreements from automated-offers work
+globs: automated_offers_buckets/**,crm_offer_calendar/**,declining_fri_sat_promo/**
+alwaysApply: false
+---
+
+# Elite offer economy and layout
+
+Canonical detail: `automated_offers_buckets/AUTOMATED_OFFERS_BUCKETS.md`.
+
+## Economy math (locked)
+
+- `$1 = 1 SC` (do not reverse-engineer SC/$ from legacy Bloomreach bonus rows).
+- Baseline SC = package price rounded **up** to whole SC (`$34.99` → `35`).
+- Bonus SC = `ROUND UP(exact price × % More Coins)` (not baseline × %).
+- Total SC = baseline + bonus. Example: `35 + 7 = 42`.
+- GC ratio **1:2000** (`1 SC = 2,000 GC`; `100 SC = 200,000 GC`).
+- Sheet columns show **totals only** (Total GC / Total SC), not on-top bonus.
+- Offer ID encodes **totals**: `{Total_GC/1000}kg|mg_{Total_SC}s_{price}_e`
+  (`kg` if Total GC < 1M, else `mg`).
+
+## Percentage shape
+
+- Same rationality as the old 10–12% catalog: rise through mid, peak upper-mid,
+  ease at high-roller / whale tiers.
+- Stay inside **15%–30%**; current ladder leans ~20–26% (center ~22.7%).
+
+## Buckets vs catalog
+
+- Bucket Targets (daily per-player): `34.99 / 69.99 / 119.99 / 199.99 / 299.99`.
+- Catalog prices fill gaps and extend the top; keep the split visible.
+- Layout: one clean Bloomreach-style tab, **buckets first**, then catalog.
+- Light grey band separators. Orange Total GC, green Total SC. Red 12-hour
+  store rules under the table. Screenshots are the design source of truth.
+
+## Writing and process
+
+- Never use em dashes in sheets, docs, or chat (use commas, colons, pipes).
+- Elite / AID / Purchased players; TID = Zendesk ticket ID.
+- Never recommend retention for locked or self-excluded accounts.
+- If the user says **ignore**, stop immediately; no partial edits.
+- If Excel locks the export, write an alternate filename; do not block.

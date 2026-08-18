@@ -2,9 +2,17 @@
 
 from __future__ import annotations
 
-from datetime import date
+from calendar import monthrange
+from datetime import date, timedelta
 
 from elite_lib.bigquery import PROJECT_ID, dashboard_elite_ctes
+from config import (
+    BIRTHDAYS_LOOKBACK_DAYS,
+    GOALS_ACTIVE_LOOKBACK_DAYS,
+    GOALS_REACTIVATION_GAP_DAYS,
+    PENDING_RD_LOOKBACK_DAYS,
+    PENDING_RD_MIN_AMOUNT,
+)
 
 # Only these AMs appear on the board (tag_agent_1 values).
 ALLOWED_AGENT_TAGS = (
@@ -19,13 +27,19 @@ ALLOWED_AGENT_TAGS = (
 ALLOWED_TAGS_SQL = ", ".join(f"'{t}'" for t in ALLOWED_AGENT_TAGS)
 
 
-def _elite_am_book_ctes() -> str:
-    """Dashboard Elite book + latest agent, restricted to named AMs."""
+def _elite_am_book_ctes(as_of: date | None = None) -> str:
+    """Dashboard Elite book + agent, restricted to named AMs.
+
+    `as_of` pins the tag snapshot to that report date — required for the scored
+    Goals block so a re-run of an old date reproduces its numbers. Live
+    operational sections (locks, pending RD) deliberately leave it unset.
+    """
     base = dashboard_elite_ctes(
         latest_name="latest_elite_tag_snapshot",
         elite_name="elite_book_raw",
         aid_alias="account_id",
         agent_alias="agent",
+        as_of=as_of.isoformat() if as_of else None,
     )
     return f"""
 {base},
@@ -129,8 +143,10 @@ ORDER BY t.agent, t.rn
 
 
 def locked_rd_over_5k_sql(report_date: date) -> str:
-    """Pending locked redemptions ≥ $5k created in the last 3 days ending report_date."""
+    """Pending locked redemptions >= PENDING_RD_MIN_AMOUNT created within the
+    trailing PENDING_RD_LOOKBACK_DAYS ending report_date (config.py)."""
     d = report_date.isoformat()
+    lookback_interval = PENDING_RD_LOOKBACK_DAYS - 1
     return f"""
 WITH
 {_elite_am_book_ctes()},
@@ -145,8 +161,8 @@ locked_rd AS (
   FROM `{PROJECT_ID}.transactional_data.payment_withdraw_money_requests` w
   INNER JOIN elite_am e ON e.account_id = w.account_id
   WHERE w.status = 'locked'
-    AND CAST(w.amount AS FLOAT64) >= 5000
-    AND DATE(w.created_at) BETWEEN DATE_SUB(DATE '{d}', INTERVAL 2 DAY) AND DATE '{d}'
+    AND CAST(w.amount AS FLOAT64) >= {PENDING_RD_MIN_AMOUNT}
+    AND DATE(w.created_at) BETWEEN DATE_SUB(DATE '{d}', INTERVAL {lookback_interval} DAY) AND DATE '{d}'
 )
 SELECT
   e.agent,
@@ -202,7 +218,10 @@ SELECT
   f.redeem_id,
   f.amount,
   f.status,
-  f.created_date
+  f.created_date,
+  COALESCE(ua.locked, FALSE) AS locked,
+  COALESCE(ua.lock_reason, '') AS lock_reason,
+  COALESCE(ua.lock_reason_comment, '') AS lock_reason_comment
 FROM first_locked f
 INNER JOIN elite_am e ON e.account_id = f.account_id
 LEFT JOIN `{PROJECT_ID}.transactional_data.uam_accounts` ua ON ua.id = f.account_id
@@ -212,8 +231,13 @@ ORDER BY e.agent, f.amount DESC
 
 
 def birthdays_last_3d_sql(report_date: date) -> str:
-    """Calendar birthdays in last 3 days ending on report_date (MM-DD match)."""
+    """Calendar birthdays within the trailing BIRTHDAYS_LOOKBACK_DAYS ending
+    on report_date (MM-DD match), config.py."""
     d = report_date.isoformat()
+    days_back_clauses = "\n  ".join(
+        f"UNION ALL SELECT DATE_SUB(report_date, INTERVAL {n} DAY) FROM params"
+        for n in range(1, BIRTHDAYS_LOOKBACK_DAYS)
+    )
     return f"""
 WITH
 {_elite_am_book_ctes()},
@@ -222,8 +246,7 @@ params AS (
 ),
 days AS (
   SELECT report_date AS d FROM params
-  UNION ALL SELECT DATE_SUB(report_date, INTERVAL 1 DAY) FROM params
-  UNION ALL SELECT DATE_SUB(report_date, INTERVAL 2 DAY) FROM params
+  {days_back_clauses}
 ),
 birth AS (
   SELECT DISTINCT id AS account_id, date_of_birth
@@ -243,7 +266,10 @@ SELECT
   ua.email,
   b.date_of_birth AS dob,
   FORMAT_DATE('%m-%d', b.date_of_birth) AS dob_mmdd,
-  DATE_DIFF((SELECT report_date FROM params), b.date_of_birth, YEAR) AS age
+  DATE_DIFF((SELECT report_date FROM params), b.date_of_birth, YEAR) AS age,
+  COALESCE(ua.locked, FALSE) AS locked,
+  COALESCE(ua.lock_reason, '') AS lock_reason,
+  COALESCE(ua.lock_reason_comment, '') AS lock_reason_comment
 FROM birth b
 INNER JOIN elite_am e ON e.account_id = b.account_id
 INNER JOIN days dy ON FORMAT_DATE('%m-%d', b.date_of_birth) = FORMAT_DATE('%m-%d', dy.d)
@@ -354,4 +380,338 @@ SELECT
 FROM elite_am
 GROUP BY agent
 ORDER BY agent
+""".strip()
+
+
+# Goals AMs only (Alon omitted). gabriel normalized to gabriel_e in Python.
+GOALS_AGENT_TAGS_SQL = ", ".join(
+    f"'{t}'" for t in ("coral_s", "gabriel_e", "lee_t", "rachel_a", "gabriel")
+)
+
+
+def goals_mtd_actuals_sql(report_date: date) -> str:
+    """MTD Goals actuals per AM through report_date (inclusive).
+
+    Book + agent: dashboard Elite (`dbt_aninditac.elite`) with `tag_agent_1`
+    from the newest tag snapshot **on or before report_date**, not the newest
+    overall. Tags re-snapshot daily and books move fast — Rachel went 557 → 589
+    tagged accounts between 2026-08-16 and 08-18 — so an unpinned book scores a
+    date's activity against a later roster and makes re-runs irreproducible.
+
+    Net Purchase: the **by requested redeem** variant (Elite.MD alternate),
+    purchased − (requested redeem − cancelled) − chargeback − refunds after
+    account/date aggregation. This is what the Goals sheet scores on. The
+    paid-redeem canonical variant is returned alongside as
+    `mtd_net_purchase_paid_redeem` for reconciliation only.
+
+    Reactivation and % Active follow the AMs' Tableau report
+    (`elite_reference/Daily_Agg_Per_Player_Query_v1.sql`) so the board shows the
+    number the team is measured on:
+      * purchases = `payment_payment_orders` WHERE success, by purchase day;
+      * Reactivation = purchase after a gap >= that query's
+        `params.churn_period_days`, which is 20 days, not 30 (its inline
+        comments saying 10 are stale). Once per AID in the month. See
+        `config.GOALS_REACTIVATION_GAP_DAYS`;
+      * % Active = accounts whose last successful purchase is within
+        `config.GOALS_ACTIVE_LOOKBACK_DAYS` (30) days of the as-of date, over
+        the unlocked portfolio. Point-in-time, so it is not paced.
+
+    Upgrade to Elite: first Elite tag snapshot in [month_start, report_date]
+    for accounts that were *not* Elite on the last snapshot before month
+    start. Source: daily `dbt_utils.elite_account_tags` (history from
+    2026-04-08). Attributed to `tag_agent_1` on that first in-window snap.
+
+    Also returns month-shape factors (`purchasers_shape`, `upgrades_shape`):
+    the share of a full month's value already reached by the same relative
+    day, averaged over the two complete prior months. Monthly Purchasers and
+    Upgrades saturate instead of accruing linearly (measured Jun/Jul 2026:
+    ~0.92 and ~0.87 by day 16), so a linear MTD/day x days_in_month pace
+    badly over-projects both. Revenue and Reactivations do track linearly and
+    need no shape factor. Book-wide across the four Goals AMs: two months per
+    agent is too thin to fit a per-agent curve.
+    """
+    d = report_date.isoformat()
+    month_start = report_date.replace(day=1).isoformat()
+    # Look back far enough for 30d reactivation gaps (prior purchase date).
+    lookback = (report_date.replace(day=1) - timedelta(days=400)).isoformat()
+    # Relative month position, so the reference day matches in shorter months.
+    elapsed = (report_date - report_date.replace(day=1)).days + 1
+    days_in_month = monthrange(report_date.year, report_date.month)[1]
+    month_frac = elapsed / days_in_month
+    return f"""
+WITH
+{_elite_am_book_ctes(report_date)},
+elite_goals AS (
+  SELECT
+    account_id,
+    CASE WHEN agent = 'gabriel' THEN 'gabriel_e' ELSE agent END AS agent
+  FROM elite_am
+  WHERE agent IN ({GOALS_AGENT_TAGS_SQL})
+),
+day_kpi AS (
+  SELECT
+    k.account_id,
+    k.date,
+    SUM(CAST(k.purchased AS FLOAT64)) AS purchased,
+    -- Net Purchase "by requested redeem" (Elite.MD alternate variant, the one
+    -- the Goals sheet scores on): purchase - (requested redeem - cancelled)
+    -- - chargeback - refund. `redeemed_amt_confirmed_locked_pre` is the daily
+    -- precomputed confirmed + locked + pre_authorized request amount, i.e.
+    -- requested redeems net of cancelled / declined / failed. Verified exactly
+    -- equal to those status sums from
+    -- transactional_data.payment_withdraw_money_requests for all four AMs on
+    -- 2026-08-01..16. Preferred over rebuilding from request status because
+    -- `status` is current-state: a request locked yesterday can be cancelled
+    -- tomorrow, so a status rebuild silently rewrites history, while this
+    -- column is fixed at its daily snapshot.
+    SUM(
+      CAST(k.purchased AS FLOAT64)
+      - CAST(COALESCE(k.redeemed_amt_confirmed_locked_pre, 0) AS FLOAT64)
+      - CAST(COALESCE(k.chargeback, 0) AS FLOAT64)
+      - CAST(COALESCE(k.refunds, 0) AS FLOAT64)
+    ) AS net_purchase,
+    -- Kept for reconciliation: the paid-redeem canonical variant the board
+    -- used before, so a gap against the Goals sheet is explainable.
+    SUM(
+      CAST(k.purchased AS FLOAT64)
+      - CAST(COALESCE(k.redeemed, 0) AS FLOAT64)
+      - CAST(COALESCE(k.chargeback, 0) AS FLOAT64)
+      - CAST(COALESCE(k.refunds, 0) AS FLOAT64)
+    ) AS net_purchase_paid_redeem
+  FROM `{PROJECT_ID}.jackpota_agg.daily_player_revenue_kpis` k
+  INNER JOIN elite_goals e ON e.account_id = k.account_id
+  WHERE k.date BETWEEN DATE '{lookback}' AND DATE '{d}'
+  GROUP BY k.account_id, k.date
+),
+mtd_kpi AS (
+  SELECT
+    e.agent,
+    SUM(k.purchased) AS mtd_purchase,
+    SUM(k.net_purchase) AS mtd_net_purchase,
+    SUM(k.net_purchase_paid_redeem) AS mtd_net_purchase_paid_redeem,
+    COUNT(DISTINCT IF(k.purchased > 0, k.account_id, NULL)) AS monthly_purchasers
+  FROM day_kpi k
+  INNER JOIN elite_goals e ON e.account_id = k.account_id
+  WHERE k.date BETWEEN DATE '{month_start}' AND DATE '{d}'
+  GROUP BY e.agent
+),
+-- Reactivation and % Active come from the AMs' Tableau source, not the revenue
+-- KPI view, so the board reports the same number the team is measured on.
+-- Source: elite_reference/Daily_Agg_Per_Player_Query_v1.sql — successful rows
+-- of transactional_data.payment_payment_orders, one row per account per
+-- purchase day.
+tableau_purchase_days AS (
+  SELECT DISTINCT p.account_id, DATE(p.at) AS purchase_date
+  FROM `{PROJECT_ID}.transactional_data.payment_payment_orders` p
+  INNER JOIN elite_goals e ON e.account_id = p.account_id
+  WHERE p.success = TRUE
+    AND DATE(p.at) BETWEEN DATE '{lookback}' AND DATE '{d}'
+),
+purchase_days AS (
+  SELECT
+    account_id,
+    purchase_date,
+    LAG(purchase_date) OVER (
+      PARTITION BY account_id ORDER BY purchase_date
+    ) AS prev_purchase_date
+  FROM tableau_purchase_days
+),
+-- Tableau's is_reactivated_today: purchased today AND the gap from the previous
+-- purchase >= params.churn_period_days (20). Counted once per AID in the month.
+reactivations AS (
+  SELECT
+    e.agent,
+    COUNT(DISTINCT p.account_id) AS reactivations
+  FROM purchase_days p
+  INNER JOIN elite_goals e ON e.account_id = p.account_id
+  WHERE p.purchase_date BETWEEN DATE '{month_start}' AND DATE '{d}'
+    AND p.prev_purchase_date IS NOT NULL
+    AND DATE_DIFF(p.purchase_date, p.prev_purchase_date, DAY)
+        >= {GOALS_REACTIVATION_GAP_DAYS}
+  GROUP BY e.agent
+),
+-- % Active numerator: still-active players as of the as-of date, i.e. last
+-- successful purchase within GOALS_ACTIVE_LOOKBACK_DAYS. Point-in-time, so it
+-- does not accumulate through the month and needs no pacing.
+-- A locked player still counts toward every KPI as long as he is tagged (user
+-- rule, 2026-08-18; denominator confirmed as the whole tagged book on the same
+-- day after the AM's own figures were compared). So no Goals numerator or
+-- denominator filters on `locked` at all — the earlier "eligible subset"
+-- compromise inflated % Active by 4-5 points against the AM's table.
+recent_buyers AS (
+  SELECT DISTINCT account_id
+  FROM tableau_purchase_days
+  WHERE purchase_date > DATE_SUB(DATE '{d}',
+                                 INTERVAL {GOALS_ACTIVE_LOOKBACK_DAYS} DAY)
+),
+active_players AS (
+  SELECT
+    e.agent,
+    COUNT(DISTINCT r.account_id) AS active_players
+  FROM elite_goals e
+  INNER JOIN recent_buyers r ON r.account_id = e.account_id
+  GROUP BY e.agent
+),
+portfolio AS (
+  -- % Active denominator is the whole tagged book, locked included. Verified
+  -- against the AM's table for Aug 1-17 2026: Gabriel 82.9% vs their 82.0,
+  -- Rachel 84.4% vs 85.0. portfolio_locked stays exposed so the locked drag is
+  -- still visible next to it.
+  SELECT
+    e.agent,
+    COUNT(DISTINCT e.account_id) AS portfolio_size,
+    COUNT(DISTINCT e.account_id) AS portfolio_size_all,
+    COUNT(DISTINCT IF(COALESCE(ua.locked, FALSE), e.account_id, NULL))
+      AS portfolio_locked
+  FROM elite_goals e
+  LEFT JOIN `{PROJECT_ID}.transactional_data.uam_accounts` ua
+    ON ua.id = e.account_id
+  GROUP BY e.agent
+),
+last_prior AS (
+  SELECT MAX(snapshot_date) AS snap
+  FROM `{PROJECT_ID}.dbt_utils.elite_account_tags`
+  WHERE snapshot_date < DATE '{month_start}'
+),
+prior_elite AS (
+  SELECT DISTINCT t.account_id
+  FROM `{PROJECT_ID}.dbt_utils.elite_account_tags` t
+  CROSS JOIN last_prior l
+  WHERE t.snapshot_date = l.snap
+    AND t.category = 'Elite'
+),
+mtd_elite AS (
+  SELECT
+    account_id,
+    MIN(snapshot_date) AS first_in_window
+  FROM `{PROJECT_ID}.dbt_utils.elite_account_tags`
+  WHERE category = 'Elite'
+    AND snapshot_date BETWEEN DATE '{month_start}' AND DATE '{d}'
+    AND tag_agent_1 IS NOT NULL
+  GROUP BY account_id
+),
+first_agent AS (
+  SELECT
+    t.account_id,
+    CASE
+      WHEN t.tag_agent_1 = 'gabriel' THEN 'gabriel_e'
+      ELSE t.tag_agent_1
+    END AS agent,
+    ROW_NUMBER() OVER (
+      PARTITION BY t.account_id
+      ORDER BY t.snapshot_date, t.tag_agent_1
+    ) AS rn
+  FROM `{PROJECT_ID}.dbt_utils.elite_account_tags` t
+  INNER JOIN mtd_elite m
+    ON m.account_id = t.account_id
+   AND m.first_in_window = t.snapshot_date
+  WHERE t.category = 'Elite'
+    AND t.tag_agent_1 IS NOT NULL
+),
+upgrades AS (
+  SELECT
+    f.agent,
+    COUNT(*) AS upgrades
+  FROM mtd_elite m
+  INNER JOIN first_agent f
+    ON f.account_id = m.account_id AND f.rn = 1
+  LEFT JOIN prior_elite p ON p.account_id = m.account_id
+  WHERE p.account_id IS NULL
+    AND f.agent IN ('coral_s', 'gabriel_e', 'lee_t', 'rachel_a')
+  GROUP BY f.agent
+),
+-- Month-shape reference: the two complete months before the report month.
+ref_bounds AS (
+  SELECT
+    ms,
+    LAST_DAY(ms) AS me,
+    GREATEST(
+      1,
+      CAST(ROUND({month_frac} * EXTRACT(DAY FROM LAST_DAY(ms))) AS INT64)
+    ) AS ref_day
+  FROM UNNEST([
+    DATE_SUB(DATE '{month_start}', INTERVAL 1 MONTH),
+    DATE_SUB(DATE '{month_start}', INTERVAL 2 MONTH)
+  ]) AS ms
+),
+ref_purchasers AS (
+  SELECT
+    b.ms,
+    COUNT(DISTINCT IF(EXTRACT(DAY FROM k.date) <= b.ref_day,
+                      k.account_id, NULL)) AS to_day,
+    COUNT(DISTINCT k.account_id) AS full_month
+  FROM day_kpi k
+  CROSS JOIN ref_bounds b
+  WHERE k.purchased > 0
+    AND k.date BETWEEN b.ms AND b.me
+  GROUP BY b.ms
+),
+ref_prior_snap AS (
+  SELECT b.ms, MAX(t.snapshot_date) AS snap
+  FROM ref_bounds b
+  INNER JOIN `{PROJECT_ID}.dbt_utils.elite_account_tags` t
+    ON t.snapshot_date < b.ms
+  GROUP BY b.ms
+),
+ref_prior_elite AS (
+  SELECT DISTINCT s.ms, t.account_id
+  FROM ref_prior_snap s
+  INNER JOIN `{PROJECT_ID}.dbt_utils.elite_account_tags` t
+    ON t.snapshot_date = s.snap
+  WHERE t.category = 'Elite'
+),
+ref_month_elite AS (
+  SELECT b.ms, t.account_id, MIN(t.snapshot_date) AS first_in_window
+  FROM ref_bounds b
+  INNER JOIN `{PROJECT_ID}.dbt_utils.elite_account_tags` t
+    ON t.snapshot_date BETWEEN b.ms AND b.me
+  WHERE t.category = 'Elite'
+    AND t.tag_agent_1 IN ('coral_s', 'gabriel_e', 'gabriel', 'lee_t', 'rachel_a')
+  GROUP BY b.ms, t.account_id
+),
+ref_upgrades AS (
+  SELECT
+    m.ms,
+    COUNTIF(EXTRACT(DAY FROM m.first_in_window) <= b.ref_day) AS to_day,
+    COUNT(*) AS full_month
+  FROM ref_month_elite m
+  INNER JOIN ref_bounds b ON b.ms = m.ms
+  LEFT JOIN ref_prior_elite p
+    ON p.ms = m.ms AND p.account_id = m.account_id
+  WHERE p.account_id IS NULL
+  GROUP BY m.ms
+),
+shapes AS (
+  SELECT
+    (SELECT AVG(SAFE_DIVIDE(to_day, full_month))
+     FROM ref_purchasers WHERE full_month > 0) AS purchasers_shape,
+    (SELECT AVG(SAFE_DIVIDE(to_day, full_month))
+     FROM ref_upgrades WHERE full_month > 0) AS upgrades_shape
+)
+SELECT
+  p.agent,
+  COALESCE(m.mtd_purchase, 0) AS mtd_purchase,
+  COALESCE(m.mtd_net_purchase, 0) AS mtd_net_purchase,
+  COALESCE(m.mtd_net_purchase_paid_redeem, 0) AS mtd_net_purchase_paid_redeem,
+  COALESCE(m.monthly_purchasers, 0) AS monthly_purchasers,
+  COALESCE(r.reactivations, 0) AS reactivations,
+  COALESCE(u.upgrades, 0) AS upgrades,
+  COALESCE(p.portfolio_size, 0) AS portfolio_size,
+  COALESCE(p.portfolio_size_all, 0) AS portfolio_size_all,
+  COALESCE(p.portfolio_locked, 0) AS portfolio_locked,
+  COALESCE(ap.active_players, 0) AS active_players,
+  s.purchasers_shape,
+  s.upgrades_shape,
+  -- Surfaced so a mismatch report is diagnosable without writing a diagnostic
+  -- script: if this is not the report date, the book drifted and the numbers are
+  -- being scored against a different roster than the activity window.
+  snap.snapshot_date AS book_snapshot_date
+FROM portfolio p
+CROSS JOIN shapes s
+CROSS JOIN latest_elite_tag_snapshot snap
+LEFT JOIN mtd_kpi m ON m.agent = p.agent
+LEFT JOIN reactivations r ON r.agent = p.agent
+LEFT JOIN upgrades u ON u.agent = p.agent
+LEFT JOIN active_players ap ON ap.agent = p.agent
+ORDER BY p.agent
 """.strip()

@@ -12,6 +12,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from elite_lib import write_html_shell  # noqa: E402
+from elite_lib.export_paths import mirror_to_cursor  # noqa: E402
 
 SHELL = PACKAGE_DIR / "handoffs" / "elite_am_brief_web.html"
 OUT_DIR = PACKAGE_DIR / "exports"
@@ -76,6 +77,7 @@ def main() -> None:
         print(f"HTML canvas export failed: {exc}", file=sys.stderr)
         raise SystemExit(1) from exc
     print(out)
+    mirror_to_cursor("am_brief", out, payload_path)
     if args.publish:
         publish_am_brief(out)
 

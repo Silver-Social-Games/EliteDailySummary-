@@ -1,0 +1,24 @@
+---
+description: After a successful project or multi-step task, wrap validation with the user, lock learnings, make the next run faster
+alwaysApply: true
+---
+
+# Collaboration wrap
+
+During the task, follow `.cursor/rules/elite-task-efficiency.mdc` (pick the
+cheaper path first). Then when we finish a **project** or the user confirms a
+**successful multi-step task** (good / done / lock this in / wrap validation /
+what did we learn), run `@collaboration-wrap`:
+
+1. Recap in chat (what finished, 1–3 learnings, next-time change).
+2. **Wrap validation:** one short preference question when the next default
+   needs their call. Skip only if already clear. After they answer, lock it in.
+   Do not silently automate big habits without wrap validation.
+3. Run the **efficiency pass**: one concrete way the next run is faster or
+   simpler. Implement it if small and safe; otherwise write it into the owning
+   Skill or rule.
+4. Write durable behavior into the owning `.cursor/rules/` or Skill.
+5. Do not add a new status or learnings Markdown file.
+
+Skip wrap on tiny one-file edits. If the task was clearly successful and
+multi-step, do the wrap without waiting to be asked.

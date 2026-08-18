@@ -46,7 +46,8 @@ number of CSV players.
 4. Default balancing column: `Net Purchases`.
 5. Sort candidates high to low by the balancing column.
 6. Assign each candidate to the eligible Agent with the lowest running
-   balancing total, enforcing the exact quota for every Agent.
+   balancing total, enforcing the exact quota for every Agent. Then swap
+   unforced players to tighten Agent balancing totals without changing quotas.
 7. Never assign an AID more than once.
 8. Sort every Agent tab high to low by the balancing column.
 

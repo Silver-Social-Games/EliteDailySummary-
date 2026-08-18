@@ -7,8 +7,9 @@ alwaysApply: false
 # Python report generators
 
 - Put each new initiative in a dedicated top-level folder.
-- Keep generated files inside that initiative's `exports/`, `handoffs/`, or
-  `data/` directory. Keep work in its owning initiative folder.
+- Write a working copy inside that initiative's `exports/`, `handoffs/`, or
+  `daily_summaries/` directory. Then always `mirror_to_cursor` into
+  `VIP\\Elite_Cursor\\<project>` so the user has one place to open files.
 - Prefer one documented generator entry point over ad hoc scripts.
 - Resolve paths from `Path(__file__)`; do not depend on the launch directory.
 - Add explicit CLI options for dates and AIDs. Preserve deterministic date

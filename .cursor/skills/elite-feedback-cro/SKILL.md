@@ -34,17 +34,13 @@ python feedback_cro/generate_elite_feedback_cro_canvas.py --before-start 2026-04
 
 `--after-end` defaults to today. Always pin it for a historical or shared report.
 
-Copy exports to Desktop (VIP\Cursor folder):
-
-```bash
-python feedback_cro/generate_elite_feedback_cro_canvas.py --copy-desktop
-```
+Exports always copy to `VIP\Elite_Cursor\Feedback CRO`. `--copy-desktop` is optional.
 
 **Cursor:** `@elite-feedback-cro` or "run elite feedback CRO canvas" / "export feedback report".
 
 ## Default source file
 
-`c:\Users\Owner\OneDrive - Silver Social Games\Desktop\VIP\Cursor\Elite Feedback.xlsx`
+`C:\Users\Owner\OneDrive - Silver Social Games\Desktop\VIP\Elite_Cursor\Feedback CRO\Elite Feedback.xlsx`
 
 (OneDrive lock: script copies to workspace temp before read.)
 
@@ -54,9 +50,8 @@ python feedback_cro/generate_elite_feedback_cro_canvas.py --copy-desktop
 |----------|------|
 | Live canvas | `~/.cursor/projects/<workspace>/canvases/elite-feedback-cro.canvas.tsx` |
 | Canvas backup | `feedback_cro/handoffs/elite-feedback-cro.canvas.tsx` |
-| HTML export (canvas-style) | `feedback_cro/exports/elite-feedback-cro-export.html` |
-| Markdown export | `feedback_cro/exports/elite-feedback-cro-export.md` |
-| Desktop HTML (with `--copy-desktop`) | `Desktop\VIP\Cursor\Elite-Feedback-CRO-Export.html` |
+| HTML export (canvas-style) | `VIP\Elite_Cursor\Feedback CRO\elite-feedback-cro-export.html` |
+| Markdown export | `VIP\Elite_Cursor\Feedback CRO\elite-feedback-cro-export.md` |
 
 Open canvas: `Ctrl + P` → paste live canvas path → **Open Canvas**.
 

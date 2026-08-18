@@ -19,9 +19,30 @@ PACKAGE_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(PROJECT_ROOT))
 sys.path.insert(0, str(PACKAGE_DIR))
 
-from elite_lib.bigquery import get_client, run_query  # noqa: E402
+from elite_lib.bigquery import HEAVY_QUERY_SCAN_CAP_BYTES, get_client, run_query  # noqa: E402
+from elite_lib.export_paths import mirror_to_cursor  # noqa: E402
 
+from config import (  # noqa: E402
+    LOCKS_REVIEW_WINDOW_DAYS,
+    LOCKS_WINDOW_DAYS,
+    PENDING_RD_LOOKBACK_DAYS,
+    manager_gate_token,
+)
 import queries as am_queries  # noqa: E402
+from goals import (  # noqa: E402
+    GOALS_AGENT_DISPLAY,
+    GOALS_AGENT_TAGS,
+    INCLUDED_WEIGHT_TOTAL,
+    actuals_by_agent,
+    build_agent_goals_block,
+    strip_payload_for_am,
+    targets_for_month,
+)
+from goals_reference import (  # noqa: E402
+    gap_text,
+    load_reference_tsv,
+    reference_for,
+)
 from am_brief_canvas import render_am_brief_canvas  # noqa: E402
 from canvas_to_html import publish_am_brief, write_am_brief_html  # noqa: E402
 from daily_summary.generate_daily_elite_canvas import build_report, build_top10_rows, fmt_money_short  # noqa: E402
@@ -41,6 +62,10 @@ from wow_drop_analysis.wow_drop_reason import (  # noqa: E402
     format_lifetime_hold,
     format_lifetime_purchased,
 )
+from am_brief_ticket_drafts import (  # noqa: E402
+    build_birthday_ticket_draft,
+    build_first_time_rd_ticket_draft,
+)
 
 OUTPUT_DIR = Path(__file__).resolve().parent / "exports"
 DEFAULT_CANVAS_DIR = Path(
@@ -48,6 +73,15 @@ DEFAULT_CANVAS_DIR = Path(
 )
 
 AM_ORDER = ["Coral", "Gabriel", "Lee", "Rachel", "Alon"]
+# Goals exports (file-level isolation) — Alon omitted.
+GOALS_AM_ORDER = ["Coral", "Gabriel", "Lee", "Rachel"]
+
+UPGRADES_NOTE = (
+    "Upgrade to Elite = first Elite `dbt_utils.elite_account_tags` snapshot "
+    "in the month through as-of, for accounts that were not Elite on the last "
+    "snapshot before month start. Tag history starts 2026-04-08; attributed to "
+    "tag_agent_1 on that first in-window snapshot (not current roster only)."
+)
 
 # Soften red vs daily decline baseline
 AM_REASON_TONE = {
@@ -92,24 +126,28 @@ def lock_bucket(lock_reason: str, lock_comment: str) -> tuple[str, str]:
     return "Other locked", "warning"
 
 
-def unlock_line(
+def unlock_info(
     lock_reason: str,
     lock_comment: str,
     locked_at: date | None,
     report_date: date,
-) -> str:
+) -> tuple[str, int | None]:
+    """Returns (display text, remaining days) for a take-a-break lock.
+    remaining_days <= 0 means today/overdue — the restriction should be
+    removed. None means no calculable unlock date (e.g. self-exclusion,
+    other locked, or a break with no locked_at)."""
     days = _take_a_break_days(lock_reason or "") or _take_a_break_days(lock_comment or "")
     if not days:
-        return ""
+        return "", None
     if not locked_at:
-        return f"Take a break {days} days"
+        return f"Take a break {days} days", None
     unlock = locked_at + timedelta(days=days)
     remaining = (unlock - report_date).days
     if remaining > 0:
-        return f"{remaining}d left · unlock {unlock.isoformat()}"
+        return f"{remaining}d left · unlock {unlock.isoformat()}", remaining
     if remaining == 0:
-        return "Unlock today — remove restriction"
-    return f"Ended {unlock.isoformat()} — remove restriction"
+        return "Unlock today — remove restriction", 0
+    return f"Ended {unlock.isoformat()} — remove restriction", remaining
 
 
 def parse_date_val(val) -> date | None:
@@ -118,6 +156,13 @@ def parse_date_val(val) -> date | None:
     if hasattr(val, "isoformat") and not isinstance(val, str):
         return val if isinstance(val, date) else val.date()  # type: ignore[attr-defined]
     return date.fromisoformat(str(val)[:10])
+
+
+def _safe_int(val: object) -> int:
+    try:
+        return int(val or 0)
+    except (TypeError, ValueError):
+        return 0
 
 
 def aid_row(aid: object, name: str = "", **extra) -> dict:
@@ -155,27 +200,66 @@ def build_top10_section(rows: list[dict]) -> list[dict]:
     return out
 
 
-def build_rd_section(rows: list[dict]) -> list[dict]:
+def build_rd_section(
+    rows: list[dict],
+    report_date: date | None = None,
+    aging_threshold_days: int | None = None,
+    ticket_enrich: dict[int, dict] | None = None,
+) -> list[dict]:
+    """aging_threshold_days: flag rows created this many days ago or earlier
+    (e.g. PENDING_RD_LOOKBACK_DAYS - 1) so agents can see which pending
+    redemptions are nearing the edge of the lookback window. Pass None
+    (default) to skip aging entirely — e.g. First-Time Locked RD isn't
+    windowed the same way.
+
+    ticket_enrich: when provided (AID -> {"zendesk_user_id": ...}), attaches
+    a Zendesk ticket draft (build_first_time_rd_ticket_draft), gated by the
+    account's own locked/lock_reason (elite-core: never recommend retention
+    outreach for a locked or self-excluded account). Pass None (default) to
+    skip — Pending RD >=5k is view-only, no ticket draft offered there."""
     out = []
     for r in rows:
-        out.append(
-            aid_row(
-                r.get("AID"),
-                r.get("name") or "n/a",
-                agent=r.get("agent") or "",
-                agentName=agent_display(r.get("agent") or ""),
-                redeemId=str(r.get("redeem_id") or ""),
-                amount=fmt_money_short(r.get("amount")),
-                amountNum=float(r.get("amount") or 0),
-                status=r.get("status") or "locked",
-                created=str(r.get("created_date") or ""),
-                tone="warning",
-            )
+        created_d = parse_date_val(r.get("created_date"))
+        days_pending = (report_date - created_d).days if (report_date and created_d) else None
+        aging_flag = (
+            aging_threshold_days is not None
+            and days_pending is not None
+            and days_pending >= aging_threshold_days
         )
+        row = aid_row(
+            r.get("AID"),
+            r.get("name") or "n/a",
+            agent=r.get("agent") or "",
+            agentName=agent_display(r.get("agent") or ""),
+            redeemId=str(r.get("redeem_id") or ""),
+            amount=fmt_money_short(r.get("amount")),
+            amountNum=float(r.get("amount") or 0),
+            status=r.get("status") or "locked",
+            created=str(r.get("created_date") or ""),
+            daysPending=days_pending,
+            agingFlag=aging_flag,
+            tone="danger" if aging_flag else "warning",
+        )
+        if ticket_enrich is not None:
+            enrich = ticket_enrich.get(_safe_int(r.get("AID")), {})
+            row.update(
+                build_first_time_rd_ticket_draft(
+                    r,
+                    locked=bool(r.get("locked")),
+                    lock_reason=r.get("lock_reason") or "",
+                    lock_reason_comment=r.get("lock_reason_comment") or "",
+                    zendesk_user_id=enrich.get("zendesk_user_id"),
+                )
+            )
+        out.append(row)
     return out
 
 
-def build_birthday_section(rows: list[dict]) -> list[dict]:
+def build_birthday_section(
+    rows: list[dict], ticket_enrich: dict[int, dict] | None = None
+) -> list[dict]:
+    """ticket_enrich: see build_rd_section — same locked/self-exclusion gate,
+    applied here via build_birthday_ticket_draft."""
     out = []
     for r in rows:
         age = r.get("age")
@@ -189,18 +273,28 @@ def build_birthday_section(rows: list[dict]) -> list[dict]:
             dob_fmt = f"{dob_d.day}/{dob_d.month}/{dob_d.year}"
         else:
             dob_fmt = str(dob_raw or "")
-        out.append(
-            aid_row(
-                r.get("AID"),
-                r.get("name") or "n/a",
-                agent=r.get("agent") or "",
-                agentName=agent_display(r.get("agent") or ""),
-                email=r.get("email") or "",
-                dob=dob_fmt,
-                age=age_i,
-                tone="success",
-            )
+        row = aid_row(
+            r.get("AID"),
+            r.get("name") or "n/a",
+            agent=r.get("agent") or "",
+            agentName=agent_display(r.get("agent") or ""),
+            email=r.get("email") or "",
+            dob=dob_fmt,
+            age=age_i,
+            tone="success",
         )
+        if ticket_enrich is not None:
+            enrich = ticket_enrich.get(_safe_int(r.get("AID")), {})
+            row.update(
+                build_birthday_ticket_draft(
+                    r,
+                    locked=bool(r.get("locked")),
+                    lock_reason=r.get("lock_reason") or "",
+                    lock_reason_comment=r.get("lock_reason_comment") or "",
+                    zendesk_user_id=enrich.get("zendesk_user_id"),
+                )
+            )
+        out.append(row)
     return out
 
 
@@ -252,22 +346,41 @@ def build_zd_section(rows: list[dict], enrich_map: dict[int, dict] | None = None
 
 
 def build_lock_section(rows: list[dict], report_date: date) -> list[dict]:
-    """Still locked and first locked/updated on report_date (past day), any reason."""
+    """Two ways in, so a stale take-a-break is never missed just because it's
+    no longer "new" (config.py):
+    - Any lock reason: locked_at within the trailing LOCKS_WINDOW_DAYS
+      ending on report_date (1 day = locked today) — the "what just
+      happened" feed.
+    - Take a break only: unlock date within LOCKS_REVIEW_WINDOW_DAYS days,
+      or already passed — regardless of how long ago the lock started."""
     out = []
     for r in rows:
         locked_at_d = parse_date_val(r.get("locked_at"))
-        if locked_at_d != report_date:
+        if locked_at_d is None:
+            continue
+        age_days = (report_date - locked_at_d).days
+        if age_days < 0:
             continue
         bucket, tone = lock_bucket(
             r.get("lock_reason") or "",
             r.get("lock_reason_comment") or "",
         )
-        unlock = unlock_line(
+        unlock, remaining_days = unlock_info(
             r.get("lock_reason") or "",
             r.get("lock_reason_comment") or "",
             locked_at_d,
             report_date,
         )
+        locked_today = age_days < LOCKS_WINDOW_DAYS
+        due_for_review = (
+            remaining_days is not None and remaining_days <= LOCKS_REVIEW_WINDOW_DAYS
+        )
+        if not (locked_today or due_for_review):
+            continue
+        # Emphasize take-a-break locks whose window has already ended (or
+        # ends today) — the restriction is stale and should be removed.
+        if remaining_days is not None and remaining_days <= 0:
+            tone = "danger"
         out.append(
             aid_row(
                 r.get("AID"),
@@ -277,6 +390,7 @@ def build_lock_section(rows: list[dict], report_date: date) -> list[dict]:
                 bucket=bucket,
                 lockReason=r.get("lock_reason") or "",
                 unlockDetail=unlock,
+                unlockRemainingDays=remaining_days,
                 lockedAt=locked_at_d.isoformat() if locked_at_d else "",
                 tone=tone,
             )
@@ -344,6 +458,7 @@ def focus_for_agent(
     total_players: int,
     elite_rev: float,
     elite_ply: int,
+    goals: dict | None = None,
 ) -> dict:
     def filt(rows: list[dict]) -> list[dict]:
         return [r for r in rows if r.get("agentName") == agent_name]
@@ -396,7 +511,49 @@ def focus_for_agent(
         "birthdays": filt(birthdays),
         "zendesk": zd_a,
         "locks": locks_a,
+        "goals": goals,
     }
+
+
+def build_goals_blocks(report_date: date, client) -> dict[str, dict | None]:
+    """Goals block per AM display name. One query, so `--goals-only` can verify
+    the numbers without paying for the whole board."""
+    print("  Fetching Elite Goals MTD actuals...")
+    goals_raw = run_query(
+        client,
+        am_queries.goals_mtd_actuals_sql(report_date),
+        maximum_bytes_billed=HEAVY_QUERY_SCAN_CAP_BYTES,
+    )
+    goals_actuals = actuals_by_agent(goals_raw)
+    goals_targets = targets_for_month(report_date)
+    goals_by_display: dict[str, dict | None] = {}
+    for tag in GOALS_AGENT_TAGS:
+        block = build_agent_goals_block(
+            tag,
+            goals_targets.get(tag),
+            goals_actuals.get(tag) or {},
+            report_date,
+            upgrades_available=True,
+            upgrades_note=UPGRADES_NOTE,
+        )
+        goals_by_display[GOALS_AGENT_DISPLAY[tag]] = block
+        if block and block.get("available"):
+            purchasers = next(
+                (
+                    k["actual"]
+                    for k in block["kpis"]
+                    if k["key"] == "monthly_purchasers"
+                ),
+                None,
+            )
+            print(
+                f"    {GOALS_AGENT_DISPLAY[tag]}: purchasers={purchasers} "
+                f"tracked={block.get('weightedTrackedDisplay')}"
+            )
+    for name in AM_ORDER:
+        if name not in goals_by_display:
+            goals_by_display[name] = None  # Alon
+    return goals_by_display
 
 
 def build_payload(report_date: date, client) -> dict:
@@ -411,20 +568,28 @@ def build_payload(report_date: date, client) -> dict:
     print(f"  Birthdays (3d): {len(bday_raw)}")
     zd_raw = run_query(client, am_queries.open_zendesk_sql())
     print(f"  Open ZD players: {len(zd_raw)}")
-    zd_enrich: dict[int, dict] = {}
-    zd_aids = []
+    # One shared enrich fetch (lifetime purchase/hold for Open Tickets, plus
+    # zendesk_user_id so First-Time Locked RD / Birthdays tickets can
+    # pre-select the requester) covering every AID that needs it.
+    ticket_aids: set[int] = set()
     for r in zd_raw:
         try:
-            zd_aids.append(int(r["AID"]))
+            ticket_aids.add(int(r["AID"]))
         except (TypeError, ValueError, KeyError):
             continue
-    if zd_aids:
-        print(f"  Enriching Open Tickets metrics for {len(zd_aids)} AIDs...")
-        zd_enrich = {
+    for r in (*rd_first_raw, *bday_raw):
+        try:
+            ticket_aids.add(int(r["AID"]))
+        except (TypeError, ValueError, KeyError):
+            continue
+    shared_enrich: dict[int, dict] = {}
+    if ticket_aids:
+        print(f"  Enriching metrics for {len(ticket_aids)} AIDs (Open Tickets, RD, Birthdays)...")
+        shared_enrich = {
             int(e["AID"]): e
-            for e in run_query(client, enrich_aids_sql(zd_aids, report_date))
+            for e in run_query(client, enrich_aids_sql(sorted(ticket_aids), report_date))
         }
-    zd = build_zd_section(zd_raw, zd_enrich)
+    zd = build_zd_section(zd_raw, shared_enrich)
     locks_raw = run_query(client, am_queries.locked_players_sql())
     print(f"  Locked players (raw): {len(locks_raw)}")
     purchase_raw = run_query(client, am_queries.agent_day_purchase_sql(report_date))
@@ -432,6 +597,8 @@ def build_payload(report_date: date, client) -> dict:
     book_raw = run_query(client, am_queries.agent_book_size_sql())
     book_by_tag = {r["agent"]: int(r.get("total_players") or 0) for r in book_raw}
     print(f"  AM book sizes: {len(book_by_tag)} agents")
+
+    goals_by_display = build_goals_blocks(report_date, client)
 
     print("  Fetching Elite / Jackpota weekday summary...")
     sql = build_sql(report_date)
@@ -463,9 +630,11 @@ def build_payload(report_date: date, client) -> dict:
         print(f"    {name}: {len(rows)} Top 20 rows")
 
     top10 = build_top10_section(top10_raw)
-    rd5k = build_rd_section(rd5k_raw)
-    rd_first = build_rd_section(rd_first_raw)
-    birthdays = build_birthday_section(bday_raw)
+    rd5k = build_rd_section(
+        rd5k_raw, report_date, aging_threshold_days=PENDING_RD_LOOKBACK_DAYS - 1
+    )
+    rd_first = build_rd_section(rd_first_raw, ticket_enrich=shared_enrich)
+    birthdays = build_birthday_section(bday_raw, ticket_enrich=shared_enrich)
     locks = build_lock_section(locks_raw, report_date)
     print(f"  Locked after past-day window filter: {len(locks)}")
 
@@ -500,6 +669,7 @@ def build_payload(report_date: date, client) -> dict:
                 total_players=total_players,
                 elite_rev=elite_rev,
                 elite_ply=elite_ply,
+                goals=goals_by_display.get(name),
             )
         )
 
@@ -552,6 +722,15 @@ def build_payload(report_date: date, client) -> dict:
         "overview": overview,
         "agents": agents,
         "amOrder": AM_ORDER,
+        "goalsMeta": {
+            "includedWeightTotal": INCLUDED_WEIGHT_TOTAL,
+            "upgradesNote": UPGRADES_NOTE,
+            "asOf": report_date.isoformat(),
+            "goalsAmOrder": GOALS_AM_ORDER,
+        },
+        # Manager-only. strip_payload_for_am rebuilds the payload from a fixed
+        # key list, so this never reaches a per-AM file.
+        "managerGate": manager_gate_token(),
     }
 
 
@@ -565,7 +744,8 @@ def write_outputs(
     canvas_path.write_text(render_am_brief_canvas(payload), encoding="utf-8")
     html_path = OUTPUT_DIR / f"{d}_elite_am_brief.html"
     write_am_brief_html(payload, html_path)
-    (OUTPUT_DIR / f"{d}_elite_am_brief.json").write_text(
+    json_path = OUTPUT_DIR / f"{d}_elite_am_brief.json"
+    json_path.write_text(
         json.dumps(payload, indent=2, default=str),
         encoding="utf-8",
     )
@@ -573,9 +753,96 @@ def write_outputs(
     old_canvas = canvas_dir / f"elite-am-focus-{d}.canvas.tsx"
     if old_canvas.exists():
         old_canvas.unlink()
+
+    per_am_paths: list[Path] = []
+    for name in GOALS_AM_ORDER:
+        slug = name.lower()
+        am_payload = strip_payload_for_am(payload, name)
+        am_html = OUTPUT_DIR / f"{d}_elite_am_brief_{slug}.html"
+        am_json = OUTPUT_DIR / f"{d}_elite_am_brief_{slug}.json"
+        write_am_brief_html(am_payload, am_html)
+        am_json.write_text(
+            json.dumps(am_payload, indent=2, default=str),
+            encoding="utf-8",
+        )
+        am_canvas = canvas_dir / f"elite-am-brief-{d}-{slug}.canvas.tsx"
+        am_canvas.write_text(render_am_brief_canvas(am_payload), encoding="utf-8")
+        per_am_paths.extend([am_html, am_json])
+        print(f"  Per-AM: {am_html.name}")
+
     if publish:
         publish_am_brief(html_path)
+    mirror_to_cursor("am_brief", html_path, json_path, *per_am_paths)
     return canvas_path, html_path
+
+
+def print_goals_audit(payload: dict) -> None:
+    """Compact audit table for verification against external Goals sheet.
+
+    Adds Yours / Gap columns for any AM and as-of date present in
+    data/elite_goals_reference.tsv, so a drift against the AM's own table shows up
+    in the audit itself rather than in a manual read-out. See goals_reference.py.
+    """
+    reference = load_reference_tsv()
+    print("\n=== Goals audit (as of report date) ===")
+    has_ref = bool(reference)
+    header = (
+        f"{'AM':<10} {'KPI':<28} {'Goal':>12} {'Actual':>12} {'Pace':>12} "
+        f"{'Status':<10}"
+    )
+    if has_ref:
+        header += f" {'Yours':>12} {'Gap':>16}"
+    print(header)
+    print("-" * len(header))
+    for a in payload.get("agents") or []:
+        goals = a.get("goals")
+        if not goals or not goals.get("available"):
+            continue
+        theirs = (
+            reference_for(reference, goals.get("agent") or "", goals.get("asOf") or "")
+            if has_ref
+            else {}
+        )
+        for k in goals.get("kpis") or []:
+            line = (
+                f"{a['agentName']:<10} {k['label']:<28} "
+                f"{k.get('goalDisplay') or '—':>12} "
+                f"{k.get('actualDisplay') or '—':>12} "
+                f"{k.get('paceDisplay') or '—':>12} "
+                f"{k.get('status') or '—':<10}"
+            )
+            if has_ref:
+                mine, gap = gap_text(
+                    k["label"], k.get("actual"), theirs.get(k["label"])
+                )
+                line += f" {mine:>12} {gap:>16}"
+            print(line)
+        tracked = goals.get("weightedTrackedDisplay") or "—"
+        print(f"{a['agentName']:<10} {'(weighted tracked)':<28} {'':>12} {'':>12} {tracked:>12}")
+        shapes = (
+            f"purchasers {goals.get('purchasersShape') or 0:.3f} / "
+            f"upgrades {goals.get('upgradesShape') or 0:.3f}"
+        )
+        print(f"{a['agentName']:<10} {'(month-shape divisors)':<28} {shapes}")
+        print(
+            f"{a['agentName']:<10} {'(net if paid-redeem instead)':<28} "
+            f"{'':>12} ${goals.get('dailyNetPaidRedeem') or 0:>11,.0f}"
+        )
+        print(
+            f"{a['agentName']:<10} {'(portfolio: tagged book)':<28} "
+            f"{goals.get('portfolioSize') or 0:>12,} "
+            f"{'':>11}"
+            f"   ({goals.get('portfolioLocked') or 0} locked, still counted)"
+        )
+        snap = goals.get("bookSnapshotDate") or ""
+        as_of = goals.get("asOf") or ""
+        drift = "" if snap == as_of else "  <-- DRIFTED, book is not the report date"
+        print(
+            f"{a['agentName']:<10} {'(book tag snapshot)':<28} "
+            f"{snap or '—':>12}{drift}"
+        )
+        print("-" * len(header))
+
 
 
 def main() -> None:
@@ -592,13 +859,32 @@ def main() -> None:
         action="store_true",
         help="Copy HTML into docs/ for GitHub Pages (off by default; local review only)",
     )
+    parser.add_argument(
+        "--goals-only",
+        action="store_true",
+        help="Print the Goals audit from one query and exit; writes no files. "
+        "Use to check Goal/MTD/Pace against an external sheet.",
+    )
     args = parser.parse_args()
     report_date = resolve_report_date(args.date)
     client = get_client()
+    if args.goals_only:
+        goals = build_goals_blocks(report_date, client)
+        print_goals_audit(
+            {
+                "agents": [
+                    {"agentName": name, "goals": block}
+                    for name, block in goals.items()
+                    if block
+                ]
+            }
+        )
+        return
     payload = build_payload(report_date, client)
     canvas_path, html_path = write_outputs(
         payload, args.canvas_dir, publish=args.publish
     )
+    print_goals_audit(payload)
     print(f"Wrote {canvas_path}")
     print(f"Wrote {html_path}")
 

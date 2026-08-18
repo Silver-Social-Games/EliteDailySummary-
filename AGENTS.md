@@ -15,8 +15,9 @@ Do not duplicate detailed workflows here. Update the owning document or Skill.
 ## Repository organization
 
 - Create one top-level folder per initiative.
-- Keep initiative generators, documentation, `exports/`, `handoffs/`, and
-  optional `data/` together.
+- Two homes: `Downloads\Elite` is the workshop (keep it). User-facing files
+  open from `VIP\Elite_Cursor\<project>` via `mirror_to_cursor`. Never write
+  to the deleted `VIP\Cursor` folder.
 - Reuse BigQuery and canonical Elite-book helpers from `elite_lib`.
 - Keep daily reporting, WoW drop analysis, feedback CRO, decline protocol, and
   reference assets in their dedicated top-level initiative folders.
@@ -40,13 +41,21 @@ The complete definitions and examples live in `Elite.MD` and the focused rules.
 ## Active workflows
 
 - Morning report: `python daily_summary/generate_morning_elite.py`
-- Schedule: Sun–Thu at 10:00 AM Israel time
+- After every daily/weekend summary (Cursor or manual): `python daily_summary/publish_pages_git.py` → live site [EliteDailySummary-](https://silver-social-games.github.io/EliteDailySummary-/)
+- Schedule: Sun–Thu at 10:00 AM Israel time (task passes `-EnablePagesAutoPublish`)
 - Daily Skill: `@daily-elite-summary`
-- AM Brief board: `@elite-am-brief` · `python am_daily_dashboard/generate_am_daily_dashboard.py` · [`am_daily_dashboard/AM_DAILY_DASHBOARD.md`](am_daily_dashboard/AM_DAILY_DASHBOARD.md)
+- AM Brief board: `@elite-am-brief` · `python am_daily_dashboard/generate_am_daily_dashboard.py` · open from `VIP\Elite_Cursor\AM Brief` (not Pages)
+- CRM offer playbook board: `python crm_offer_calendar/generate_crm_offer_playbook.py` — edit `crm_offer_calendar/data/current_offers.json` for a new month (local handoff; not Pages)
+- Campaign email readers (Sunday, opened only): `python campaign_email_readers/generate_campaign_email_readers.py` · [`campaign_email_readers/CAMPAIGN_EMAIL_READERS.md`](campaign_email_readers/CAMPAIGN_EMAIL_READERS.md) (local; not Pages)
+- Elite roster by AM (unlocked, no Take a break): `python exports/generate_elite_roster_by_am.py` → `VIP\Elite_Cursor\Roster and Drop Lists` (AID, email, phone when present, first name; exclude `uam`/`elite_users` locked and lock text containing take a break — TAB is not always already locked)
 - Purchase lookup: `@purchase-lookup`
 - WoW drop investigation: `@wow-drop-reason-analysis`
 - Feedback CRO: `@elite-feedback-cro`
 - Birthday gift AID summary: `@birthday-gift-activity`
+- After a finished project or successful multi-step task: `@collaboration-wrap`
+  (wrap validation with the user when needed; lock learnings; efficiency pass).
+  During the task, pick the cheaper path first
+  (`.cursor/rules/elite-task-efficiency.mdc`).
 
 Use each Skill for commands, outputs, format baselines, and task-specific checks.
 

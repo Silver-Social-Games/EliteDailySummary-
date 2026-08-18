@@ -10,7 +10,7 @@ from __future__ import annotations
 import unittest
 from unittest.mock import MagicMock
 
-from elite_lib.bigquery import run_query, sql_int_list
+from elite_lib.bigquery import dashboard_elite_ctes, run_query, sql_int_list
 
 
 class SqlIntListTests(unittest.TestCase):
@@ -64,6 +64,35 @@ class RunQueryTests(unittest.TestCase):
         client, query_job = self._fake_client([])
         run_query(client, "SELECT 1", timeout=30)
         query_job.result.assert_called_once_with(timeout=30)
+
+
+class AsOfPinningTests(unittest.TestCase):
+    """as_of has to pin both halves of the book.
+
+    Pinning only the tag snapshot leaves the COALESCE(tag, e.agent_name) fallback
+    reading current state, so accounts assigned after the as-of date still enter a
+    report pinned to it. That bug overstated one AM's Daily Avg Net Purchase by 11%
+    on 2026-08-17 (32 accounts) while the AMs who gained nobody that day matched to
+    the dollar, which is exactly what made it hard to spot.
+    """
+
+    def test_live_book_is_unfiltered(self) -> None:
+        sql = dashboard_elite_ctes()
+        self.assertNotIn("snapshot_date <=", sql)
+        self.assertNotIn("agent_start_managed_date", sql)
+
+    def test_as_of_pins_tag_snapshot_and_managed_date(self) -> None:
+        sql = dashboard_elite_ctes(as_of="2026-08-17")
+        self.assertIn("snapshot_date <= DATE '2026-08-17'", sql)
+        self.assertIn("e.agent_start_managed_date <= DATE '2026-08-17'", sql)
+
+    def test_null_managed_date_is_kept(self) -> None:
+        # Legacy rows with no assignment date recorded are not late arrivals;
+        # dropping them would silently shrink every pinned book.
+        self.assertIn(
+            "e.agent_start_managed_date IS NULL",
+            dashboard_elite_ctes(as_of="2026-08-17"),
+        )
 
 
 if __name__ == "__main__":
