@@ -14,7 +14,15 @@ Do this during the work, not only at wrap.
    AID, Pages vs AM Brief, Sun–Thu schedule).
 3. Skip extra copies, status Markdown, and unused VIP folders.
 4. If one small change would remove a step this run (default a flag, call
-   `mirror_to_cursor`, reuse a query), do it now.
+ `mirror_to_cursor`, reuse a query), do it now.
+5. **Mock in chat first, generate the file only after they say OK.** For any
+ design, layout, or proposal, show it inline in chat — a table, the literal
+ column list, the wording, the colour language. Do not build a canvas or an
+ HTML file to ask a question. Once they approve, generate the real thing and
+ give the Elite_Cursor path. Canvases have failed to open for this user more
+ than once; a rejected artifact is a wasted build either way.
+6. Ask at most **two** questions at a time. Five-question batches came back
+ empty twice and the work then proceeded on assumptions.
 
 Say the Elite_Cursor path when a file is the deliverable. After the task
 succeeds, `@collaboration-wrap` still runs the post-task efficiency pass.
