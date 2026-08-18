@@ -36,6 +36,13 @@ def manager_gate_token(passcode: str = "") -> str:
 PENDING_RD_MIN_AMOUNT = 5000
 PENDING_RD_LOOKBACK_DAYS = 3
 
+# Big Winner flag on Pending Redemptions: the player won at least this much on
+# the report day. Stated as a positive player win. GGR is house-side
+# (`profit - loss`, Elite.MD), so a player win is a *negative* GGR day and the
+# SQL compares `ggr <= -BIG_WINNER_MIN_PLAYER_WIN`. Read the sign backwards and
+# the flag lands on the biggest losers instead.
+BIG_WINNER_MIN_PLAYER_WIN = 5000
+
 # Birthdays section: calendar birthdays (MM-DD match) within the trailing
 # window (inclusive of report_date).
 BIRTHDAYS_LOOKBACK_DAYS = 3

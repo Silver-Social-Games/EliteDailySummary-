@@ -57,9 +57,6 @@ type AgentBlock = {{
   birthdays: AidRow[];
   zendesk: AidRow[];
   locks: AidRow[];
-  churn: AidRow[];
-  activeDecline: AidRow[];
-  milestones: AidRow[];
   goals?: {{
     available?: boolean;
     monthLabel?: string;
@@ -67,6 +64,21 @@ type AgentBlock = {{
     elapsedDays?: number;
     daysInMonth?: number;
     weightedTrackedDisplay?: string;
+    score?: {{
+      kpiPoints: number;
+      kpiPointsMax: number;
+      kpiPointsDisplay: string;
+      managerScored: boolean;
+      managerPoints?: number | null;
+      managerPointsMax: number;
+      managerPointsDisplay: string;
+      managerNote?: string;
+      totalPoints: number;
+      totalPointsMax: number;
+      totalDisplay: string;
+      scoreSubline: string;
+      scoreNote?: string;
+    }};
     achievementCapNote?: string;
     upgradesNote?: string;
     definitionsNote?: string;
@@ -228,6 +240,31 @@ function AgingCell({{
       tone={{agingFlag ? "danger" : undefined}}
     >
       {{created}}{{suffix}}
+    </Text>
+  );
+}}
+
+function BigWinCell({{ won, bigWinner }}: {{ won: string; bigWinner?: boolean }}) {{
+  if (!bigWinner) {{
+    return <Text as="span" size="small" tone="tertiary">{{won}}</Text>;
+  }}
+  return (
+    <Text as="span" size="small" weight="semibold" tone="danger">
+      {{won}} · Big Winner
+    </Text>
+  );
+}}
+
+// Blank when nothing is flagged. The absence of a missing-document ticket is
+// not proof the documents are complete, so the board says nothing rather than
+// showing an all-clear an AM might repeat to a player awaiting a withdrawal.
+function DocsCell({{ status }}: {{ status: string }}) {{
+  if (!status) {{
+    return <Text as="span" tone="quaternary">—</Text>;
+  }}
+  return (
+    <Text as="span" size="small" weight="semibold" tone="warning">
+      {{status}}
     </Text>
   );
 }}

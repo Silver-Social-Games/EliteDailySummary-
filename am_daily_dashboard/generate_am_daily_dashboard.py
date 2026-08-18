@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 from datetime import date, timedelta
 from pathlib import Path
@@ -33,7 +34,9 @@ from goals import (  # noqa: E402
     GOALS_AGENT_DISPLAY,
     GOALS_AGENT_TAGS,
     INCLUDED_WEIGHT_TOTAL,
+    MANAGER_APPRECIATION_MAX,
     actuals_by_agent,
+    appreciation_for_month,
     build_agent_goals_block,
     strip_payload_for_am,
     targets_for_month,
@@ -56,6 +59,7 @@ from daily_summary.generate_daily_elite_summary import (  # noqa: E402
 from wow_drop_analysis.wow_drop_reason import (  # noqa: E402
     AGENT_TAG_LABELS,
     _take_a_break_days,
+    _zendesk_missing_doc_tag,
     enrich_aids_sql,
     fetch_top_same_day_by_agent,
     format_agent_name,
@@ -175,9 +179,37 @@ def aid_row(aid: object, name: str = "", **extra) -> dict:
     }
 
 
+def fmt_price(val: object) -> str:
+    """Money that keeps cents when there are any — offer prices are $899.99,
+    and rounding a price to $900 misstates the thing the AM is quoting."""
+    if val is None:
+        return "—"
+    try:
+        num = float(val)
+    except (TypeError, ValueError):
+        return "—"
+    return f"${num:,.0f}" if num == int(num) else f"${num:,.2f}"
+
+
+def build_package_fit(usual: object, usual_orders: object, ceiling: object) -> str:
+    """The one place the "usual → ceiling" cell is formatted, so the canvas and
+    the standalone HTML cannot drift apart on it."""
+    if usual is None:
+        return "—"
+    text = fmt_price(usual)
+    orders = _safe_int(usual_orders)
+    if orders > 1:
+        text += f" \u00d7{orders}"
+    if ceiling is not None and float(ceiling) > float(usual):
+        text += f" \u2192 {fmt_price(ceiling)}"
+    return text
+
+
 def build_top10_section(rows: list[dict]) -> list[dict]:
     out = []
     for r in rows:
+        unit_min = r.get("offer_unit_min")
+        unit_max = r.get("offer_unit_max")
         out.append(
             aid_row(
                 r.get("AID"),
@@ -194,6 +226,22 @@ def build_top10_section(rows: list[dict]) -> list[dict]:
                 offerAmount=fmt_money_short(r.get("offer_amount"))
                 if r.get("offer_amount") is not None
                 else "—",
+                offerPrice=fmt_price(r.get("offer_unit_amount")),
+                # True when the same offer was bought at more than one amount,
+                # so a single price is an average rather than the price paid.
+                offerPriceVaries=bool(
+                    unit_min is not None
+                    and unit_max is not None
+                    and float(unit_min) != float(unit_max)
+                ),
+                usualPrice=fmt_price(r.get("usual_price")),
+                usualPriceOrders=_safe_int(r.get("usual_price_orders")),
+                ceilingPrice=fmt_price(r.get("ceiling_price")),
+                packageFit=build_package_fit(
+                    r.get("usual_price"),
+                    r.get("usual_price_orders"),
+                    r.get("ceiling_price"),
+                ),
                 tone="success",
             )
         )
@@ -205,6 +253,7 @@ def build_rd_section(
     report_date: date | None = None,
     aging_threshold_days: int | None = None,
     ticket_enrich: dict[int, dict] | None = None,
+    metrics_enrich: dict[int, dict] | None = None,
 ) -> list[dict]:
     """aging_threshold_days: flag rows created this many days ago or earlier
     (e.g. PENDING_RD_LOOKBACK_DAYS - 1) so agents can see which pending
@@ -216,7 +265,12 @@ def build_rd_section(
     a Zendesk ticket draft (build_first_time_rd_ticket_draft), gated by the
     account's own locked/lock_reason (elite-core: never recommend retention
     outreach for a locked or self-excluded account). Pass None (default) to
-    skip — Pending RD >=5k is view-only, no ticket draft offered there."""
+    skip — Pending RD >=5k is view-only, no ticket draft offered there.
+
+    metrics_enrich: when provided, adds the account context an AM needs to
+    judge a held withdrawal — missing-document status plus lifetime purchase,
+    lifetime hold and 7-day purchase. Reuses the same `enrich_aids_sql` result
+    the board already fetches, so this costs no extra query."""
     out = []
     for r in rows:
         created_d = parse_date_val(r.get("created_date"))
@@ -226,6 +280,8 @@ def build_rd_section(
             and days_pending is not None
             and days_pending >= aging_threshold_days
         )
+        big_winner = bool(r.get("big_winner"))
+        player_win = float(r.get("player_win_day") or 0)
         row = aid_row(
             r.get("AID"),
             r.get("name") or "n/a",
@@ -238,8 +294,30 @@ def build_rd_section(
             created=str(r.get("created_date") or ""),
             daysPending=days_pending,
             agingFlag=aging_flag,
-            tone="danger" if aging_flag else "warning",
+            bigWinner=big_winner,
+            wonYesterday=fmt_money_short(player_win) if player_win > 0 else "—",
+            wonYesterdayNum=player_win,
+            # Big Winner outranks ageing for row tone: a held withdrawal from
+            # someone who just won five figures is the row to open first.
+            tone="danger" if (big_winner or aging_flag) else "warning",
         )
+        if metrics_enrich is not None:
+            m = metrics_enrich.get(_safe_int(r.get("AID")), {})
+            ltp_num = float(m.get("lifetime_purchased") or 0)
+            p7_num = float(m.get("purchased_7d") or 0)
+            row.update(
+                # Blank when nothing is flagged, on purpose: we can only prove
+                # "no open ticket names a missing document", never that the
+                # documents are verified complete, so the board stays silent
+                # rather than implying an all-clear an AM might repeat to a
+                # player waiting on a withdrawal.
+                docsStatus=_zendesk_missing_doc_tag(m) if m else "",
+                lifetimePurchase=format_lifetime_purchased(m) if m else fmt_money_short(0),
+                lifetimePurchasedNum=ltp_num,
+                lifetimeHold=format_lifetime_hold(m) if m else "n/a",
+                purchase7d=fmt_money_short(p7_num),
+                purchase7dNum=p7_num,
+            )
         if ticket_enrich is not None:
             enrich = ticket_enrich.get(_safe_int(r.get("AID")), {})
             row.update(
@@ -526,6 +604,17 @@ def build_goals_blocks(report_date: date, client) -> dict[str, dict | None]:
     )
     goals_actuals = actuals_by_agent(goals_raw)
     goals_targets = targets_for_month(report_date)
+    appreciation = appreciation_for_month(report_date)
+    if appreciation:
+        print(
+            "  Manager appreciation set for: "
+            + ", ".join(
+                f"{GOALS_AGENT_DISPLAY[t]} {v['points']:g}/20"
+                for t, v in sorted(appreciation.items())
+            )
+        )
+    else:
+        print("  Manager appreciation: none set for this month (score reads KPI only)")
     goals_by_display: dict[str, dict | None] = {}
     for tag in GOALS_AGENT_TAGS:
         block = build_agent_goals_block(
@@ -535,6 +624,7 @@ def build_goals_blocks(report_date: date, client) -> dict[str, dict | None]:
             report_date,
             upgrades_available=True,
             upgrades_note=UPGRADES_NOTE,
+            appreciation=appreciation.get(tag),
         )
         goals_by_display[GOALS_AGENT_DISPLAY[tag]] = block
         if block and block.get("available"):
@@ -546,9 +636,10 @@ def build_goals_blocks(report_date: date, client) -> dict[str, dict | None]:
                 ),
                 None,
             )
+            score = block.get("score") or {}
             print(
                 f"    {GOALS_AGENT_DISPLAY[tag]}: purchasers={purchasers} "
-                f"tracked={block.get('weightedTrackedDisplay')}"
+                f"score={score.get('totalDisplay')} ({score.get('scoreSubline')})"
             )
     for name in AM_ORDER:
         if name not in goals_by_display:
@@ -577,7 +668,9 @@ def build_payload(report_date: date, client) -> dict:
             ticket_aids.add(int(r["AID"]))
         except (TypeError, ValueError, KeyError):
             continue
-    for r in (*rd_first_raw, *bday_raw):
+    # rd5k_raw is in here for its missing-document status and account context,
+    # not for a ticket draft — Pending RD stays view-only.
+    for r in (*rd5k_raw, *rd_first_raw, *bday_raw):
         try:
             ticket_aids.add(int(r["AID"]))
         except (TypeError, ValueError, KeyError):
@@ -631,7 +724,10 @@ def build_payload(report_date: date, client) -> dict:
 
     top10 = build_top10_section(top10_raw)
     rd5k = build_rd_section(
-        rd5k_raw, report_date, aging_threshold_days=PENDING_RD_LOOKBACK_DAYS - 1
+        rd5k_raw,
+        report_date,
+        aging_threshold_days=PENDING_RD_LOOKBACK_DAYS - 1,
+        metrics_enrich=shared_enrich,
     )
     rd_first = build_rd_section(rd_first_raw, ticket_enrich=shared_enrich)
     birthdays = build_birthday_section(bday_raw, ticket_enrich=shared_enrich)
@@ -724,6 +820,7 @@ def build_payload(report_date: date, client) -> dict:
         "amOrder": AM_ORDER,
         "goalsMeta": {
             "includedWeightTotal": INCLUDED_WEIGHT_TOTAL,
+            "managerAppreciationMax": MANAGER_APPRECIATION_MAX,
             "upgradesNote": UPGRADES_NOTE,
             "asOf": report_date.isoformat(),
             "goalsAmOrder": GOALS_AM_ORDER,
@@ -732,6 +829,38 @@ def build_payload(report_date: date, client) -> dict:
         # key list, so this never reaches a per-AM file.
         "managerGate": manager_gate_token(),
     }
+
+
+DATE_RE = re.compile(r"^(\d{4}-\d{2}-\d{2})_elite_am_brief(?:_([a-z]+))?\.html$")
+
+
+def archive_entries(slug: str = "", report_date: str = "") -> list[dict[str, str]]:
+    """Dates that already have a brief HTML on disk, for the calendar control.
+
+    Built by listing the export folder rather than by walking back N days: the
+    board is not generated every day (Fri/Sat are skipped, and runs get missed),
+    so any date we compute rather than observe risks a dead link. `slug` selects
+    the audience — "" is the manager file, otherwise that AM's own files, since
+    an AM must never be offered a day their file does not exist for.
+    """
+    seen: dict[str, str] = {}
+    if OUTPUT_DIR.exists():
+        for path in OUTPUT_DIR.glob("*_elite_am_brief*.html"):
+            m = DATE_RE.match(path.name)
+            if m and (m.group(2) or "") == slug:
+                seen[m.group(1)] = path.name
+    if report_date:
+        seen[report_date] = (
+            f"{report_date}_elite_am_brief{f'_{slug}' if slug else ''}.html"
+        )
+    return [{"d": d, "f": seen[d]} for d in sorted(seen)]
+
+
+def with_archive(payload: dict, slug: str = "") -> dict:
+    """Copy of the payload whose report carries the archive list for `slug`."""
+    report = dict(payload.get("report") or {})
+    report["archive"] = archive_entries(slug, str(report.get("date") or ""))
+    return {**payload, "report": report}
 
 
 def write_outputs(
@@ -743,7 +872,7 @@ def write_outputs(
     canvas_path = canvas_dir / f"elite-am-brief-{d}.canvas.tsx"
     canvas_path.write_text(render_am_brief_canvas(payload), encoding="utf-8")
     html_path = OUTPUT_DIR / f"{d}_elite_am_brief.html"
-    write_am_brief_html(payload, html_path)
+    write_am_brief_html(with_archive(payload), html_path)
     json_path = OUTPUT_DIR / f"{d}_elite_am_brief.json"
     json_path.write_text(
         json.dumps(payload, indent=2, default=str),
@@ -755,24 +884,32 @@ def write_outputs(
         old_canvas.unlink()
 
     per_am_paths: list[Path] = []
+    # Dateless copies so a bookmark survives to tomorrow. The dated file stays
+    # the archive; these are overwritten every run and are what people open.
+    latest_paths: list[Path] = [OUTPUT_DIR / "elite_am_brief.html"]
+    write_am_brief_html(with_archive(payload), latest_paths[0])
     for name in GOALS_AM_ORDER:
         slug = name.lower()
         am_payload = strip_payload_for_am(payload, name)
+        am_with_archive = with_archive(am_payload, slug)
         am_html = OUTPUT_DIR / f"{d}_elite_am_brief_{slug}.html"
         am_json = OUTPUT_DIR / f"{d}_elite_am_brief_{slug}.json"
-        write_am_brief_html(am_payload, am_html)
+        write_am_brief_html(am_with_archive, am_html)
         am_json.write_text(
             json.dumps(am_payload, indent=2, default=str),
             encoding="utf-8",
         )
+        am_latest = OUTPUT_DIR / f"elite_am_brief_{slug}.html"
+        write_am_brief_html(am_with_archive, am_latest)
+        latest_paths.append(am_latest)
         am_canvas = canvas_dir / f"elite-am-brief-{d}-{slug}.canvas.tsx"
         am_canvas.write_text(render_am_brief_canvas(am_payload), encoding="utf-8")
         per_am_paths.extend([am_html, am_json])
-        print(f"  Per-AM: {am_html.name}")
+        print(f"  Per-AM: {am_html.name}  (+ {am_latest.name})")
 
     if publish:
         publish_am_brief(html_path)
-    mirror_to_cursor("am_brief", html_path, json_path, *per_am_paths)
+    mirror_to_cursor("am_brief", html_path, json_path, *per_am_paths, *latest_paths)
     return canvas_path, html_path
 
 

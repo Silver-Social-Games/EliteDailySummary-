@@ -14,12 +14,16 @@ if str(PACKAGE_DIR) not in sys.path:
 
 from goals import (  # noqa: E402
     INCLUDED_WEIGHT_TOTAL,
+    MANAGER_APPRECIATION_MAX,
     GoalsTarget,
     _status_for,
     achievement_ratio,
+    appreciation_for_month,
     build_agent_goals_block,
+    build_score_block,
     clean_shape,
     load_goals_tsv,
+    load_manager_appreciation,
     month_bounds,
     parse_number,
     run_rate_pace,
@@ -273,6 +277,107 @@ class WeightedGoalsTests(unittest.TestCase):
         self.assertIsNone(
             build_agent_goals_block("alon_tish", None, {}, date(2026, 8, 16))
         )
+
+
+APPRECIATION_TSV = """year\tmonth\tagent\tpoints\tnote
+2026\t8\tcoral_s\t18\tstrong recovery on net
+2026\t8\tlee_t\t25\tover the cap
+2026\t8\trachel_a\t\tno score yet
+2026\t7\tgabriel_e\t12\tprior month
+2026\t8\talon_tish\t20\tnot a goals AM
+"""
+
+
+class ManagerAppreciationTests(unittest.TestCase):
+    def _tsv(self, body: str = APPRECIATION_TSV) -> Path:
+        tmp = Path(tempfile.mkdtemp()) / "appreciation.tsv"
+        tmp.write_text(body, encoding="utf-8")
+        return tmp
+
+    def test_loads_clamps_and_filters(self) -> None:
+        rows = load_manager_appreciation(self._tsv())
+        self.assertEqual(rows[(2026, 8, "coral_s")]["points"], 18.0)
+        # Above the cap is clamped, not accepted.
+        self.assertEqual(rows[(2026, 8, "lee_t")]["points"], 20.0)
+        # A blank score is absent, never zero — 0 is a judgement not yet made.
+        self.assertNotIn((2026, 8, "rachel_a"), rows)
+        # Not a goals AM.
+        self.assertNotIn((2026, 8, "alon_tish"), rows)
+
+    def test_month_filter(self) -> None:
+        aug = appreciation_for_month(date(2026, 8, 17), self._tsv())
+        self.assertEqual(set(aug), {"coral_s", "lee_t"})
+        jul = appreciation_for_month(date(2026, 7, 17), self._tsv())
+        self.assertEqual(set(jul), {"gabriel_e"})
+
+    def test_missing_file_is_not_an_error(self) -> None:
+        missing = Path(tempfile.mkdtemp()) / "nope.tsv"
+        self.assertEqual(load_manager_appreciation(missing), {})
+        self.assertEqual(appreciation_for_month(date(2026, 8, 17), missing), {})
+
+    def test_header_only_file_is_empty(self) -> None:
+        self.assertEqual(
+            load_manager_appreciation(self._tsv("year\tmonth\tagent\tpoints\tnote\n")),
+            {},
+        )
+
+    def test_unscored_never_reports_out_of_100(self) -> None:
+        score = build_score_block(75.8, 80.0, None)
+        self.assertFalse(score["managerScored"])
+        self.assertIsNone(score["managerPoints"])
+        self.assertEqual(score["managerPointsDisplay"], "Pending")
+        self.assertEqual(score["totalPoints"], 75.8)
+        # The denominator stays at the KPI block: claiming /100 would spend the
+        # manager's 20 points on the AM's behalf.
+        self.assertEqual(score["totalPointsMax"], 80.0)
+        self.assertEqual(score["totalDisplay"], "75.8 / 80")
+
+    def test_scored_totals_out_of_100(self) -> None:
+        score = build_score_block(75.8, 80.0, {"points": 17.0, "note": "good"})
+        self.assertTrue(score["managerScored"])
+        self.assertEqual(score["totalPoints"], 92.8)
+        self.assertEqual(score["totalPointsMax"], 100.0)
+        self.assertEqual(score["totalDisplay"], "92.8 / 100")
+        self.assertEqual(score["scoreSubline"], "75.8 KPI + 17.0 manager")
+        self.assertEqual(score["managerNote"], "good")
+
+    def test_unavailable_kpi_shrinks_only_the_kpi_side(self) -> None:
+        """Upgrade to Elite (5 pts) unavailable: the KPI block is out of 75 and
+        the manager's 20 is untouched."""
+        score = build_score_block(71.1, 75.0, {"points": 20.0, "note": ""})
+        self.assertEqual(score["kpiPointsDisplay"], "71.1 / 75")
+        self.assertEqual(score["managerPointsMax"], MANAGER_APPRECIATION_MAX)
+        self.assertEqual(score["totalDisplay"], "91.1 / 95")
+
+    def test_block_carries_score_and_defaults_to_pending(self) -> None:
+        actuals = {
+            "mtd_purchase": 51_000 * 16,
+            "mtd_net_purchase": 30_000 * 16,
+            "monthly_purchasers": 546 * 0.93,
+            "reactivations": 53 * 16 / 31,
+            "upgrades": 49 * 0.87,
+            "portfolio_size": 560,
+            "active_players": 545,
+            "purchasers_shape": 0.93,
+            "upgrades_shape": 0.87,
+        }
+        pending = build_agent_goals_block(
+            "coral_s", AUG_TARGET, actuals, date(2026, 8, 16)
+        )
+        assert pending is not None
+        self.assertEqual(pending["score"]["managerPointsDisplay"], "Pending")
+        self.assertEqual(pending["score"]["totalPointsMax"], 80.0)
+
+        scored = build_agent_goals_block(
+            "coral_s",
+            AUG_TARGET,
+            actuals,
+            date(2026, 8, 16),
+            appreciation={"points": 16.0, "note": ""},
+        )
+        assert scored is not None
+        self.assertEqual(scored["score"]["totalPointsMax"], 100.0)
+        self.assertAlmostEqual(scored["score"]["totalPoints"], 96.0, places=1)
 
 
 class IsolationTests(unittest.TestCase):

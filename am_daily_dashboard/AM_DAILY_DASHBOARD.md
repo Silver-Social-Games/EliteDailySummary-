@@ -18,10 +18,34 @@ Purchase and Monthly Purchasers match the AMs' own table **exactly** for all fou
 not be treated as scored. Batches 1 and 3–4 are done; Batch 5 was built and then
 reverted at the user's request.
 
-**Next up:** Batch 8 (five team-feedback asks, one at a time — several still need a
-decision from the user, and three carry an explicit open question). Then Batch 9
-(trending games, dormant favourite game). Batch 7 (UI/UX overhaul) is requested but
-its pagination item needs re-checking now that the large sections are gone.
+Batch 8 items 1 (Top Purchasers price ladder) and 2 (Pending Redemptions big winner
++ docs) shipped 2026-08-18.
+
+**Batch 10 (score out of 100 + archive calendar) is code-complete but NOT yet
+verified end to end.** Written 2026-08-18 and left at exactly that point when the
+session ran out of context. Unit tests (38) pass and the HTML JS syntax-checks, but
+**the generator has not been run since these edits**. First action in a new chat:
+
+```
+python am_daily_dashboard/generate_am_daily_dashboard.py --date 2026-08-17
+```
+
+then confirm (a) every AM's Goals card reads `NN.N / 80` with a dashed empty
+manager track and the legend saying `Manager Pending`, (b) the topbar calendar
+opens and a highlighted day navigates to that day's file, (c) the dateless
+`elite_am_brief_<slug>.html` files exist and mirror to Elite_Cursor. See
+*Score out of 100* and *Archive calendar* below for what was built and why.
+
+**Batch 7 is done — close it, do not build it.** All four asks exist in the
+standalone HTML: left sidebar nav, manager-only gated dashboard, inline SVG icons,
+and table pagination (`paginate()`, wired generically through `tableCard` /
+`searchableSection` plus Top 20). An earlier note here wrongly said pagination was
+outstanding. The canvas and Streamlit implementations do not have the sidebar, so
+they have drifted, but that is the known architecture gap, not Batch 7 work.
+
+**Next up:** Batch 8 items 3–5, one at a time. Item 5's weights are settled but its
+ticket-topic set still needs defining with the user; items 3–4 carry a presentation
+question each. Then Batch 9 (trending games, dormant favourite game).
 
 **Blocked:** Zendesk auto-create (waiting on API credentials) and the "one month
 since AM assignment" rule (definition never settled).
@@ -41,6 +65,10 @@ the sections named.
 | Pace | Saturating KPIs use empirical month-shape divisors, not a linear run rate. → *Why Pace is not a straight run rate* |
 | Churned / Active Decliners / Milestone Alerts | Removed. Do not re-add without asking. → *Removed: Churned…* |
 | Upgrade to Elite | Unreconciled; every tried definition is listed. Do not adopt the 60-day fit. |
+| Score = 80 + 20 | KPI points out of 80 plus the manager's 20, total 100. An unscored AM reads `/80`, **never** `/100`. → *Score out of 100* |
+| Two score tracks | The 80 and the 20 are separate bars with a gap and rounded ends. Do not merge them. → *Score out of 100* |
+| Archive dates | Built by listing the folder, never by date arithmetic. Per audience, so an AM is only offered days their own file exists for. → *Archive calendar* |
+| Docs column blank | We can only prove "no ticket names a missing document", never that documents are complete. No green all-clear. → *Pending Redemptions big winner and docs* |
 
 ### Two habits that caused the two worst mistakes here
 
@@ -101,9 +129,9 @@ python am_daily_dashboard/canvas_to_html.py am_daily_dashboard/exports/YYYY-MM-D
 2. **Elite Goals** (Coral / Gabriel / Lee / Rachel only — Alon omitted) — current month targets from versioned TSV, MTD actuals, pace, gap, status, weight %, and weighted tracking over the included **80%** KPI weight (manager 20% out of scope). See Goals section below.
 3. **Elite & Jackpota** weekday summary (same as Overview)
 4. **Morning Checklist** (metric labels jump to sections)
-5. **Top 10 Purchasers** — Purchases (#) + Top Offer (no Qty / Offer $)
+5. **Top 10 Purchasers** — Purchases (#), Top Offer, **Price** (that offer's cost as paid; suffixed `avg` in warning tone if the same offer was bought at more than one amount), **Usual → Ceiling (30D)** price ladder. No Qty / Offer $. See *Top Purchasers price ladder* below
 6. **Top 20 · WoW Purchase Gaps** — Daily Elite selection/classify logic, up to 20 per AM
-7. **Pending Redemptions** — locked RD ≥ $5,000 created in last **3 days**. Sort: Amount ↓ (default) or Oldest first. Created date shows `(Nd ago)` and turns danger-red once a row is within 1 day of the lookback window edge (aging highlight)
+7. **Pending Redemptions** — locked RD ≥ $5,000 created in last **3 days**. Sort: Amount ↓ (default), Won Yesterday ↓, or Oldest first. Created date shows `(Nd ago)` and turns danger-red once a row is within 1 day of the lookback window edge (aging highlight). Then **Won Yesterday** (`· Big Winner` at ≤ −$5,000 GGR), **Docs**, **LTP**, **Hold**, **7D Purchase** — see *Pending Redemptions big winner and docs* below
 8. **First-Time Locked RD** — section always shown (empty when none). Ticket column offers a Zendesk draft (review-only), gated by the account's own locked/self-exclusion status
 9. **Birthdays · Last 3 Days** — DOB as D/M/Y + Age. Ticket column offers a Zendesk birthday-message draft (review-only), same lock gate
 10. **Open Tickets** — LTP, Hold, 7D Purchase + Ticket TIDs link to Zendesk. Sort: LTP ↓ (default), Open Tickets ↓, or 7D Purchase ↓
@@ -470,6 +498,194 @@ queries from the board build.
 Churn and Active decliner still exist in `daily_summary`, and `elite-core.mdc`
 still owns their definitions, so nothing about the Elite vocabulary changed here.
 
+**The removal was only finished on 2026-08-18 (second pass).** The first pass took
+the queries and payload keys out but left the *presentation* behind in all three
+implementations, so an AM still saw the sections. Cleaned up: the standalone HTML's
+`VIEWS` / `NAV_ORDER` entries, view functions, Morning Checklist tiles and Manager
+Dashboard tiles; the canvas's `MorningChecklist` rows and the `AgentBlock` type.
+The canvas rows were a live bug — `MorningChecklist` read `focus.churned` and
+`focus.activeDecliners`, which the `Focus` type no longer declares and the payload
+no longer sends. **When removing a section, grep all three implementations**
+(`canvas_parts/`, `handoffs/elite_am_brief_web.html`,
+`daily_summary/streamlit_app/am_brief_app.py`), not just the query layer.
+
+---
+
+## Top Purchasers price ladder
+
+Built 2026-08-18 (Batch 8 item 1). The ask was "avg purchase (7D / 30D) + price".
+**The average was built, tested against real data, and rejected** — keep it
+rejected.
+
+| Column | Definition |
+|---|---|
+| Price | The top offer's cost **as the player paid it**, `SUM(amount)/COUNT(*)` for that offer on the report date. Cents are kept — an offer is `$899.99`, and rounding to `$900` misquotes it. Suffixed `avg` in warning tone when `offer_unit_min != offer_unit_max`, so a blended price is never passed off as a real one |
+| Usual → Ceiling (30D) | `usual_price ×N → ceiling_price`. **Usual** = the price point with the most successful orders in the trailing 30 days, ties going to the higher price. **Ceiling** = the highest price paid **at least twice** in that window |
+
+**Why not an average.** These players buy at 15–25 distinct price points a month,
+mixing small top-ups with occasional large offers, so every mean lands in the gap
+between the two and names no sellable package. Measured on 2026-08-17:
+
+- AID 445860895 — 1,357 orders / 25 price points. Mean per order **$33**; he
+ habitually buys **$19.99** (575 times) and has repeatedly bought **$299.99**.
+ Pitching off the mean under-sells him by a factor of ten.
+- AID 384245734 — Coral's top at $8,290. Mean per order **$325**, a price he
+ essentially never buys; his ladder is **$399.99 ×26 → $899.99**.
+- AID 237382747 — averages **$59/day** across 30 days, reading like a minnow, on a
+ day he spent **$1,135**.
+
+**Why the ceiling needs two purchases.** A single large order is often a one-off.
+AID 449005862 has a $1,000 max but a $299.99 proven ceiling, so planning an upsell
+around $1,000 would chase a number he has never repeated.
+
+**A missing `→ ceiling` is meaningful, not missing data**: no higher price point has
+been paid twice in 30 days, so there is no proven headroom (e.g. AID 466602384,
+`$49.99 ×17`).
+
+`packageFit` is formatted **once**, in `build_package_fit`, precisely so the canvas,
+the standalone HTML and the Streamlit app cannot drift on it.
+
+Order level comes from `payment_payment_orders` (successful, non-refunded) because
+the KPI view carries no per-order amount and the whole point is which individual
+price points recur. This is the order-level reconciliation use that
+`bigquery-analytics.mdc` allows, not a revenue source.
+
+---
+
+## Score out of 100 — 80 KPI points plus the manager's 20
+
+Built 2026-08-18 (Batch 10). The user's ask: *"It should be up to 80% and add a 20%
+which is my manager appreciation."* Before this, the board showed
+`94.4% of the included 80% weight` — a percentage **of** the KPI block, which made
+the manager's 20 invisible and read like a mark out of 80.
+
+**The model.** The KPI block is no longer a percentage. It is **points out of 80**
+(`kpiPoints` / `kpiPointsMax`, where the max shrinks if a KPI is unavailable — e.g.
+75 when Upgrade to Elite's 5 points cannot be scored). The manager awards **0–20**
+on top. Together they read out of 100. `weightedTrackedPct` is still in the payload
+for back-compat and is what the leaderboard sorts and tones on.
+
+**Input: `data/elite_manager_appreciation.tsv`** (`year, month, agent, points, note`).
+Committed with headers only, so nobody starts out scored. Monthly cadence, one row
+per AM. Loader is `load_manager_appreciation` / `appreciation_for_month` in
+`goals.py`:
+
+- A **missing file is not an error** — the board must render before anybody is scored.
+- Points are **clamped to 0–20**.
+- A **blank points cell means not scored, not zero.** Awarding 0 is a judgement the
+  manager has not made.
+- Rows for non-goals agents (e.g. `alon_tish`) are ignored, as in the targets TSV.
+
+Rejected: an editable box in the manager Dashboard saving to `localStorage`. It
+lives in one browser, never reaches the AM's own file, and cannot be reproduced for
+a past month.
+
+**The unscored state is the whole design, and it must not be "improved".**
+`build_score_block` reports an unscored AM as `75.8 / 80`, never `75.8 / 100`.
+Presenting `/100` would silently spend the manager's 20 points on the AM's behalf.
+Same principle as the Pending Redemptions Docs column: the board only claims what
+is true. `managerPointsDisplay` is the literal string `"Pending"` in that state.
+
+**Colour language** (deliberately one new hue, not a fifth status colour):
+
+| Band | Colour | Why |
+|---|---|---|
+| KPI points earned | Status green / amber / red, on the existing 90 / 70 thresholds | Measured against a goal, so it keeps the tone language the KPI table already uses |
+| KPI shortfall | Neutral | The absence of a result, not a second result — red here would double-count the bad news |
+| Manager appreciation | **Violet** (`#9386F2`, `theme.category.purple` on canvas) | A judgement, not a measurement. Green would read as "hit a target" |
+| Not yet scored | Dashed empty track | Neither 0 nor 20 |
+
+**Two tracks, not one bar.** The KPI 80 and the manager 20 render as separate
+tracks with a 6px gap and their own rounded ends (user's explicit request: *"make
+sure the 2 progress bars are separated by a few pixels and add border radius at the
+end, so it's clear"*). Do not merge them back into a single continuous meter.
+
+- HTML: `scoreMeterHtml` / `scoreLegendHtml`, CSS under `/* Score meter */`.
+- Canvas: `ScoreMeter` in `canvas_parts/sections.py`. Uses `theme.stroke.primary`
+  for the dashed border — **`theme.border.default` does not exist in the SDK** and
+  was a real bug caught here.
+- Manager Dashboard leaderboard shows Score, the split meter, and a Manager column.
+  It ranks on `totalPctOfMax`, **not** raw points: a scored AM is out of 100 and an
+  unscored one out of 80, so ranking by point total would sort every unscored AM
+  last by default.
+
+**Streamlit does not render Goals at all** — it never did, so there was no drift to
+fix. If Goals is ever added there, it needs this two-track treatment too.
+
+Tests: `ManagerAppreciationTests` in `test_goals.py` covers clamping, blank-means-
+unscored, missing file, header-only file, the `/80` vs `/100` denominators, and the
+unavailable-KPI case.
+
+---
+
+## Archive calendar and the stable "latest" link
+
+Built 2026-08-18 (Batch 10), answering *"could you build an internal calendar so
+each day they can go back to the previous and see the report?"*
+
+**The problem it solves.** Dated files were already never overwritten, so history
+existed (8 manager dates back to 27 July). But there was no index, no date control,
+and **no dateless filename**, so a bookmark died overnight and an AM had to know the
+date and pick from a flat folder growing by 10 files a run. Per-AM files only began
+16 Aug, so an AM could reach two days of their own history against the manager's
+three weeks. The user's decision: **start history fresh once the tool is ready** —
+do not backfill.
+
+**Two pieces:**
+
+1. **Dateless latest copies.** `elite_am_brief.html` and
+   `elite_am_brief_<slug>.html`, rewritten every run and mirrored to Elite_Cursor.
+   These are what people bookmark and open; the dated files are the archive.
+2. **Month calendar in the topbar.** `archive_entries(slug, report_date)` in the
+   generator **lists the export folder** and embeds `report.archive` as
+   `[{d, f}, …]`; the HTML renders a month grid where only those days are
+   clickable, with prev/next bounded by the months present.
+
+**Why it scans the folder instead of computing dates.** The board is not generated
+every day — Fri/Sat are skipped and runs get missed (the current archive has a real
+3–5 Aug hole). Any date arithmetic would offer a day whose file does not exist and
+produce a dead link. Navigation is a plain sibling-file `location.href`, so the
+archive works from a copied folder or network share with no server.
+
+`slug` selects the audience: `""` is the manager file, otherwise that AM's own
+files. **An AM must never be offered a date their own file does not exist for** —
+this is why the archive list is built per audience rather than shared.
+
+Calendar state lives on `app.calOpen` / `app.calMonth`; the outside-click and
+Escape handlers are bound **once on `document`**, not per render.
+
+---
+
+## Pending Redemptions big winner and docs
+
+Built 2026-08-18 (Batch 8 item 2). Five columns after Created:
+
+| Column | Definition |
+|---|---|
+| Won Yesterday | The player's report-day win, `−(profit − loss)` on `daily_player_revenue_kpis`. GGR is house-side, so a player win is a **negative** GGR day and this flips the sign. A losing day reads `—`, never a negative win. At ≥ `BIG_WINNER_MIN_PLAYER_WIN` ($5,000) the cell adds a danger-tone `· Big Winner` label |
+| Docs | `_zendesk_missing_doc_tag` from `wow_drop_analysis/wow_drop_reason.py` — the same wording the WoW handoff uses ("Needs Recent Acceptable POA", "Needs KYC / Verification Document"). Blank when nothing is flagged |
+| LTP / Hold / 7D Purchase | Account context for judging a held withdrawal, same formatters as Open Tickets |
+
+**The all-clear is blank on purpose, and this is not a cosmetic choice.** The
+source can only prove "no open ticket names a missing document" — it cannot prove
+the documents are verified complete. A green "All docs OK" would be a claim the
+data does not support, and an AM could repeat it to a player waiting on a
+withdrawal. Blank keeps the eye on the rows that actually need work. Do not
+"improve" this into a positive badge.
+
+**Big Winner outranks the ageing highlight for row tone.** A held withdrawal from
+someone who just won five figures is the row to open first, so it takes danger
+tone even when the row is not near the lookback edge.
+
+Both fields cost **no extra query**: the GGR day joins inside
+`locked_rd_over_5k_sql` against the same locked-RD set, and the docs/LTP/Hold/7D
+values reuse the `enrich_aids_sql` result the board already fetches for Open
+Tickets — `rd5k_raw`'s AIDs were simply added to that one batch.
+
+Verified on 2026-08-17: 6 pending rows, 1 flagged. AID 378858687 shows a $9,910
+win against a BigQuery day GGR of **−9,910.02**; AID 373278918 wins $1,387 and is
+correctly *not* flagged; AID 300286239 had a positive GGR day and reads `—`.
+
 ---
 
 ## Top 20 filters (same as Elite Daily Decline)
@@ -600,7 +816,7 @@ Scope note: all of this lives in `handoffs/elite_am_brief_web.html`. The
 are separate hand-written implementations of the same UI (see *Known
 architecture gap*) and will drift further unless deliberately re-synced.
 
-### Batch 8 — Team feedback, section content (not started, next up)
+### Batch 8 — Team feedback, section content (items 1–2 done)
 
 Five asks the user collected from the AM team and read out on 2026-08-18, to be
 worked **one at a time** with agreement on each before building. Their intent is
@@ -612,25 +828,70 @@ from the house's side, so a **player** big win is a **negative** GGR day. "−5K
 below means the player won ~$5,000, not that they lost it. Getting this backwards
 inverts both big-winner features.
 
-1. **Top Purchasers — add average purchase (7D / 30D) and price.** "Price" was not
- defined; ask whether it means average order value, the offer's list price, or the
- top offer's price.
-2. **Pending Redemptions — add big winner and missing-docs status.** Flag a player
- with ≤ −$5,000 GGR on the past day who also has a pending redemption, and show
- document status. The user pointed at the WoW handoff's wording as the reference
- (e.g. "missing POA"). **Open question they raised themselves:** how to present the
- all-clear case — a green "all docs OK", or blank.
+1. [x] **Top Purchasers — price and package fit.** Done 2026-08-18. Shipped as
+ **Price** + **Usual → Ceiling (30D)** in all three implementations. The requested
+ 7D/30D *average* was built first, checked against real data, and dropped because a
+ mean names no sellable package; the user asked for something that actually supports
+ an offer decision. Momentum and cadence were designed, shown, and deliberately
+ left out to keep the section narrow. Full reasoning and the rejected variants:
+ *Top Purchasers price ladder* above.
+2. [x] **Pending Redemptions — big winner and missing-docs status.** Done
+ 2026-08-18. Shipped in all three implementations as five columns — **Won
+ Yesterday** (with a `· Big Winner` danger-tone label at ≤ −$5,000 GGR,
+ `BIG_WINNER_MIN_PLAYER_WIN` in `config.py`), **Docs**, plus **LTP / Hold / 7D
+ Purchase** for the account context the user asked to see alongside the flag. New
+ sort: Won Yesterday ↓. Big Winner outranks the ageing highlight for row tone. The
+ all-clear docs case renders **blank** by the user's choice — see *Pending
+ Redemptions big winner and docs* below for why that is the honest reading.
 3. **Big Winners ≥ $20K — new section.** Players at ≤ −$20,000 GGR on the past day,
- with how much they redeemed and which game the big win happened on. **Scope to
- confirm:** the user asked to include **non-Elite** players too at this threshold
- and explicitly asked to be validated on that — every other section on this board
- is Elite-only, so confirm before building, and note it changes the book filter.
+ with how much they redeemed and which game the big win happened on. **Scope settled
+ 2026-08-18:** non-Elite players **are** included, and they appear in **every AM's
+ own view**, not just the manager Overview — the user's reasoning is that handling a
+ $20K winner is part of every AM's daily job and they know when to address it. This
+ is the **only** section on the board that reaches outside the Elite book, so the
+ non-Elite rows must be labelled as such, and no other section may copy the wider
+ filter. Elite rows stay scoped to that AM's book.
 4. **Last win above 1K SC — date plus redeemed yes/no.** Per player. Confirm whether
  this is a column on an existing section or its own.
-5. **Open Tickets — weighted prioritisation.** Weights given: lifetime hold 25%,
- lifetime NGR 20%, 30-day purchase 25%. That sums to 70%, so **ask what the
- remaining 30% is** before implementing. The user also wants ticket **subjects or
- topics** shown next to the weight and asked to define that set together.
+5. **Open Tickets — weighted prioritisation.** Four weights given verbatim:
+ lifetime hold 25%, lifetime NGR 20%, **lifetime purchase 20%**, 30-day purchase
+ 25%. That sums to **90%**. *Settled 2026-08-18:* nothing is missing — **normalise
+ the four to 100%** (27.8 / 22.2 / 22.2 / 27.8) so the priority score reads out of
+ 100. Unlike Goals, which deliberately scores out of its included 80%, this one is
+ normalised. (An earlier note here recorded only three of the four and put the gap
+ at 30%; the lifetime-purchase weight was dropped in transcription.) Still open: the
+ user wants ticket **subjects or topics** shown next to the weight and asked to
+ define that set together.
+
+### Batch 10 — Score out of 100 + archive calendar (code-complete, unverified)
+
+Raised by the user mid-Batch-8 on 2026-08-18 and built the same day. Design was
+mocked and approved first (`handoffs/elite_am_brief_goals_8020_proposal.html`, also
+mirrored to Elite_Cursor; canvas twin
+`canvases/elite-am-brief-goals-8020-and-archive.canvas.tsx`). The user approved with
+one refinement — separate the two bars by a few pixels and round each end.
+
+- [x] `MANAGER_APPRECIATION_MAX = 20`, `load_manager_appreciation`,
+  `appreciation_for_month`, `build_score_block` in `goals.py`
+- [x] `data/elite_manager_appreciation.tsv` committed with headers only
+- [x] `build_agent_goals_block(..., appreciation=)` emits a `score` block
+- [x] Generator loads the month's appreciation, prints who is scored, adds
+  `goalsMeta.managerAppreciationMax`
+- [x] HTML: two-track meter + legend on the Goals card, the Goals view and the
+  manager leaderboard (new Manager column, ranked on `totalPctOfMax`)
+- [x] Canvas: `ScoreMeter` + `score` on the `AgentBlock` goals type
+- [x] `archive_entries` / `with_archive`, dateless latest files, topbar month
+  calendar with outside-click and Escape
+- [x] 8 new unit tests (38 total, passing); HTML JS syntax-checked
+- [ ] **Run the generator and verify end to end** — never executed after these edits
+- [ ] Confirm with the user whether the AM Brief joins the Sun–Thu 10:00 task
+- [ ] Retention/pruning of dated files — proposed 60 days, never answered
+
+**Still unanswered by the user** (asked, superseded by "looks good" plus the two
+refinements, so treat the recommendation as provisional and confirm before relying
+on it): whether each AM sees their own manager score in their own file
+(recommended and built as **yes** — it appears on their card), points vs a scaled
+percentage (built as **points out of 20**), scheduling, and retention.
 
 ### Batch 9 — Game intelligence (approved, not started)
 

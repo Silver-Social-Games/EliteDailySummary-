@@ -29,6 +29,78 @@ def _style_wow(series: pd.Series) -> list[str]:
     return [f"{_wow_color(v)}" if _wow_color(v) else "" for v in series]
 
 
+def _sort_by_num(rows: list[dict], key: str, desc: bool = True) -> list[dict]:
+    """Mirrors sortByNumKey() in canvas_parts/cells.py: missing/NaN values
+    always sort last regardless of direction."""
+
+    def sort_key(r: dict):
+        v = r.get(key)
+        try:
+            v = float(v)
+            is_nan = False
+        except (TypeError, ValueError):
+            v = 0.0
+            is_nan = True
+        return (1 if is_nan else 0, (-v if desc else v))
+
+    return sorted(rows, key=sort_key)
+
+
+def _sort_locks_by_soonest_unlock(rows: list[dict]) -> list[dict]:
+    """Mirrors sortBySoonestUnlock() in canvas_parts/cells.py: rows with no
+    calculable unlock (self-exclusion, other locked) sort last, always."""
+
+    def sort_key(r: dict):
+        v = r.get("unlockRemainingDays")
+        return (1, 0) if v is None else (0, v)
+
+    return sorted(rows, key=sort_key)
+
+
+def _format_created_with_aging(row: dict) -> str:
+    created = row.get("created") or ""
+    days = row.get("daysPending")
+    if isinstance(days, (int, float)):
+        return f"{created} ({int(days)}d ago)"
+    return created
+
+
+def _style_flagged(series: pd.Series, flags: list[bool]) -> list[str]:
+    return ["color:#CF2D56;font-weight:600" if f else "" for f in flags]
+
+
+def _ticket_preview(row: dict) -> str:
+    if row.get("ticketEnabled"):
+        subject = row.get("ticketSubject") or "Draft"
+        return f"\U0001F4DD {subject}"
+    reason = row.get("ticketDisabledReason")
+    return reason if reason else "\u2014"
+
+
+def render_ticket_draft_picker(rows: list[dict], key: str, empty_msg: str = "No rows to show.") -> None:
+    """Review-only Zendesk ticket draft viewer (subject/body/open link), same
+    policy as the canvas TicketDraftModal: agent edits, copies, opens
+    Zendesk, and sends manually. Nothing here is auto-created or auto-sent."""
+    if not rows:
+        st.caption(empty_msg)
+        return
+    labels = [f"{r.get('name') or 'Unknown'} (AID {r.get('aid')})" for r in rows]
+    idx = st.selectbox(
+        "Select a row",
+        options=list(range(len(rows))),
+        format_func=lambda i: labels[i],
+        key=key,
+    )
+    row = rows[idx]
+    if row.get("ticketEnabled"):
+        st.text_input("Subject", value=row.get("ticketSubject") or "", disabled=True, key=f"{key}_subject")
+        st.text_area("Message", value=row.get("ticketBody") or "", height=220, disabled=True, key=f"{key}_body")
+        if row.get("zendeskUrl"):
+            st.link_button("Open Zendesk", row["zendeskUrl"])
+    else:
+        st.caption(f"Ticket disabled \u2014 {row.get('ticketDisabledReason') or 'not eligible for outreach'}")
+
+
 def list_brief_jsons() -> list[Path]:
     files = sorted(EXPORTS.glob("*_elite_am_brief.json"), reverse=True)
     return files
@@ -89,7 +161,7 @@ def render_overview(payload: dict) -> None:
                             "AM": r.get("agentName"),
                             "Purchase $": r.get("purchase"),
                             "Share": r.get("purchaseShare"),
-                            "Purchased / Book": r.get("purchasedOfBook")
+                            "Purchased Of Portfolio": r.get("purchasedOfBook")
                             or r.get("purchasedPlayers"),
                         }
                         for r in shares
@@ -108,7 +180,7 @@ def render_overview(payload: dict) -> None:
                     {
                         "AM": r.get("agentName"),
                         "Purchase $": r.get("purchase"),
-                        "Purchased / Book": r.get("purchasedOfBook")
+                        "Purchased Of Portfolio": r.get("purchasedOfBook")
                         or r.get("purchasedPlayers"),
                         "Open Tickets": r.get("openZd"),
                         "Take A Break": r.get("takeABreak"),
@@ -165,6 +237,8 @@ def render_agent(block: dict, day: str) -> None:
                         "Purchased $": p.get("purchased"),
                         "Purchases (#)": p.get("orderCount"),
                         "Top Offer": p.get("offerCode"),
+                        "Price": p.get("offerPrice"),
+                        "Usual → Ceiling (30D)": p.get("packageFit"),
                     }
                     for p in top10
                 ]
@@ -220,36 +294,180 @@ def render_agent(block: dict, day: str) -> None:
             hide_index=True,
             height=420,
         )
-
-    for title, key, cols in [
-        (
-            "Pending Redemptions",
-            "rdOver5k",
-            ["aid", "name", "redeemId", "amount", "status", "created"],
-        ),
-        (
-            "First-Time Locked RD",
-            "rdFirstTime",
-            ["aid", "name", "redeemId", "amount", "status", "created"],
-        ),
-        ("Birthdays · Last 3 Days", "birthdays", ["aid", "name", "email", "dob", "age"]),
-        (
-            "Open Tickets",
-            "zendesk",
-            ["aid", "name", "lifetimePurchase", "lifetimeHold", "purchase7d", "openTickets", "ticketIds"],
-        ),
-        ("Locked And Take A Break", "locks", ["aid", "name", "lockReason", "unlockDetail"]),
-    ]:
-        st.subheader(title)
-        data = block.get(key) or []
-        if not data:
-            st.caption("All clear — none for this section.")
-            continue
-        st.dataframe(
-            pd.DataFrame([{c: r.get(c) for c in cols} for r in data]),
-            use_container_width=True,
-            hide_index=True,
+    with st.expander("Zendesk ticket draft \u2014 Top 20 \u00b7 WoW Purchase Gaps"):
+        render_ticket_draft_picker(
+            rows,
+            key=f"dec_draft_{block.get('agentName')}",
+            empty_msg="No rows match the current search.",
         )
+
+    render_pending_rd(block.get("rdOver5k") or [], block.get("agentName") or "")
+    render_first_time_rd(block.get("rdFirstTime") or [], block.get("agentName") or "")
+    render_birthdays(block.get("birthdays") or [], block.get("agentName") or "")
+    render_open_tickets(block.get("zendesk") or [], block.get("agentName") or "")
+    render_locks(block.get("locks") or [], block.get("agentName") or "")
+
+
+def render_pending_rd(rows: list[dict], agent_name: str) -> None:
+    st.subheader("Pending Redemptions")
+    if not rows:
+        st.caption("All clear — none for this section.")
+        return
+    sort_choice = st.selectbox(
+        "Sort",
+        ["Amount ↓", "Won Yesterday ↓", "Oldest first"],
+        key=f"sort_rd5_{agent_name}",
+    )
+    if sort_choice == "Oldest first":
+        sorted_rows = _sort_by_num(rows, "daysPending", desc=True)
+    elif sort_choice == "Won Yesterday ↓":
+        sorted_rows = _sort_by_num(rows, "wonYesterdayNum", desc=True)
+    else:
+        sorted_rows = _sort_by_num(rows, "amountNum", desc=True)
+    df = pd.DataFrame(
+        [
+            {
+                "AID": r.get("aid"),
+                "Name": r.get("name"),
+                "RD ID": r.get("redeemId"),
+                "Amount": r.get("amount"),
+                "Status": r.get("status"),
+                "Created": _format_created_with_aging(r),
+                "Won Yesterday": (
+                    f"{r.get('wonYesterday')} · Big Winner"
+                    if r.get("bigWinner")
+                    else (r.get("wonYesterday") or "—")
+                ),
+                "Docs": r.get("docsStatus") or "—",
+                "LTP": r.get("lifetimePurchase") or "—",
+                "Hold": r.get("lifetimeHold") or "—",
+                "7D Purchase": r.get("purchase7d") or "—",
+            }
+            for r in sorted_rows
+        ]
+    )
+    aging_flags = [bool(r.get("agingFlag")) for r in sorted_rows]
+    styled = df.style.apply(lambda s: _style_flagged(s, aging_flags), subset=["Created"])
+    st.dataframe(styled, use_container_width=True, hide_index=True)
+
+
+def render_first_time_rd(rows: list[dict], agent_name: str) -> None:
+    st.subheader("First-Time Locked RD")
+    if not rows:
+        st.caption("All clear — none for this section.")
+        return
+    st.dataframe(
+        pd.DataFrame(
+            [
+                {
+                    "AID": r.get("aid"),
+                    "Name": r.get("name"),
+                    "RD ID": r.get("redeemId"),
+                    "Amount": r.get("amount"),
+                    "Status": r.get("status"),
+                    "Created": r.get("created"),
+                    "Ticket": _ticket_preview(r),
+                }
+                for r in rows
+            ]
+        ),
+        use_container_width=True,
+        hide_index=True,
+    )
+    with st.expander("Zendesk ticket draft \u2014 First-Time Locked RD"):
+        render_ticket_draft_picker(rows, key=f"rdf_draft_{agent_name}")
+
+
+def render_birthdays(rows: list[dict], agent_name: str) -> None:
+    st.subheader("Birthdays · Last 3 Days")
+    if not rows:
+        st.caption("All clear — none for this section.")
+        return
+    st.dataframe(
+        pd.DataFrame(
+            [
+                {
+                    "AID": r.get("aid"),
+                    "Name": r.get("name"),
+                    "Email": r.get("email"),
+                    "DOB": r.get("dob"),
+                    "Age": r.get("age"),
+                    "Ticket": _ticket_preview(r),
+                }
+                for r in rows
+            ]
+        ),
+        use_container_width=True,
+        hide_index=True,
+    )
+    with st.expander("Zendesk ticket draft \u2014 Birthdays"):
+        render_ticket_draft_picker(rows, key=f"bd_draft_{agent_name}")
+
+
+def render_open_tickets(rows: list[dict], agent_name: str) -> None:
+    st.subheader("Open Tickets")
+    if not rows:
+        st.caption("All clear — none for this section.")
+        return
+    sort_choice = st.selectbox(
+        "Sort",
+        ["LTP ↓", "Open Tickets ↓", "7D Purchase ↓"],
+        key=f"sort_zd_{agent_name}",
+    )
+    if sort_choice == "Open Tickets ↓":
+        sorted_rows = _sort_by_num(rows, "openTickets", desc=True)
+    elif sort_choice == "7D Purchase ↓":
+        sorted_rows = _sort_by_num(rows, "purchase7dNum", desc=True)
+    else:
+        sorted_rows = _sort_by_num(rows, "lifetimePurchasedNum", desc=True)
+    st.dataframe(
+        pd.DataFrame(
+            [
+                {
+                    "AID": r.get("aid"),
+                    "Name": r.get("name"),
+                    "LTP": r.get("lifetimePurchase"),
+                    "Hold": r.get("lifetimeHold"),
+                    "7D Purchase": r.get("purchase7d"),
+                    "Open Tickets": r.get("openTickets"),
+                    "Ticket TIDs": r.get("ticketIds"),
+                }
+                for r in sorted_rows
+            ]
+        ),
+        use_container_width=True,
+        hide_index=True,
+    )
+
+
+def render_locks(rows: list[dict], agent_name: str) -> None:
+    st.subheader("Locked And Take A Break")
+    if not rows:
+        st.caption("All clear — none for this section.")
+        return
+    sorted_rows = _sort_locks_by_soonest_unlock(rows)
+    df = pd.DataFrame(
+        [
+            {
+                "AID": r.get("aid"),
+                "Name": r.get("name"),
+                "Lock Reason": r.get("lockReason"),
+                "Days Remaining / Unlock": r.get("unlockDetail") or "—",
+            }
+            for r in sorted_rows
+        ]
+    )
+    # Ended take-a-break rows carry tone "danger" server-side (generate_am_daily_dashboard.py
+    # lock_bucket/build_lock_section); fall back to unlockRemainingDays <= 0 for safety.
+    danger_flags = [
+        bool(r.get("tone") == "danger")
+        or (isinstance(r.get("unlockRemainingDays"), (int, float)) and r.get("unlockRemainingDays") <= 0)
+        for r in sorted_rows
+    ]
+    styled = df.style.apply(
+        lambda s: _style_flagged(s, danger_flags), subset=["Lock Reason", "Days Remaining / Unlock"]
+    )
+    st.dataframe(styled, use_container_width=True, hide_index=True)
 
 
 def main() -> None:

@@ -1,7 +1,9 @@
 """Elite AM Brief — Goals targets, weights, run-rate, and weighted tracking.
 
 Targets: versioned TSV at am_daily_dashboard/data/elite_goals.tsv
-Weights: locked Q3 board weights (sum 80%; remaining 20% out of scope).
+Weights: locked Q3 board weights (sum 80%), plus the manager's own 20 points
+of appreciation from am_daily_dashboard/data/elite_manager_appreciation.tsv,
+for a score out of 100.
 """
 
 from __future__ import annotations
@@ -15,8 +17,13 @@ from typing import Any
 
 DATA_DIR = Path(__file__).resolve().parent / "data"
 DEFAULT_GOALS_TSV = DATA_DIR / "elite_goals.tsv"
+DEFAULT_APPRECIATION_TSV = DATA_DIR / "elite_manager_appreciation.tsv"
 
-# Locked KPI weights (screenshot). Sum = 80%. Do not invent the remaining 20%.
+# The manager's own share of the score, awarded by hand per AM per month. The
+# KPI weights below cover the other 80, so the two together score out of 100.
+MANAGER_APPRECIATION_MAX = 20.0
+
+# Locked KPI weights (screenshot). Sum = 80%; the manager's 20 completes it.
 KPI_WEIGHTS: dict[str, float] = {
     "daily_avg_purchase": 15.0,
     "daily_avg_net_purchase": 15.0,
@@ -193,6 +200,109 @@ def targets_for_month(
     return out
 
 
+def load_manager_appreciation(
+    path: Path | None = None,
+) -> dict[tuple[int, int, str], dict[str, Any]]:
+    """Manager appreciation points keyed by (year, month, agent tag).
+
+    Deliberately tolerant of a missing file: the board must still render before
+    the manager has scored anybody, and an absent file means "nobody scored
+    yet", not an error.
+
+    Points are clamped to 0..MANAGER_APPRECIATION_MAX. A blank or unparseable
+    points cell is treated as **not scored** rather than as zero — awarding 0
+    is a judgement the manager has not made.
+    """
+    path = path or DEFAULT_APPRECIATION_TSV
+    out: dict[tuple[int, int, str], dict[str, Any]] = {}
+    if not path.exists():
+        return out
+    with path.open(newline="", encoding="utf-8-sig") as f:
+        sample = f.read(4096)
+        f.seek(0)
+        if not sample.strip():
+            return out
+        delim = "\t" if "\t" in sample.splitlines()[0] else ","
+        for rec in csv.DictReader(f, delimiter=delim):
+            agent = (rec.get("agent") or "").strip()
+            if agent not in GOALS_AGENT_TAGS:
+                continue
+            year = int(parse_number_required(rec.get("year")))
+            month = int(parse_number_required(rec.get("month")))
+            if month < 1 or month > 12 or year < 2000:
+                continue
+            points = parse_number(rec.get("points"))
+            if points is None:
+                continue
+            out[(year, month, agent)] = {
+                "points": max(0.0, min(MANAGER_APPRECIATION_MAX, points)),
+                "note": (rec.get("note") or "").strip(),
+            }
+    return out
+
+
+def appreciation_for_month(
+    report_date: date, path: Path | None = None
+) -> dict[str, dict[str, Any]]:
+    """Map agent tag → {points, note} for report_date's calendar month."""
+    all_rows = load_manager_appreciation(path)
+    return {
+        agent: value
+        for (year, month, agent), value in all_rows.items()
+        if year == report_date.year and month == report_date.month
+    }
+
+
+def build_score_block(
+    kpi_points: float,
+    kpi_points_max: float,
+    appreciation: dict[str, Any] | None,
+) -> dict[str, Any]:
+    """The two-part score: KPI points out of 80 plus the manager's out of 20.
+
+    Until the manager has scored the AM this reports the KPI block on its own
+    and says so. It must never present an unscored AM as `x / 100`, because
+    that silently spends the manager's 20 points on the AM's behalf — the same
+    reason the Pending Redemptions Docs column stays blank rather than claiming
+    an all-clear.
+    """
+    scored = appreciation is not None
+    manager_points = float(appreciation["points"]) if scored else None
+    total_points = kpi_points + (manager_points or 0.0)
+    total_max = kpi_points_max + (MANAGER_APPRECIATION_MAX if scored else 0.0)
+    pct_of_max = (total_points / total_max * 100.0) if total_max > 0 else None
+
+    return {
+        "kpiPoints": round(kpi_points, 1),
+        "kpiPointsMax": round(kpi_points_max, 1),
+        "kpiPointsDisplay": f"{kpi_points:.1f} / {kpi_points_max:g}",
+        "managerScored": scored,
+        "managerPoints": round(manager_points, 1) if scored else None,
+        "managerPointsMax": MANAGER_APPRECIATION_MAX,
+        "managerPointsDisplay": (
+            f"{manager_points:.1f} / {MANAGER_APPRECIATION_MAX:g}"
+            if scored
+            else "Pending"
+        ),
+        "managerNote": (appreciation or {}).get("note", ""),
+        "totalPoints": round(total_points, 1),
+        "totalPointsMax": round(total_max, 1),
+        "totalDisplay": f"{total_points:.1f} / {total_max:g}",
+        "totalPctOfMax": round(pct_of_max, 1) if pct_of_max is not None else None,
+        "scoreSubline": (
+            f"{kpi_points:.1f} KPI + {manager_points:.1f} manager"
+            if scored
+            else f"KPI block only · manager {MANAGER_APPRECIATION_MAX:g} pending"
+        ),
+        "scoreNote": (
+            "Score = KPI points (of 80, reduced when a KPI is unavailable) plus "
+            "manager appreciation (of 20). Manager appreciation is set by hand "
+            "in data/elite_manager_appreciation.tsv; until it is set the total "
+            "is reported against the KPI block alone, never as x / 100."
+        ),
+    }
+
+
 def run_rate_pace(mtd: float, elapsed_days: int, days_in_month: int) -> float:
     if elapsed_days <= 0:
         return 0.0
@@ -256,6 +366,7 @@ def build_agent_goals_block(
     *,
     upgrades_available: bool = True,
     upgrades_note: str = "",
+    appreciation: dict[str, Any] | None = None,
 ) -> dict[str, Any] | None:
     """Build the Goals payload section for one AM. None if Alon / no targets."""
     if agent_tag not in GOALS_AGENT_TAGS:
@@ -447,8 +558,10 @@ def build_agent_goals_block(
     tracked_pct = (
         (weighted_points / weight_used * 100.0) if weight_used > 0 else None
     )
+    score = build_score_block(weighted_points, weight_used, appreciation)
 
     return {
+        "score": score,
         "agent": agent_tag,
         "agentName": GOALS_AGENT_DISPLAY[agent_tag],
         "available": True,
@@ -478,8 +591,8 @@ def build_agent_goals_block(
         "achievementCapNote": (
             "Achievement per KPI capped at 100% of goal "
             "(same as goals_q2 achievement_ratio); overperformance does not "
-            "add extra points. Score is % of included weight only — not a "
-            "100% corporate score (manager 20% out of scope)."
+            "add extra points, so the 80-point KPI block cannot be exceeded by "
+            "beating one goal. The manager's 20 points are awarded separately."
         ),
         "upgradesNote": upgrades_note,
         "purchasersShape": purchasers_shape,

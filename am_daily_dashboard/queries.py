@@ -7,6 +7,7 @@ from datetime import date, timedelta
 
 from elite_lib.bigquery import PROJECT_ID, dashboard_elite_ctes
 from config import (
+    BIG_WINNER_MIN_PLAYER_WIN,
     BIRTHDAYS_LOOKBACK_DAYS,
     GOALS_ACTIVE_LOOKBACK_DAYS,
     GOALS_REACTIVATION_GAP_DAYS,
@@ -52,7 +53,20 @@ elite_am AS (
 
 
 def top10_purchasers_sql(report_date: date) -> str:
-    """Top 10 purchasers per AM for report_date, with leading offer code/qty/$."""
+    """Top 10 purchasers per AM for report_date, with leading offer code/qty/$.
+
+    Also returns the player's 30-day **price ladder** so an AM can see which
+    package to pitch: `usual_price` (the price point bought most often, with
+    `usual_price_orders`) and `ceiling_price` (the highest price paid at least
+    twice). An average was asked for first and rejected — these players buy at
+    15–25 distinct price points a month, mixing small top-ups with occasional
+    big offers, so a mean lands between the two and names no sellable package.
+    One player averaged $33/order while habitually buying $20 and repeatedly
+    buying $300. The twice-paid rule on the ceiling keeps a one-off purchase
+    from setting an upsell target nobody will repeat.
+
+    The 30-day window ends on report_date inclusive.
+    """
     d = report_date.isoformat()
     return f"""
 WITH
@@ -101,7 +115,13 @@ offer_agg AS (
     offer_code,
     ANY_VALUE(offer_title) AS offer_title,
     COUNT(*) AS offer_qty,
-    SUM(amount) AS offer_amount
+    SUM(amount) AS offer_amount,
+    -- Price the player actually paid for one unit of this offer. Averaged
+    -- because the same offer can be sold at different amounts; min/max come
+    -- along so a genuinely varying price can be spotted rather than hidden.
+    SUM(amount) / COUNT(*) AS offer_unit_amount,
+    MIN(amount) AS offer_unit_min,
+    MAX(amount) AS offer_unit_max
   FROM orders
   GROUP BY account_id, offer_code
 ),
@@ -112,11 +132,50 @@ top_offer AS (
     offer_title,
     offer_qty,
     offer_amount,
+    offer_unit_amount,
+    offer_unit_min,
+    offer_unit_max,
     ROW_NUMBER() OVER (
       PARTITION BY account_id
       ORDER BY offer_qty DESC, offer_amount DESC
     ) AS orn
   FROM offer_agg
+),
+-- 30-day price ladder. Order level on purpose: the KPI view has no per-order
+-- amount, and the whole point is which individual price points recur.
+ladder_orders AS (
+  SELECT
+    p.account_id,
+    CAST(p.amount AS FLOAT64) AS amount
+  FROM `{PROJECT_ID}.transactional_data.payment_payment_orders` p
+  INNER JOIN top10 t ON t.account_id = p.account_id
+  WHERE DATE(p.created_at) BETWEEN DATE_SUB(DATE '{d}', INTERVAL 29 DAY) AND DATE '{d}'
+    AND p.status = 'succeeded'
+    AND COALESCE(p.refunded, FALSE) = FALSE
+),
+price_counts AS (
+  SELECT account_id, amount, COUNT(*) AS orders_at_price
+  FROM ladder_orders
+  GROUP BY account_id, amount
+),
+usual_price AS (
+  SELECT
+    account_id,
+    amount AS usual_price,
+    orders_at_price AS usual_price_orders,
+    -- Tie on frequency goes to the higher price: pitching the dearer of two
+    -- equally habitual packages is the recoverable error.
+    ROW_NUMBER() OVER (
+      PARTITION BY account_id
+      ORDER BY orders_at_price DESC, amount DESC
+    ) AS prn
+  FROM price_counts
+),
+ceiling_price AS (
+  SELECT account_id, MAX(amount) AS ceiling_price
+  FROM price_counts
+  WHERE orders_at_price >= 2
+  GROUP BY account_id
 )
 SELECT
   t.agent,
@@ -133,9 +192,17 @@ SELECT
   o.offer_code,
   o.offer_title,
   o.offer_qty,
-  o.offer_amount
+  o.offer_amount,
+  o.offer_unit_amount,
+  o.offer_unit_min,
+  o.offer_unit_max,
+  u.usual_price,
+  u.usual_price_orders,
+  cp.ceiling_price
 FROM top10 t
 LEFT JOIN top_offer o ON o.account_id = t.account_id AND o.orn = 1
+LEFT JOIN usual_price u ON u.account_id = t.account_id AND u.prn = 1
+LEFT JOIN ceiling_price cp ON cp.account_id = t.account_id
 LEFT JOIN `{PROJECT_ID}.transactional_data.uam_accounts` ua ON ua.id = t.account_id
 LEFT JOIN `{PROJECT_ID}.transactional_data.uam_persons` per ON per.id = ua.person_id
 ORDER BY t.agent, t.rn
@@ -144,7 +211,14 @@ ORDER BY t.agent, t.rn
 
 def locked_rd_over_5k_sql(report_date: date) -> str:
     """Pending locked redemptions >= PENDING_RD_MIN_AMOUNT created within the
-    trailing PENDING_RD_LOOKBACK_DAYS ending report_date (config.py)."""
+    trailing PENDING_RD_LOOKBACK_DAYS ending report_date (config.py).
+
+    Also returns the player's **report-day win** so the Big Winner flag can be
+    raised on a pending redemption. GGR is house-side (`profit - loss`), so a
+    player win is a negative GGR day; `player_win_day` flips the sign to be
+    positive-when-the-player-won, and only a genuine win is reported (a losing
+    day comes back as 0, not a negative win).
+    """
     d = report_date.isoformat()
     lookback_interval = PENDING_RD_LOOKBACK_DAYS - 1
     return f"""
@@ -163,6 +237,15 @@ locked_rd AS (
   WHERE w.status = 'locked'
     AND CAST(w.amount AS FLOAT64) >= {PENDING_RD_MIN_AMOUNT}
     AND DATE(w.created_at) BETWEEN DATE_SUB(DATE '{d}', INTERVAL {lookback_interval} DAY) AND DATE '{d}'
+),
+day_ggr AS (
+  SELECT
+    k.account_id,
+    SUM(CAST(k.profit AS FLOAT64) - CAST(k.loss AS FLOAT64)) AS ggr_day
+  FROM `{PROJECT_ID}.jackpota_agg.daily_player_revenue_kpis` k
+  INNER JOIN locked_rd r ON r.account_id = k.account_id
+  WHERE k.date = DATE '{d}'
+  GROUP BY k.account_id
 )
 SELECT
   e.agent,
@@ -176,9 +259,13 @@ SELECT
   r.redeem_id,
   r.amount,
   r.status,
-  r.created_date
+  r.created_date,
+  ROUND(COALESCE(g.ggr_day, 0), 2) AS ggr_day,
+  ROUND(GREATEST(-COALESCE(g.ggr_day, 0), 0), 2) AS player_win_day,
+  COALESCE(g.ggr_day, 0) <= -{BIG_WINNER_MIN_PLAYER_WIN} AS big_winner
 FROM locked_rd r
 INNER JOIN elite_am e ON e.account_id = r.account_id
+LEFT JOIN day_ggr g ON g.account_id = r.account_id
 LEFT JOIN `{PROJECT_ID}.transactional_data.uam_accounts` ua ON ua.id = r.account_id
 LEFT JOIN `{PROJECT_ID}.transactional_data.uam_persons` per ON per.id = ua.person_id
 ORDER BY e.agent, r.amount DESC

@@ -82,8 +82,6 @@ function MorningChecklist({{ focus, prefix }}: {{ focus: Focus; prefix: string }
     {{ label: "Pending Redemptions", value: focus.rdOver5k, tone: focus.rdOver5k ? "warning" : "success", sectionId: `${{prefix}}-pending-rd` }},
     {{ label: "Birthdays (3d)", value: focus.birthdays, tone: "success", sectionId: `${{prefix}}-birthdays` }},
     {{ label: "Top 20 Decline", value: focus.declineCount, tone: focus.declineCount ? "warning" : "success", sectionId: `${{prefix}}-top20` }},
-    {{ label: "Churned (7d)", value: focus.churned, tone: focus.churned ? "warning" : "success", sectionId: `${{prefix}}-churned` }},
-    {{ label: "Active Decliners", value: focus.activeDecliners, tone: focus.activeDecliners ? "warning" : "success", sectionId: `${{prefix}}-active-decliners` }},
   ];
   return (
     <Table

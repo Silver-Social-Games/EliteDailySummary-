@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Elite AM Brief — Goals 80+20 and the daily archive</title>
+<style>
+  :root{
+    --bg:#0f1115; --panel:#161920; --panel-2:#1b1f28; --stroke:#272c37;
+    --ink-1:#e8eaf0; --ink-2:#aab1c0; --ink-3:#7d859a; --ink-4:#5a6377;
+    --success:#3FA266; --warning:#F1B467; --danger:#DB704B;
+    --manager:#9386F2; --neutral:#3a4152;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; background:var(--bg); color:var(--ink-1);
+    font:14px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  }
+  .wrap{max-width:1080px; margin:0 auto; padding:36px 28px 72px}
+  h1{font-size:26px; margin:0 0 6px; letter-spacing:-.2px}
+  h2{font-size:19px; margin:0 0 4px; letter-spacing:-.1px}
+  h3{font-size:14px; margin:0 0 8px; text-transform:uppercase; letter-spacing:.07em; color:var(--ink-3)}
+  p{margin:0 0 10px; color:var(--ink-2)}
+  .sub{color:var(--ink-3); font-size:13px}
+  .rule{height:1px; background:var(--stroke); margin:30px 0}
+  section{margin-bottom:30px}
+  .card{background:var(--panel); border:1px solid var(--stroke); border-radius:10px; overflow:hidden; margin:14px 0}
+  .card-h{display:flex; align-items:center; gap:10px; padding:11px 16px; border-bottom:1px solid var(--stroke); background:var(--panel-2)}
+  .card-h b{font-size:12px; text-transform:uppercase; letter-spacing:.07em; color:var(--ink-2); font-weight:600}
+  .card-h .tag{margin-left:auto; font-size:11px; color:var(--ink-4)}
+  .card-b{padding:16px}
+  code{background:var(--panel-2); border:1px solid var(--stroke); border-radius:5px;
+       padding:2px 6px; font:12.5px/1.4 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; color:#c9d3e6}
+  table{width:100%; border-collapse:collapse; font-size:13px}
+  th{text-align:left; font-weight:600; font-size:11px; text-transform:uppercase; letter-spacing:.06em;
+     color:var(--ink-3); padding:8px 10px; border-bottom:1px solid var(--stroke); white-space:nowrap}
+  td{padding:9px 10px; border-bottom:1px solid #1f2430; color:var(--ink-2); vertical-align:top}
+  tr:last-child td{border-bottom:none}
+  td.n,th.n{text-align:right; white-space:nowrap}
+  td b{color:var(--ink-1); font-weight:600}
+  .stripe tbody tr:nth-child(even){background:#141821}
+  /* score bars — two separate tracks, 80 and 20, split by a real gap so the
+     KPI block and the manager block never read as one continuous meter */
+  .bars{display:flex; flex-direction:column; gap:18px}
+  .barrow .top{display:flex; align-items:baseline; gap:10px; margin-bottom:6px}
+  .barrow .who{font-weight:600; font-size:14px}
+  .barrow .right{margin-left:auto; font-size:12px; color:var(--ink-3)}
+  .bar{display:flex; gap:8px; height:12px}
+  .track{display:flex; height:100%; border-radius:6px; overflow:hidden;
+         background:#11141b; border:1px solid var(--stroke)}
+  .track.kpi{flex:0 0 80%}
+  .track.mgr-track{flex:0 0 calc(20% - 8px)}
+  .seg{height:100%}
+  .seg.earned{background:var(--success); border-radius:5px 0 0 5px}
+  .seg.earned.warn{background:var(--warning)}
+  .seg.earned.bad{background:var(--danger)}
+  .seg.earned.full{border-radius:5px}
+  .seg.missed{background:var(--neutral)}
+  .seg.mgr{background:var(--manager); border-radius:5px 0 0 5px}
+  .seg.mgr.full{border-radius:5px}
+  .track.pending{border-style:dashed; border-color:#3b3f57}
+  .barrow .foot{margin-top:5px; font-size:12px; color:var(--ink-4)}
+  .legend{display:flex; flex-wrap:wrap; gap:16px; margin-top:4px; font-size:12px; color:var(--ink-3)}
+  .legend i{display:inline-block; width:10px; height:10px; border-radius:2px; margin-right:6px; vertical-align:-1px}
+  /* stats */
+  .stats{display:grid; grid-template-columns:repeat(5,1fr); gap:12px}
+  .stat{background:var(--panel); border:1px solid var(--stroke); border-radius:9px; padding:13px 14px}
+  .stat .v{font-size:21px; font-weight:600; letter-spacing:-.4px}
+  .stat .l{font-size:11.5px; color:var(--ink-3); margin-top:3px; line-height:1.35}
+  .v.bad{color:var(--danger)} .v.warn{color:var(--warning)}
+  /* callouts */
+  .note{border:1px solid var(--stroke); border-left-width:3px; border-radius:8px;
+        padding:12px 14px; margin:14px 0; background:#13161d; font-size:13px; color:var(--ink-2)}
+  .note b{display:block; color:var(--ink-1); margin-bottom:4px; font-size:13px}
+  .note.info{border-left-color:#7BAFE9}
+  .note.warn{border-left-color:var(--warning)}
+  .note.bad{border-left-color:var(--danger)}
+  .note.mgr{border-left-color:var(--manager)}
+  /* pills */
+  .pills{display:flex; flex-wrap:wrap; gap:7px; margin:8px 0}
+  .pill{border:1px solid var(--stroke); border-radius:999px; padding:4px 11px; font-size:12.5px; color:var(--ink-2); background:var(--panel)}
+  .pill.on{background:#243044; border-color:#3c516f; color:#dce6f7; font-weight:600}
+  .dot{display:inline-block; width:6px; height:6px; border-radius:50%; margin-right:7px; vertical-align:1px}
+  .dot.s{background:var(--success)} .dot.w{background:var(--warning)} .dot.d{background:var(--danger)} .dot.n{background:var(--ink-4)}
+  @media (max-width:820px){ .stats{grid-template-columns:repeat(2,1fr)} }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>Goals 80 + 20, and the daily archive</h1>
+  <p class="sub">Two proposals for the Elite AM Brief. Every number is real, from the 17 Aug 2026 board. Nothing here is built yet.</p>
+
+  <div class="rule"></div>
+
+  <!-- ===================== 1 ===================== -->
+  <section>
+    <h2>1 &middot; The score becomes 80 KPI + 20 manager appreciation</h2>
+    <p>Today the board shows <code>94.4% of the included 80% weight</code>. That is a percentage
+       <em>of</em> the KPI block, so the 20 you own is invisible and the number reads like a mark out of 80.</p>
+
+    <div class="note info">
+      <b>What changes</b>
+      The KPI block stops being a percentage and becomes <b style="display:inline">points out of 80</b>.
+      Your appreciation adds up to 20 more. One bar, two kinds of number, total out of 100.
+    </div>
+
+    <div class="card">
+      <div class="card-h"><b>Proposed score bar &mdash; every AM</b><span class="tag">as of 17 Aug 2026</span></div>
+      <div class="card-b">
+        <p class="sub" style="margin-bottom:16px">Two separate tracks. The wide one is the 80-point KPI block;
+           the short one after the gap is your 20, dashed and empty until you score it.</p>
+        <div class="bars">
+
+          <div class="barrow">
+            <div class="top"><span class="who">Lee</span>
+              <span class="sub">75.8 / 80 KPI</span>
+              <span class="right">manager 20 pending &middot; total so far 75.8 / 100</span></div>
+            <div class="bar">
+              <span class="track kpi">
+                <span class="seg earned" style="width:94.75%"></span>
+                <span class="seg missed" style="width:5.25%"></span>
+              </span>
+              <span class="track mgr-track pending"></span>
+            </div>
+            <div class="foot">4 on track &middot; 1 close &middot; 2 need attention &middot; weakest: Daily Avg Net Purchase 83%</div>
+          </div>
+
+          <div class="barrow">
+            <div class="top"><span class="who">Coral</span>
+              <span class="sub">75.5 / 80 KPI</span>
+              <span class="right">manager 20 pending &middot; total so far 75.5 / 100</span></div>
+            <div class="bar">
+              <span class="track kpi">
+                <span class="seg earned" style="width:94.38%"></span>
+                <span class="seg missed" style="width:5.62%"></span>
+              </span>
+              <span class="track mgr-track pending"></span>
+            </div>
+            <div class="foot">4 on track &middot; 1 close &middot; 2 need attention &middot; weakest: Daily Avg Net Purchase 80%</div>
+          </div>
+
+          <div class="barrow">
+            <div class="top"><span class="who">Rachel</span>
+              <span class="sub">71.5 / 80 KPI</span>
+              <span class="right">manager 20 pending &middot; total so far 71.5 / 100</span></div>
+            <div class="bar">
+              <span class="track kpi">
+                <span class="seg earned warn" style="width:89.38%"></span>
+                <span class="seg missed" style="width:10.62%"></span>
+              </span>
+              <span class="track mgr-track pending"></span>
+            </div>
+            <div class="foot">2 on track &middot; 1 close &middot; 4 need attention &middot; weakest: Upgrade to Elite 61%</div>
+          </div>
+
+          <div class="barrow">
+            <div class="top"><span class="who">Gabriel</span>
+              <span class="sub">71.3 / 80 KPI</span>
+              <span class="right">manager 20 pending &middot; total so far 71.3 / 100</span></div>
+            <div class="bar">
+              <span class="track kpi">
+                <span class="seg earned warn" style="width:89.13%"></span>
+                <span class="seg missed" style="width:10.87%"></span>
+              </span>
+              <span class="track mgr-track pending"></span>
+            </div>
+            <div class="foot">2 on track &middot; 1 close &middot; 4 need attention &middot; weakest: Daily Avg Net Purchase 78%</div>
+          </div>
+
+        </div>
+
+        <div class="rule" style="margin:22px 0 16px"></div>
+
+        <div class="barrow">
+          <div class="top"><span class="who">Same bars once you score &mdash; Lee at 17 of 20</span>
+            <span class="right">75.8 KPI + 17.0 manager = <b style="color:var(--ink-1)">92.8 / 100</b></span></div>
+          <div class="bar">
+            <span class="track kpi">
+              <span class="seg earned" style="width:94.75%"></span>
+              <span class="seg missed" style="width:5.25%"></span>
+            </span>
+            <span class="track mgr-track">
+              <span class="seg mgr" style="width:85%"></span>
+              <span class="seg missed" style="width:15%"></span>
+            </span>
+          </div>
+        </div>
+
+        <div class="legend">
+          <span><i style="background:var(--success)"></i>KPI points earned</span>
+          <span><i style="background:var(--neutral)"></i>Shortfall</span>
+          <span><i style="background:var(--manager)"></i>Manager appreciation</span>
+          <span><i style="background:#11141b; border:1px dashed #3b3f57"></i>Not yet scored</span>
+        </div>
+      </div>
+    </div>
+
+    <h3>How the colour is used</h3>
+    <table class="stripe">
+      <thead><tr><th>Band</th><th class="n">Scale</th><th>Colour</th><th>Why that colour</th></tr></thead>
+      <tbody>
+        <tr><td><b>KPI points earned</b></td><td class="n">of 80</td>
+            <td><span class="dot s"></span>Status &mdash; green / amber / red</td>
+            <td>Measured against a goal, so it keeps the tone language the KPI table already uses.</td></tr>
+        <tr><td><b>KPI points missed</b></td><td class="n">of 80</td>
+            <td><span class="dot n"></span>Neutral grey</td>
+            <td>The shortfall is the absence of a result, not a second result. Colouring it red would double-count the bad news.</td></tr>
+        <tr><td><b>Manager appreciation</b></td><td class="n">of 20</td>
+            <td><span class="dot" style="background:var(--manager)"></span>Violet &mdash; outside the status palette</td>
+            <td>A judgement, not a measurement. A green 20 would read as &ldquo;hit a target&rdquo;; violet says &ldquo;different kind of number&rdquo;.</td></tr>
+        <tr><td><b>Not yet scored</b></td><td class="n">of 20</td>
+            <td><span class="dot n"></span>Hatched slot, labelled Pending</td>
+            <td>Never 0 and never 20. Both are claims. An empty slot is the truth.</td></tr>
+      </tbody>
+    </table>
+    <p class="sub" style="margin-top:8px">Deliberately only one new hue. The board already uses green / amber / red for
+       status, and a fifth status colour would make appreciation look computed.</p>
+
+    <h3 style="margin-top:22px">What the headline says in each state</h3>
+    <table>
+      <thead><tr><th>State</th><th class="n">Headline</th><th>Sub-line</th></tr></thead>
+      <tbody>
+        <tr><td><span class="dot s"></span>Manager score set &mdash; Lee, 17 of 20</td>
+            <td class="n"><b>92.8 / 100</b></td><td>75.8 KPI + 17.0 manager</td></tr>
+        <tr><td><span class="dot n"></span>Not scored yet &mdash; all four AMs today</td>
+            <td class="n"><b>75.8 / 80</b></td><td>KPI block only &middot; manager 20 pending</td></tr>
+        <tr><td><span class="dot w"></span>A KPI is unavailable &mdash; Upgrade to Elite, 5 pts</td>
+            <td class="n"><b>71.1 / 75</b></td><td>denominator shrinks, manager 20 unaffected</td></tr>
+      </tbody>
+    </table>
+
+    <div class="note warn">
+      <b>The one rule I want to hold you to</b>
+      An unset appreciation score must never render as 0 or as 20, and the total must not claim to be out of 100
+      until you have actually scored it. Same principle as the Docs column we just shipped: the board only says
+      what the data supports.
+    </div>
+
+    <div class="card">
+      <div class="card-h"><b>Where your 20 gets entered</b><span class="tag">recommended</span></div>
+      <div class="card-b">
+        <p class="sub">A small versioned TSV, same pattern as the goals targets file.</p>
+        <p><code>am_daily_dashboard/data/elite_manager_appreciation.tsv</code></p>
+        <table>
+          <thead><tr><th class="n">year</th><th class="n">month</th><th>agent</th><th class="n">points</th><th>note</th></tr></thead>
+          <tbody>
+            <tr><td class="n">2026</td><td class="n">8</td><td>coral_s</td><td class="n">18</td><td>strong recovery on net</td></tr>
+            <tr><td class="n">2026</td><td class="n">8</td><td>lee_t</td><td class="n">17</td><td></td></tr>
+            <tr><td class="n">2026</td><td class="n">8</td><td>gabriel_e</td><td class="n">15</td><td></td></tr>
+            <tr><td class="n">2026</td><td class="n">8</td><td>rachel_a</td><td class="n">16</td><td></td></tr>
+          </tbody>
+        </table>
+        <p class="sub" style="margin-top:10px">Monthly cadence, one line per AM, git-tracked so a past month can be
+           reproduced. Any AM you leave out simply shows Pending. I considered an editable box in the manager
+           dashboard instead and rejected it: it saves to one browser, never reaches the AM&rsquo;s own file, and
+           cannot be reproduced later.</p>
+      </div>
+    </div>
+  </section>
+
+  <div class="rule"></div>
+
+  <!-- ===================== 2 ===================== -->
+  <section>
+    <h2>2 &middot; Daily generation and getting back to yesterday</h2>
+    <p>History already exists. Nothing lets anyone reach it, and no AM has a link that survives to tomorrow.</p>
+
+    <div class="stats">
+      <div class="stat"><div class="v">8 dates</div><div class="l">Manager brief archive</div></div>
+      <div class="stat"><div class="v warn">2 dates</div><div class="l">Per-AM archive</div></div>
+      <div class="stat"><div class="v">34</div><div class="l">Files in the folder now</div></div>
+      <div class="stat"><div class="v">+10</div><div class="l">Files added per run</div></div>
+      <div class="stat"><div class="v bad">None</div><div class="l">Stable link an AM can bookmark</div></div>
+    </div>
+
+    <table class="stripe" style="margin-top:14px">
+      <thead><tr><th>What</th><th class="n">Now</th><th>Detail</th></tr></thead>
+      <tbody>
+        <tr><td><b>Manager brief archive</b></td><td class="n">8 dates</td>
+            <td>27 Jul, 31 Jul, 1, 2, 6, 8, 16, 17 Aug</td></tr>
+        <tr><td><b>Per-AM archive</b></td><td class="n">2 dates</td>
+            <td>16 and 17 Aug only &mdash; per-AM files started 16 Aug</td></tr>
+        <tr><td><b>Files in the folder</b></td><td class="n">34</td>
+            <td>HTML + JSON, one flat folder, no index page</td></tr>
+        <tr><td><b>Growth per run</b></td><td class="n">+10 files</td>
+            <td>2 manager + 8 per-AM (4 AMs &times; html/json)</td></tr>
+        <tr><td><b>Stable link</b></td><td class="n">None</td>
+            <td>Every filename carries the date, so a bookmark dies overnight</td></tr>
+      </tbody>
+    </table>
+
+    <div class="note bad">
+      <b>The real gap is the per-AM archive</b>
+      Per-AM files only began on 16 Aug, so an AM can currently reach <b style="display:inline">two days</b> of
+      their own history while the manager brief goes back to 27 July. Whatever we build, an AM&rsquo;s date list
+      must only offer dates their own file exists for.
+    </div>
+
+    <div class="card">
+      <div class="card-h"><b>Proposed fix</b><span class="tag">static files only &mdash; no server, no database</span></div>
+      <div class="card-b">
+        <table class="stripe">
+          <thead><tr><th>Part</th><th>How</th><th>What it buys</th></tr></thead>
+          <tbody>
+            <tr><td><b>Stable latest file per AM</b></td>
+                <td><code>elite_am_brief_coral.html</code> with no date, rewritten every run</td>
+                <td>One link each, bookmarked once, correct every morning.</td></tr>
+            <tr><td><b>Date switcher in the report</b></td>
+                <td>Header control listing the dates that actually exist on disk</td>
+                <td>Yesterday is one click from inside the brief, no folder digging.</td></tr>
+            <tr><td><b>Generator scans before writing</b></td>
+                <td>The date list is built from the folder, not from date arithmetic</td>
+                <td>Gaps and skipped days never produce a dead link.</td></tr>
+            <tr><td><b>Retention</b></td>
+                <td>Keep dated files for 60 days, prune older</td>
+                <td>The folder stops growing without bound.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <h3 style="margin-top:20px">The switcher, as it would read in the header</h3>
+    <div class="pills">
+      <span class="pill on">Mon 17 Aug</span>
+      <span class="pill">Sun 16 Aug</span>
+      <span class="pill">Sat 8 Aug</span>
+      <span class="pill">Thu 6 Aug</span>
+      <span class="pill">Sun 2 Aug</span>
+      <span class="pill">Sat 1 Aug</span>
+      <span class="pill">Fri 31 Jul</span>
+      <span class="pill">Mon 27 Jul</span>
+    </div>
+    <p class="sub">Real dates from the current manager archive. Each pill opens that day&rsquo;s file for whoever is
+       viewing. Only dates present on disk appear, so the 3&ndash;5 Aug gap is simply not offered.</p>
+
+    <div class="note info">
+      <b>Should it run itself?</b>
+      It is manual today. The Sun&ndash;Thu 10:00 Israel task already runs the daily summary and its Pages publish,
+      so the AM Brief can join the same task &mdash; local files plus the Elite_Cursor mirror only, no Pages, no
+      Slack. That is the one part I want your yes before wiring.
+    </div>
+  </section>
+
+  <div class="rule"></div>
+
+  <section>
+    <h2>What I need from you</h2>
+    <table class="stripe">
+      <thead><tr><th class="n">#</th><th>Decision</th><th>My recommendation</th></tr></thead>
+      <tbody>
+        <tr><td class="n">1</td>
+            <td><b>Does 80 KPI + 20 manager total 100</b>, or did you mean the KPI block itself already tops out at 80?</td>
+            <td>Total 100 &mdash; your message said 80 twice, so I want it confirmed.</td></tr>
+        <tr><td class="n">2</td>
+            <td><b>Does each AM see their own appreciation score</b> in their own file?</td>
+            <td>Yes. It is their score, and hiding it makes the total unexplainable to them.</td></tr>
+        <tr><td class="n">3</td>
+            <td><b>Do you enter points (0&ndash;20)</b> or a rating I scale into 20?</td>
+            <td>Points out of 20 &mdash; no hidden arithmetic between what you type and what they see.</td></tr>
+        <tr><td class="n">4</td>
+            <td><b>Add the AM Brief to the Sun&ndash;Thu 10:00 run?</b></td>
+            <td>Yes, local and mirror only. Otherwise a &ldquo;latest&rdquo; link is not actually current each morning.</td></tr>
+        <tr><td class="n">5</td>
+            <td><b>Keep dated archives how long?</b></td>
+            <td>60 days, then prune.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <p class="sub" style="margin-top:26px">
+    Source: <code>am_daily_dashboard/exports/2026-08-17_elite_am_brief.json</code> (goals blocks, all four AMs)
+    and a listing of <code>am_daily_dashboard/exports</code>. Proposal only &mdash; nothing implemented.
+    The AM Brief stays off GitHub Pages.
+  </p>
+
+</div>
+</body>
+</html>

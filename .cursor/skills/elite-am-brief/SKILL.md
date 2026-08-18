@@ -152,14 +152,44 @@ After running, open the dated canvas beside chat and/or the HTML export.
   fit is managed date in month plus account created within 60 days before month
   start (7/6/8/4) — **do not adopt it**, it is tuned to the data. Waiting on the
   user for the Tableau field behind their column.
-- Top purchasers: **Purchases (#)** + Top Offer (no Qty / Offer $)
-- **Pending RD** ≥ threshold created in last N days — `config.py` (`PENDING_RD_MIN_AMOUNT` = $5k, `PENDING_RD_LOOKBACK_DAYS` = 3)
+- Top purchasers: **Purchases (#)**, Top Offer, **Price**, **Usual → Ceiling (30D)**
+  (no Qty / Offer $). Price = that offer's cost as the player paid it, cents kept
+  (`$899.99`, never rounded to `$900`), marked `avg` when the same offer sold at more
+  than one amount. Usual = most-bought 30D price point (ties → higher); Ceiling =
+  highest price paid **at least twice** in 30D, so a one-off does not set an upsell
+  target. A missing `→ ceiling` means no proven headroom, not missing data.
+  **A 7D/30D average was asked for, built, tested and rejected — do not re-add it.**
+  These players buy at 15–25 price points a month, so a mean names no sellable
+  package (one averaged $33/order while habitually buying $19.99 and repeatedly
+  $299.99). Momentum and cadence were designed and deliberately dropped to keep the
+  section narrow. `build_package_fit` formats the cell once for all three
+  implementations — change it there, not in each renderer
+- **Goals score = 80 KPI points + the manager's 20, total 100.** Appreciation is
+  hand-entered per AM per month in `data/elite_manager_appreciation.tsv` (committed
+  headers-only, so nobody starts scored). A missing file is not an error, points
+  clamp to 0–20, and **a blank points cell means not scored, not zero.** An unscored
+  AM reads `NN.N / 80` and `Manager Pending` — **never `/100`**, because that would
+  spend the manager's 20 points on the AM's behalf (same honesty rule as the Docs
+  column). The 80 and the 20 render as **two separate tracks** with a gap and
+  rounded ends — do not merge them into one meter. Violet is the manager hue,
+  deliberately outside the status palette; canvas uses `theme.category.purple` and
+  `theme.stroke.primary` (`theme.border.default` does not exist in the SDK). The
+  manager leaderboard ranks on `totalPctOfMax`, not raw points, since a scored AM is
+  out of 100 and an unscored one out of 80. Streamlit does not render Goals at all
+- **Archive calendar** — dateless `elite_am_brief.html` / `elite_am_brief_<slug>.html`
+  are rewritten every run so a bookmark survives; dated files are the archive. The
+  topbar month calendar only enables days whose file exists, because
+  `archive_entries()` **lists the export folder** rather than computing dates (the
+  board skips Fri/Sat and misses runs, so arithmetic would produce dead links). The
+  list is built **per audience** — an AM must never be offered a date their own file
+  does not exist for. History starts fresh from when the tool ships; no backfill
+- **Pending RD** ≥ threshold created in last N days — `config.py` (`PENDING_RD_MIN_AMOUNT` = $5k, `PENDING_RD_LOOKBACK_DAYS` = 3). Also carries **Won Yesterday** / **Docs** / LTP / Hold / 7D Purchase (Batch 8 item 2). Won Yesterday flips the house-side GGR sign — a player win is a **negative** GGR day — and shows `—` on a losing day, never a negative win; at `config.BIG_WINNER_MIN_PLAYER_WIN` ($5k) it adds a `· Big Winner` label, which **outranks** the ageing highlight for row tone. **Docs is blank when nothing is flagged and must stay that way:** the source proves only "no open ticket names a missing document", never that documents are verified complete, so a green "all docs OK" would be a claim the data cannot support to a player awaiting a withdrawal. Neither field costs a query — GGR joins inside `locked_rd_over_5k_sql`, and docs/LTP/Hold/7D reuse the `enrich_aids_sql` batch already fetched for Open Tickets
 - **Locks** = still locked **and** [`locked_at` within `config.LOCKS_WINDOW_DAYS` of report_date (1 = today only; any lock reason) **or** Take a break whose unlock date is within `config.LOCKS_REVIEW_WINDOW_DAYS` days or already passed, regardless of lock age] — the second path exists so an overdue break is never missed just because it's no longer "new"; rows sort by soonest unlock, today/overdue render danger
 - **Birthdays** window — `config.BIRTHDAYS_LOOKBACK_DAYS` = 3
 - **AID always links to Looker; Open Tickets' TIDs always link to Zendesk** — every section, no exceptions
 - **Filters only where needed** — search box stays on Top 10 Purchasers, Top 20 · WoW Purchase Gaps, and Open Tickets; removed from Pending RD, First-Time Locked RD, Birthdays, Locked/Take A Break (`showSearch` option, default true). Sort controls are a separate `sortOptions`/`sortFn` mechanism on the same `SearchableTable`/`searchableSection` — Open Tickets (LTP ↓ default) and Pending RD (Amount ↓ default) have one; Locked/Take A Break sorts by soonest unlock automatically with **no** visible control (kept out of the filter bar on purpose)
 - **Compact tables** — Morning Checklist and Top 10 Purchasers size to their content (`tableStyle`/`style={ width: "max-content" }` on canvas, `.compact-frame` class on HTML) instead of stretching the full panel width like other sections; opt-in per call site
-- **Churned (7d), Active Decliners and Milestone Alerts were removed 2026-08-18 — do not re-add them without asking.** They were built despite the user asking to exclude them, cost a BigQuery query each, and this doc previously carried a note that entrenched them. When an instruction and existing code disagree, ask; do not document the code as settled. Churn and Active decliner still live in `daily_summary`, and `elite-core.mdc` still owns the definitions
+- **Churned (7d), Active Decliners and Milestone Alerts were removed 2026-08-18 — do not re-add them without asking.** They were built despite the user asking to exclude them, cost a BigQuery query each, and this doc previously carried a note that entrenched them. When an instruction and existing code disagree, ask; do not document the code as settled. Churn and Active decliner still live in `daily_summary`, and `elite-core.mdc` still owns the definitions. The first removal pass missed the *presentation* layer — nav entries, checklist and dashboard tiles survived in the HTML, and the canvas checklist read `focus.churned`, a field the payload and the `Focus` type had already dropped. **Removing a section means grepping all three implementations** (`canvas_parts/`, `handoffs/elite_am_brief_web.html`, `daily_summary/streamlit_app/am_brief_app.py`), not just the query layer
 - **Top 20** via `fetch_top_same_day_by_agent` (same selection/classify as Elite Daily Decline; up to 20 per AM)
 - HTML via `canvas_to_html` interactive shell (Overview + AM tabs for manager; per-AM files stripped) — **not** a static table dump
 - **Not** on GitHub Pages — Daily/Weekend publish to `docs/`; AM Brief stays local
@@ -175,18 +205,31 @@ Overview + per-AM tabs: Empowering intro, **Elite Goals** (4 AMs), Elite & Jackp
 Backlog with full intent and open questions: *Roadmap / Backlog* in
 `AM_DAILY_DASHBOARD.md`. Short version:
 
-- **Next — Batch 8, five team-feedback asks**, worked one at a time: Top Purchasers
-  avg purchase 7D/30D + price; Pending RD big winner + missing-docs status; a new
-  Big Winners ≥ $20K section; last win above 1K SC; Open Tickets weighted
-  prioritisation. **Three need a decision from the user before building** — what
-  "price" means, whether Big Winners really includes non-Elite, and what the missing
-  30% of the ticket weights is (given weights sum to 70%).
+- **Batch 10 (score out of 100 + archive calendar) is code-complete but NEVER RUN.**
+  Written 2026-08-18; 38 unit tests pass and the HTML JS syntax-checks, but the
+  generator was not executed after the edits. **Do this first:**
+  `python am_daily_dashboard/generate_am_daily_dashboard.py --date 2026-08-17`, then
+  check the Goals card reads `NN.N / 80` with a dashed empty manager track, the
+  topbar calendar navigates to another day, and the dateless
+  `elite_am_brief_<slug>.html` files reach Elite_Cursor. Details:
+  *Score out of 100* and *Archive calendar* in `AM_DAILY_DASHBOARD.md`.
+- **Batch 8, worked one at a time. Items 1 (Top Purchasers price ladder) and 2
+  (Pending RD big winner + docs) shipped 2026-08-18** — see the bullets above.
+  Remaining: a new Big Winners ≥ $20K section; last win above 1K SC; Open Tickets
+  weighted prioritisation (weights settled, topic set still to define). Two scope
+  questions already settled:
+  **Big Winners includes non-Elite players in every AM's own view** (the only section
+  that reaches outside the Elite book — label those rows, and do not copy the wider
+  filter elsewhere); **ticket weights normalise to 100%** (LT hold 25, LT NGR 20, LT
+  purchase 20, 30D purchase 25 → 27.8/22.2/22.2/27.8).
 - **Then — Batch 9:** trending games board, dormant favourite game flag (flag only
   when the player had a **net loss** on that game).
-- **Requested, not started:** Batch 7 UI/UX overhaul — left sidebar nav,
-  manager-only dashboard, real design pass with **inline** SVG icons (files open
-  from OneDrive, so no CDN), table pagination. Re-check whether pagination is still
-  worth it now that the three large sections are gone.
+- **Batch 7 UI/UX overhaul — done, close it, do not build it.** All four asks exist
+  in the standalone HTML: left sidebar nav, manager-only gated dashboard, inline SVG
+  icons, and table pagination (`paginate()`, wired generically through `tableCard` /
+  `searchableSection` plus Top 20). Earlier notes wrongly said pagination was
+  outstanding. The canvas and Streamlit implementations
+  have no sidebar, so they have drifted from the HTML.
 - **Blocked:** Zendesk auto-create — agreed as **internal notes only, AM Brief
   only**, waiting on API credentials. The "one month since AM assignment" rule needs
   its definition settled; `agent_start_managed_date` is the column it should use.
