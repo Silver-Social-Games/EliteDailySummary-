@@ -50,13 +50,16 @@ function loadBoard(name, { seedGate = null } = {}) {
   // shell calls it on every nav change purely for UX, so stub it rather than
   // letting an unrelated jsdom gap fail every render test.
   dom.window.scrollTo = () => {};
-  const scriptEl = [...dom.window.document.querySelectorAll("script")].find(
-    (s) => !s.src
+  // The payload lives in its own <script type="application/json"> block, so
+  // "first inline script" is no longer the app. Skipping that filter finds the
+  // payload, evals nothing, and every test then passes against a blank board.
+  const scripts = [...dom.window.document.querySelectorAll("script")].filter(
+    (s) => !s.src && (s.getAttribute("type") || "").toLowerCase() !== "application/json"
   );
-  if (!scriptEl) {
-    throw new Error(`${name}: no inline <script> found in the shell output`);
+  if (!scripts.length) {
+    throw new Error(`${name}: no executable inline <script> found in the shell output`);
   }
-  dom.window.eval(scriptEl.textContent);
+  for (const s of scripts) dom.window.eval(s.textContent);
   return { dom, meta, errors };
 }
 

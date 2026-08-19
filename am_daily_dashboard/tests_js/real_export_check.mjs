@@ -17,20 +17,6 @@ if (!htmlPath) {
 
 const html = readFileSync(htmlPath, "utf-8");
 
-// The shell always assigns `const DATA = <payload json>;` right after the
-// injected placeholder — pull managerGate out of it via regex rather than
-// exposing DATA on window, so a real export needs no test-only hook.
-const dataMatch = html.match(/const DATA\s*=\s*(\{[\s\S]*?\});\s*\n\s*const REPORT/);
-let managerGate = null;
-if (dataMatch) {
-  try {
-    managerGate = JSON.parse(dataMatch[1]).managerGate || null;
-  } catch {
-    // Non-fatal — the gate just won't be seeded; Command-group views will
-    // report as gated below rather than failing outright.
-  }
-}
-
 const errors = [];
 const virtualConsole = new VirtualConsole();
 virtualConsole.on("jsdomError", (err) => errors.push(err));
@@ -40,19 +26,36 @@ const dom = new JSDOM(html, {
   pretendToBeVisual: true,
   virtualConsole,
 });
+const doc = dom.window.document;
+
+// The payload is its own <script type="application/json"> block, so the gate
+// token is read by parsing it — no regex over the file, and no test-only hook
+// exposing DATA on window.
+let managerGate = null;
+const payloadEl = doc.getElementById("am-brief-payload");
+if (payloadEl) {
+  try {
+    managerGate = JSON.parse(payloadEl.textContent).managerGate || null;
+  } catch {
+    // Non-fatal — the gate just won't be seeded; Command-group views will
+    // report as gated below rather than failing outright.
+  }
+}
 if (managerGate) {
   dom.window.sessionStorage.setItem("eliteAmBriefUnlocked", managerGate);
 }
 dom.window.scrollTo = () => {};
 
-const scriptEl = [...dom.window.document.querySelectorAll("script")].find((s) => !s.src);
-if (!scriptEl) {
-  console.log("  [FAIL] inline <script> not found in export");
+// Skip the JSON payload block: evaluating that instead of the app would leave
+// the board blank and every check below would pass vacuously.
+const scripts = [...doc.querySelectorAll("script")].filter(
+  (s) => !s.src && (s.getAttribute("type") || "").toLowerCase() !== "application/json"
+);
+if (!scripts.length) {
+  console.log("  [FAIL] executable inline <script> not found in export");
   process.exit(1);
 }
-dom.window.eval(scriptEl.textContent);
-
-const doc = dom.window.document;
+for (const s of scripts) dom.window.eval(s.textContent);
 const navIds = [...doc.querySelectorAll("[data-go]")].map((b) => b.getAttribute("data-go"));
 let failures = 0;
 

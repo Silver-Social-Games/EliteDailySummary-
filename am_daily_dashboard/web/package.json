@@ -1,0 +1,15 @@
+{
+  "name": "am-brief-web",
+  "private": true,
+  "type": "module",
+  "description": "Modular TypeScript sources for the standalone Elite AM Brief board. Bundled by build.mjs into the single self-contained ../handoffs/elite_am_brief_web.html - see README.md.",
+  "scripts": {
+    "build": "node build.mjs",
+    "check": "node build.mjs --check",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.0",
+    "typescript": "^5.7.0"
+  }
+}
