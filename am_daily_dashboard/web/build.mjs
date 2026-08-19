@@ -81,6 +81,10 @@ async function bundle() {
     minify: false,
     write: false,
     logLevel: "warning",
+    // The pre-refactor board ran under an inline `"use strict"`. Pinning it to
+    // the bundle rather than to whichever module statement lands first keeps
+    // that guarantee no matter how the modules are later reshuffled.
+    banner: { js: '"use strict";' },
   });
   return result.outputFiles[0].text;
 }

@@ -1,47 +1,17 @@
 // @ts-nocheck
-
-    "use strict";
-
-    /* Parsed from a <script type="application/json"> block rather than
-       inlined as a JS object literal: a raw U+2028 or U+2029 in any payload
-       field is a syntax error inside a literal but legal inside JSON text.
-       html_export.py still escapes "</" - inside a JSON block a literal
-       </script> would end the element early just the same. */
-    const DATA = JSON.parse(
-      document.getElementById("am-brief-payload").textContent
-    );
-    const REPORT     = DATA.report || {};
-    const OVERVIEW   = DATA.overview || [];
-    const AGENTS     = DATA.agents || [];
-    const AM_SHARES  = DATA.amShares || [];
-    const AM_ORDER   = DATA.amOrder || [];
-    const SINGLE_AM  = !!DATA.singleAm;
-    /* Manager-only: the four books measured as one against the manager's own
-       targets. Absent from every per-AM payload by construction. */
-    const TEAM_GOALS = DATA.teamGoals || null;
-    /* Fallback matches config.manager_gate_token("elite") so briefs generated
-       before the gate existed still open the Dashboard. */
-    const GATE_TOKEN = DATA.managerGate || "09dcfdd4";
-
-    const day      = REPORT.weekday || "";
-    const dayShort = REPORT.dayShort || day.slice(0, 3);
-    const TITLES = {
-      thisPurchase:  `This ${day} Purchase`,
-      priorPurchase: `Prior ${day} Purchase`,
-      purchase7d:    "7D Purchase",
-      lifetimePurchase: "LT Purchase",
-      lifetimeHold:  "Lifetime Hold",
-      favouriteGame7d: "Favourite Game (7D)",
-    };
-    const URGENCY_RANK = { Today: 0, "48h": 1, Watch: 2, None: 3 };
-    const REASON_EMPHASIS = [
-      "Redemption Blocked", "Redemption in progress", "Needs ", "Same weekday skip",
-      "Spend Softening", "Offline Since", "Pending RD", "RD $", "Redeem Status ",
-      "Take a break", "No Purchases", "Played Today", "Account locked", "Red flag",
-    ];
-    const PAGE_SIZES = [25, 50, 100];
-    const PAGINATE_ABOVE = 25;
-
+import { AGENTS, AM_ORDER, AM_SHARES, GATE_TOKEN, OVERVIEW, REPORT, SINGLE_AM,
+  TEAM_GOALS, TITLES, day, dayShort } from "./payload";
+import { app, gateToken, getState, go, rememberGate, setPage, setRenderHook,
+  setState, takeFocusKey } from "./state";
+import { agentBlock, rowsFor } from "./selectors";
+import { compactMoney, esc, icon, initials, money, richText, toNum } from "./format";
+import { toast } from "./toast";
+import { agingHtml, aidHtml, bigWinHtml, docsHtml, holdHtml, moneyHtml, p7dHtml,
+  scoreLegendHtml, scoreMeterHtml, ticketHtml, ticketIdsHtml, unlockHtml,
+  urgencyHtml, wowHtml } from "./cells";
+import { renderAction, renderReason } from "./reason";
+import { matchesDecline, sortByNumKey, sortBySoonestUnlock, sortPlayers } from "./filters";
+import { paginate, tableCard, tableHtml } from "./table";
     /* ---------------- section registry: drives nav + routing ---------------- */
     const GROUP_ORDER = ["Command", "Today", "Performance", "Risk", "Operations", "Care"];
     const VIEWS = {
@@ -72,428 +42,6 @@
     };
     const NAV_ORDER = ["dashboard", "team", "home", "goals", "top10", "top20",
                        "rd", "rdfirst", "tickets", "locks", "birthdays"];
-
-    /* ---------------- state ---------------- */
-    /* Storage access throws outright where the origin is opaque — a sandboxed
-       preview pane, or a file opened through some OneDrive/Office viewers. An
-       unguarded read at state init would blank the whole board, so failing to
-       remember the unlock is the worst this may cost. */
-    const GATE_KEY = "eliteAmBriefUnlocked";
-    function gateRemembered() {
-      try { return sessionStorage.getItem(GATE_KEY) === GATE_TOKEN; }
-      catch (e) { return false; }
-    }
-    function rememberGate() {
-      try { sessionStorage.setItem(GATE_KEY, GATE_TOKEN); } catch (e) {}
-    }
-    const firstAgent = (AGENTS[0] && AGENTS[0].agentName) || AM_ORDER[0] || "";
-    const app = {
-      view: SINGLE_AM ? "home" : "dashboard",
-      agent: SINGLE_AM ? (DATA.singleAmName || firstAgent) : firstAgent,
-      unlocked: gateRemembered(),
-      gateError: "",
-      collapsed: false,
-      mobileOpen: false,
-      ticket: null,
-      calOpen: false,
-      calMonth: (REPORT.date || "").slice(0, 7),
-    };
-    const tstate = {};
-    let focusKey = null;
-
-    function getState(key, fallback) {
-      if (!(key in tstate)) tstate[key] = fallback;
-      return tstate[key];
-    }
-    /* Any control that changes the result set sends the table back to page 1 —
-       otherwise a search that narrows 260 rows to 3 lands you on an empty page 7. */
-    const RESET_SUFFIXES = ["_q", "_search", "_sort", "_sortBy", "_agent", "_reason", "_size"];
-    function setState(key, value) {
-      tstate[key] = value;
-      for (const suffix of RESET_SUFFIXES) {
-        if (key.endsWith(suffix)) { tstate[key.slice(0, -suffix.length) + "_page"] = 1; break; }
-      }
-      focusKey = key;
-      render();
-    }
-    function go(view) {
-      app.view = view;
-      app.mobileOpen = false;
-      render();
-      window.scrollTo({ top: 0, behavior: "auto" });
-    }
-
-    /* ---------------- helpers ---------------- */
-    function esc(s) {
-      return String(s ?? "")
-        .replace(/&/g, "&amp;").replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-    }
-    function icon(name, cls) {
-      return `<svg class="ic ${cls || ""}" aria-hidden="true"><use href="#i-${name}"></use></svg>`;
-    }
-    function gateToken(s) {
-      let h = 5381;
-      for (const ch of String(s)) h = (((h * 33) >>> 0) ^ ch.codePointAt(0)) >>> 0;
-      return h.toString(16).padStart(8, "0");
-    }
-    function toNum(v) {
-      const n = parseFloat(String(v ?? "").replace(/[^0-9.\-]/g, ""));
-      return Number.isNaN(n) ? 0 : n;
-    }
-    function money(n) { return "$" + Math.round(n).toLocaleString(); }
-    function compactMoney(n) {
-      const a = Math.abs(n);
-      if (a >= 1e6) return "$" + (n / 1e6).toFixed(a >= 1e7 ? 0 : 1) + "M";
-      if (a >= 1e4) return "$" + Math.round(n / 1e3) + "K";
-      return money(n);
-    }
-    function agentBlock() { return AGENTS.find(a => a.agentName === app.agent) || AGENTS[0] || {}; }
-    function rowsFor(key) { return (agentBlock()[key]) || []; }
-    function initials(name) {
-      return String(name || "?").trim().split(/\s+/).map(w => w[0]).join("").slice(0, 2).toUpperCase();
-    }
-    function toast(msg) {
-      const root = document.getElementById("toastRoot");
-      root.innerHTML = `<div class="toast">${icon("check", "ic-sm")}${esc(msg)}</div>`;
-      clearTimeout(toast._t);
-      toast._t = setTimeout(() => { root.innerHTML = ""; }, 1800);
-    }
-
-    function marker(tone) { return `<span class="marker marker-${tone || "neutral"}"></span>`; }
-    function markerCell(tone, content) {
-      return `<span class="cell-marker">${marker(tone)}<span>${content}</span></span>`;
-    }
-    function wowHtml(value) {
-      const v = String(value || "").trim();
-      const pct = (v.match(/\(([+-]?\d+(?:\.\d+)?)%\)/) || [])[1];
-      const n = pct != null ? Number(pct) : NaN;
-      const up = (!Number.isNaN(n) && n > 0) || (v.startsWith("+") && !v.startsWith("+$0") && !v.startsWith("+0"));
-      const down = (!Number.isNaN(n) && n < 0) || v.startsWith("-") || v.startsWith("$-");
-      if (up) return `<span class="t-success w-semibold">${icon("trend-up", "ic-xs")} ${esc(value)}</span>`;
-      if (down) return `<span class="t-danger w-semibold">${icon("trend-down", "ic-xs")} ${esc(value)}</span>`;
-      return esc(value);
-    }
-    function moneyHtml(value, emphasize) {
-      return emphasize ? `<span class="t-danger w-semibold">${esc(value)}</span>` : esc(value);
-    }
-    function holdHtml(value) {
-      const pct = parseFloat(value);
-      return (!Number.isNaN(pct) && pct >= 70)
-        ? `<span class="t-success w-semibold">${esc(value)}</span>` : esc(value);
-    }
-    function unlockHtml(detail, remainingDays) {
-      if (!detail) return '<span class="t-quaternary">—</span>';
-      const urgent = typeof remainingDays === "number" && remainingDays <= 0;
-      return urgent
-        ? `<span class="t-danger w-semibold">${icon("alert", "ic-xs")} ${esc(detail)}</span>`
-        : esc(detail);
-    }
-    function agingHtml(created, daysPending, agingFlag) {
-      const suffix = typeof daysPending === "number" ? ` (${daysPending}d ago)` : "";
-      return agingFlag
-        ? `<span class="t-small t-danger w-semibold">${icon("clock", "ic-xs")} ${esc(created)}${esc(suffix)}</span>`
-        : `<span class="t-small">${esc(created)}${esc(suffix)}</span>`;
-    }
-    /* Two-track score meter. The KPI track fills to kpiPoints/kpiPointsMax; the
-       manager track stays dashed and empty until a score exists, because an
-       unset appreciation is neither 0 nor 20. */
-    function scoreMeterHtml(score, tone) {
-      const kpiMax = Number(score.kpiPointsMax) || 0;
-      const kpiPct = kpiMax > 0 ? Math.max(0, Math.min(100, Number(score.kpiPoints) / kpiMax * 100)) : 0;
-      const scored = !!score.managerScored;
-      const mgrMax = Number(score.managerPointsMax) || 0;
-      const mgrPct = scored && mgrMax > 0
-        ? Math.max(0, Math.min(100, Number(score.managerPoints) / mgrMax * 100)) : 0;
-      return `<div class="score-meter">
-        <span class="trk kpi"><span class="fill ${tone}" style="width:${kpiPct.toFixed(2)}%"></span></span>
-        <span class="trk mgr${scored ? "" : " pending"}">${
-          scored ? `<span class="fill mgr" style="width:${mgrPct.toFixed(2)}%"></span>` : ""
-        }</span>
-      </div>`;
-    }
-    function scoreLegendHtml(score, tone) {
-      const scored = !!score.managerScored;
-      return `<div class="score-legend">
-        <span><i class="lg-${tone}"></i>KPI ${esc(score.kpiPointsDisplay || "")}</span>
-        <span><i class="lg-mgr"></i>Manager ${esc(score.managerPointsDisplay || "Pending")}</span>
-        ${scored && score.managerNote ? `<span class="t-tertiary">${esc(score.managerNote)}</span>` : ""}
-      </div>`;
-    }
-    function bigWinHtml(p) {
-      const won = p.wonYesterday || "—";
-      return p.bigWinner
-        ? `<span class="t-small t-danger w-semibold">${icon("trend-up", "ic-xs")} ${esc(won)} · Big Winner</span>`
-        : `<span class="t-small t-tertiary">${esc(won)}</span>`;
-    }
-    /* Blank when nothing is flagged. No missing-document ticket is not proof the
-       documents are complete, so this stays silent rather than showing an
-       all-clear an AM might repeat to a player awaiting a withdrawal. */
-    function docsHtml(status) {
-      if (!status) return `<span class="t-quaternary">—</span>`;
-      return `<span class="t-small t-warning w-semibold">${esc(status)}</span>`;
-    }
-    function p7dHtml(value) {
-      const none = value === "None In 7D";
-      return `<span class="p7d-cell ${none ? "t-warning w-semibold" : ""}">${esc(value)}</span>`;
-    }
-    function urgencyHtml(u) {
-      if (u === "Today") return `<span class="badge danger">${icon("zap", "ic-xs")}Today</span>`;
-      if (u === "48h") return `<span class="badge warning">48h</span>`;
-      if (u === "Watch") return `<span class="badge info">Watch</span>`;
-      return `<span class="t-quaternary">${esc(u || "—")}</span>`;
-    }
-    function aidHtml(p) {
-      const aid = esc(p.aid);
-      return p.aidUrl
-        ? `<a href="${esc(p.aidUrl)}" target="_blank" rel="noopener noreferrer">${aid}</a>` : aid;
-    }
-    function richText(text, lead) {
-      const parts = String(text || "").split(/(\*\*[^*]+\*\*)/g);
-      const inner = parts.map(part =>
-        (part.startsWith("**") && part.endsWith("**") && part.length >= 4)
-          ? `<em>${esc(part.slice(2, -2))}</em>` : esc(part)
-      ).join("");
-      return `<div class="hero-line ${lead ? "lead" : ""}">${inner}</div>`;
-    }
-    function sortBySoonestUnlock(rows) {
-      return (rows || []).slice().sort((a, b) => {
-        const av = a.unlockRemainingDays, bv = b.unlockRemainingDays;
-        if (av == null && bv == null) return 0;
-        if (av == null) return 1;
-        if (bv == null) return -1;
-        return av - bv;
-      });
-    }
-    function sortByNumKey(rows, key, desc) {
-      const d = desc !== false;
-      return (rows || []).slice().sort((a, b) => {
-        const av = Number(a[key]), bv = Number(b[key]);
-        if (Number.isNaN(av) && Number.isNaN(bv)) return 0;
-        if (Number.isNaN(av)) return 1;
-        if (Number.isNaN(bv)) return -1;
-        return d ? bv - av : av - bv;
-      });
-    }
-    function sortPlayers(rows, mode) {
-      const copy = [...rows];
-      if (mode === "priorHigh") return copy.sort((a, b) => (b.priorPriorNum || 0) - (a.priorPriorNum || 0));
-      if (mode === "lifetimeHigh") return copy.sort((a, b) => (b.lifetimePurchasedNum || 0) - (a.lifetimePurchasedNum || 0));
-      if (mode === "gapHigh") return copy.sort((a, b) => (b.sortGap || 0) - (a.sortGap || 0));
-      return copy.sort((a, b) => {
-        const ra = URGENCY_RANK[a.urgency] ?? 9, rb = URGENCY_RANK[b.urgency] ?? 9;
-        return ra !== rb ? ra - rb : (b.sortGap || 0) - (a.sortGap || 0);
-      });
-    }
-    function matchesDecline(row, q) {
-      if (!q.trim()) return true;
-      const s = q.trim().toLowerCase();
-      return [row.name, row.aid, row.agent, row.agentName, row.reason, row.reasonTable,
-              row.purchase7d, row.favouriteGame7d, row.recommendation]
-        .some(v => String(v || "").toLowerCase().includes(s));
-    }
-    function matchesAid(row, q, extraKeys) {
-      if (!q.trim()) return true;
-      const s = q.trim().toLowerCase();
-      if (String(row.name || "").toLowerCase().includes(s) || String(row.aid || "").includes(s)) return true;
-      return (extraKeys || []).some(k => String(row[k] ?? "").toLowerCase().includes(s));
-    }
-
-    /* ---------------- reason / action icons (SVG, not emoji) ---------------- */
-    function reasonPartIcon(part) {
-      const pl = part.toLowerCase();
-      if (part.startsWith("Red flag")) return "flag";
-      if (part.startsWith("Redemption Blocked")) return "ban";
-      if (part.startsWith("Redemption in progress")) return "hourglass";
-      if (part.startsWith("Account locked") || part.includes("Suspended")) return "lock";
-      if (part.startsWith("Needs Recent Acceptable POA") || pl.includes("poa")) return "file";
-      if (part.startsWith("Needs KYC") || pl.includes("verification document")) return "clipboard";
-      if (part.startsWith("RD $") || part.startsWith("Pending RD")) return "banknote";
-      if (part.startsWith("Same weekday skip")) return "calendar";
-      if (part.startsWith("Payment failed")) return "x-circle";
-      if (part.startsWith("No Purchases")) return "alert";
-      if (part.startsWith("Played Today")) return "slots";
-      if (part.startsWith("Redeem Status")) return "clipboard";
-      if (part.startsWith("Take a break")) return "clock";
-      if (part.startsWith("Spend Softening")) return "trend-down";
-      return "";
-    }
-    function actionHeadIcon(head) {
-      const hl = head.toLowerCase();
-      if (head.startsWith("Escalate Ops")) return "arrow-right";
-      if (head.startsWith("Escalate Compliance")) return "scale";
-      if (head.startsWith("Push purchase")) return "dollar";
-      if (head.startsWith("Fix payment method")) return "card";
-      if (head.startsWith("Remove restriction")) return "unlock";
-      if (head.startsWith("Send to Ops")) return "wrench";
-      if (head.startsWith("Soft check-in")) return "message";
-      if (head.startsWith("Agent call") || head.startsWith("Reactivation")) return "phone";
-      if (head.startsWith("No action")) return "check-circle";
-      if (hl.includes("no outreach") || hl.includes("no purchase push")) return "hand";
-      return "";
-    }
-    function reasonPartClass(part) {
-      if (part.startsWith("Red flag")) return "t-danger w-semibold";
-      if (part.startsWith("Needs ") || part.includes("Blocked")) return "t-warning w-semibold";
-      if (part.startsWith("Escalate") || part.includes("Suspended")) return "t-danger w-semibold";
-      if (part.startsWith("Same weekday skip") || part.startsWith("Played Today")) return "t-info";
-      return "";
-    }
-    function renderReason(parts, text) {
-      const segments = (parts && parts.length)
-        ? parts
-        : String(text || "").split("●").map(p => p.trim()).filter(Boolean);
-      return segments.map((part, i) => {
-        const emphasize = i === 0 || REASON_EMPHASIS.some(pfx => part.startsWith(pfx));
-        const name = reasonPartIcon(part);
-        const cls = emphasize ? (reasonPartClass(part) || "w-semibold") : "";
-        const sep = i > 0 ? '<span class="sep">·</span>' : "";
-        return sep + `<span class="${cls}">${name ? icon(name, "ic-xs") + " " : ""}${esc(part)}</span>`;
-      }).join("");
-    }
-    function renderAction(text) {
-      const chunks = String(text || "").split(" · ").filter(Boolean);
-      const head = chunks[0] || text || "";
-      const tail = chunks.slice(1).join(" · ");
-      const name = actionHeadIcon(head);
-      return `<span class="w-semibold">${name ? icon(name, "ic-xs") + " " : ""}${esc(head)}</span>`
-           + (tail ? `<span class="t-tertiary"> · ${esc(tail)}</span>` : "");
-    }
-    function ticketHtml(p) {
-      if (!p.ticketEnabled) {
-        return p.ticketDisabledReason
-          ? `<span class="badge">${icon("lock", "ic-xs")}${esc(p.ticketDisabledReason)}</span>`
-          : '<span class="t-quaternary">—</span>';
-      }
-      const subj = p.ticketSubject || "";
-      const preview = subj.length > 30 ? subj.slice(0, 29) + "…" : (subj || "Draft");
-      return `<div><button type="button" class="chip" data-ticket-aid="${esc(p.aid)}">`
-           + `${icon("ticket", "ic-xs")} Draft</button>`
-           + `<div class="ticket-preview">${esc(preview)}</div></div>`;
-    }
-    function ticketIdsHtml(p) {
-      const list = p.tickets || [];
-      if (!list.length) return `<span class="t-quaternary">${esc(p.ticketIds || "—")}</span>`;
-      return list.map((t, i) =>
-        `${i ? ", " : ""}<a href="${esc(t.url)}" target="_blank" rel="noopener noreferrer">${esc(t.id)}</a>`
-      ).join("");
-    }
-
-    /* ---------------- table + pagination ---------------- */
-    function tableHtml(headers, rows, align, tones, opts) {
-      opts = opts || {};
-      const th = headers.map((h, i) => {
-        const a = (align && align[i]) || "left";
-        return `<th class="${a === "right" ? "num" : a === "center" ? "center" : ""}">${esc(h)}</th>`;
-      }).join("");
-      const body = rows.length
-        ? rows.map((cells, ri) => {
-            const tone = (tones && tones[ri]) || "neutral";
-            const isTotal = opts.totalRowIndex === ri;
-            const tds = cells.map((c, i) => {
-              const a = (align && align[i]) || "left";
-              const cls = a === "right" ? "num" : a === "center" ? "center" : "";
-              const content = (opts.markerCol === i && !isTotal) ? markerCell(tone, c) : c;
-              return `<td class="${cls}">${content}</td>`;
-            }).join("");
-            return `<tr class="${isTotal ? "total-row" : ""}">${tds}</tr>`;
-          }).join("")
-        : `<tr><td colspan="${headers.length}" class="empty">${esc(opts.empty || "Nothing to show here.")}</td></tr>`;
-      return `<div class="table-frame ${opts.frameClass || ""}">`
-           + `<table class="grid ${opts.tableClass || ""}"><thead><tr>${th}</tr></thead>`
-           + `<tbody>${body}</tbody></table></div>`;
-    }
-
-    /* Returns the visible slice plus the pager markup for it. */
-    function paginate(rows, stateKey, forceOn) {
-      const total = rows.length;
-      const on = forceOn || total > PAGINATE_ABOVE;
-      if (!on) return { slice: rows, pager: "", from: total ? 1 : 0, to: total, total };
-      const sizeKey = stateKey + "_size", pageKey = stateKey + "_page";
-      const raw = getState(sizeKey, String(PAGE_SIZES[0]));
-      const size = raw === "all" ? total : Number(raw) || PAGE_SIZES[0];
-      const pages = Math.max(1, Math.ceil(total / size));
-      const page = Math.min(Math.max(1, Number(getState(pageKey, 1)) || 1), pages);
-      tstate[pageKey] = page;
-      const start = (page - 1) * size;
-      const slice = rows.slice(start, start + size);
-      const from = total ? start + 1 : 0;
-      const to = Math.min(start + size, total);
-
-      const btn = (label, target, disabled, extraCls) =>
-        `<button type="button" class="pg ${extraCls || ""}" data-page-key="${esc(pageKey)}" `
-        + `data-page="${target}"${disabled ? " disabled" : ""}>${label}</button>`;
-
-      let nums = "";
-      if (pages > 1) {
-        const window_ = new Set([1, pages, page, page - 1, page + 1]);
-        if (page <= 3) [2, 3, 4].forEach(n => window_.add(n));
-        if (page >= pages - 2) [pages - 1, pages - 2, pages - 3].forEach(n => window_.add(n));
-        const list = [...window_].filter(n => n >= 1 && n <= pages).sort((a, b) => a - b);
-        let prev = 0;
-        for (const n of list) {
-          if (prev && n - prev > 1) nums += `<span class="pg-gap">…</span>`;
-          nums += btn(String(n), n, false, n === page ? "active" : "");
-          prev = n;
-        }
-      }
-      const sizeSel = `<span class="select-wrap"><select data-state="${esc(sizeKey)}">`
-        + PAGE_SIZES.map(n => `<option value="${n}" ${raw === String(n) ? "selected" : ""}>${n} per page</option>`).join("")
-        + `<option value="all" ${raw === "all" ? "selected" : ""}>Show all (${total})</option>`
-        + `</select>${icon("chev-down", "ic-xs")}</span>`;
-
-      const pager = `<div class="pager">
-        <div class="pager-info">Showing <strong>${from.toLocaleString()}–${to.toLocaleString()}</strong> of ${total.toLocaleString()}</div>
-        <div class="spacer"></div>
-        ${sizeSel}
-        ${pages > 1 ? btn(icon("chevs-left", "ic-xs"), 1, page === 1) : ""}
-        ${pages > 1 ? btn(icon("chev-left", "ic-xs"), page - 1, page === 1) : ""}
-        ${nums}
-        ${pages > 1 ? btn(icon("chev-right", "ic-xs"), page + 1, page === pages) : ""}
-        ${pages > 1 ? btn(icon("chevs-right", "ic-xs"), pages, page === pages) : ""}
-      </div>`;
-      return { slice, pager, from, to, total };
-    }
-
-    /* Generic search + sort + paginate section rendered as a card. */
-    function tableCard(opts) {
-      const all = opts.rows || [];
-      const searchEnabled = opts.showSearch !== false;
-      const sortEnabled = !!(opts.sortOptions && opts.sortOptions.length && opts.sortFn);
-      const qKey = opts.stateKey + "_q", sortKey = opts.stateKey + "_sort";
-      const q = searchEnabled ? getState(qKey, "") : "";
-      const sortBy = getState(sortKey, opts.defaultSort
-        || (opts.sortOptions && opts.sortOptions[0] ? opts.sortOptions[0].value : ""));
-
-      const searched = searchEnabled ? all.filter(r => matchesAid(r, q, opts.extraKeys || [])) : all;
-      const ordered = opts.sortFn ? opts.sortFn(searched, sortBy) : searched;
-      const { slice, pager, total } = paginate(ordered, opts.stateKey);
-
-      const filtered = q.trim() !== "";
-      const countBadge = filtered
-        ? `<span class="badge brand">${ordered.length} of ${all.length}</span>`
-        : `<span class="badge">${all.length} ${all.length === 1 ? "player" : "players"}</span>`;
-
-      const toolbar = (searchEnabled || sortEnabled) ? `<div class="toolbar">
-        ${searchEnabled ? `<label class="search">${icon("search", "ic-sm")}
-          <input type="search" placeholder="Search name, AID…" value="${esc(q)}" data-state="${esc(qKey)}">
-        </label>` : ""}
-        ${sortEnabled ? `<span class="select-wrap"><select data-state="${esc(sortKey)}">`
-          + opts.sortOptions.map(o => `<option value="${esc(o.value)}" ${sortBy === o.value ? "selected" : ""}>${esc(o.label)}</option>`).join("")
-          + `</select>${icon("chev-down", "ic-xs")}</span>` : ""}
-        <div class="spacer"></div>
-        ${countBadge}
-      </div>` : "";
-
-      return `<div class="card">
-        ${toolbar}
-        ${tableHtml(opts.headers, slice.map(opts.renderRow), opts.align,
-                    slice.map(r => r.tone || "neutral"),
-                    { markerCol: opts.markerCol, empty: opts.empty, tableClass: opts.tableClass,
-                      frameClass: opts.compact ? "compact" : "" })}
-        ${total ? pager : ""}
-      </div>`;
-    }
 
     /* ---------------- shared blocks ---------------- */
     function segmentCard() {
@@ -1278,9 +826,7 @@
       });
       document.querySelectorAll("[data-page-key]").forEach(el => {
         el.onclick = () => {
-          tstate[el.getAttribute("data-page-key")] = Number(el.getAttribute("data-page"));
-          focusKey = null;
-          render();
+          setPage(el.getAttribute("data-page-key"), Number(el.getAttribute("data-page")));
         };
       });
       document.querySelectorAll("[data-ticket-aid]").forEach(el => {
@@ -1320,6 +866,7 @@
       }
 
       /* Full re-render on every keystroke would otherwise drop the caret. */
+      const focusKey = takeFocusKey();
       if (focusKey) {
         const el = document.querySelector(`[data-state="${CSS.escape(focusKey)}"]`);
         if (el && el.tagName === "INPUT") {
@@ -1327,7 +874,6 @@
           const end = el.value.length;
           try { el.setSelectionRange(end, end); } catch (e) { /* type doesn't support it */ }
         }
-        focusKey = null;
       }
     }
 
@@ -1358,5 +904,6 @@
       if (e.key === "Escape" && app.calOpen) { app.calOpen = false; render(); }
     });
 
+    setRenderHook(render);
     render();
   
