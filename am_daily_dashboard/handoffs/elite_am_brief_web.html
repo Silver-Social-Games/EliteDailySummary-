@@ -629,6 +629,9 @@
     const AM_SHARES  = DATA.amShares || [];
     const AM_ORDER   = DATA.amOrder || [];
     const SINGLE_AM  = !!DATA.singleAm;
+    /* Manager-only: the four books measured as one against the manager's own
+       targets. Absent from every per-AM payload by construction. */
+    const TEAM_GOALS = DATA.teamGoals || null;
     /* Fallback matches config.manager_gate_token("elite") so briefs generated
        before the gate existed still open the Dashboard. */
     const GATE_TOKEN = DATA.managerGate || "09dcfdd4";
@@ -658,6 +661,9 @@
       dashboard: { label: "Manager Dashboard", short: "Dashboard", icon: "gauge",
                    group: "Command", managerOnly: true, gated: true,
                    sub: "Cross-AM roll-up — manager only" },
+      team:      { label: "Team Goals", icon: "target", group: "Command",
+                   managerOnly: true, gated: true,
+                   sub: "Your team as one book — manager only" },
       home:      { label: "Morning Brief", icon: "sunrise", group: "Today",
                    sub: "Where to start today" },
       goals:     { label: "Elite Goals", icon: "target", group: "Performance",
@@ -677,15 +683,27 @@
       birthdays: { label: "Birthdays · Last 3 Days", short: "Birthdays", icon: "gift",
                    group: "Care", key: "birthdays", sub: "A reason to reach out" },
     };
-    const NAV_ORDER = ["dashboard", "home", "goals", "top10", "top20",
+    const NAV_ORDER = ["dashboard", "team", "home", "goals", "top10", "top20",
                        "rd", "rdfirst", "tickets", "locks", "birthdays"];
 
     /* ---------------- state ---------------- */
+    /* Storage access throws outright where the origin is opaque — a sandboxed
+       preview pane, or a file opened through some OneDrive/Office viewers. An
+       unguarded read at state init would blank the whole board, so failing to
+       remember the unlock is the worst this may cost. */
+    const GATE_KEY = "eliteAmBriefUnlocked";
+    function gateRemembered() {
+      try { return sessionStorage.getItem(GATE_KEY) === GATE_TOKEN; }
+      catch (e) { return false; }
+    }
+    function rememberGate() {
+      try { sessionStorage.setItem(GATE_KEY, GATE_TOKEN); } catch (e) {}
+    }
     const firstAgent = (AGENTS[0] && AGENTS[0].agentName) || AM_ORDER[0] || "";
     const app = {
       view: SINGLE_AM ? "home" : "dashboard",
       agent: SINGLE_AM ? (DATA.singleAmName || firstAgent) : firstAgent,
-      unlocked: sessionStorage.getItem("eliteAmBriefUnlocked") === GATE_TOKEN,
+      unlocked: gateRemembered(),
       gateError: "",
       collapsed: false,
       mobileOpen: false,
@@ -1237,6 +1255,108 @@
       </div>`;
     }
 
+    /* Manager-only. Deliberately has no 80 + 20 score meter: the manager's 20
+       points are an award they make to an AM, and there is nobody to award the
+       team's, so the KPI table stands on its own. */
+    function teamKpi(key) {
+      return (TEAM_GOALS && (TEAM_GOALS.kpis || []).find(k => k.key === key)) || null;
+    }
+
+    function teamGoalsCard() {
+      if (!TEAM_GOALS || !TEAM_GOALS.available) return "";
+      const kpis = TEAM_GOALS.kpis || [];
+      const onTrack = kpis.filter(k => k.statusTone === "success").length;
+      const behind = kpis.filter(k => k.statusTone === "danger" || k.statusTone === "warning").length;
+      const headline = ["daily_avg_purchase", "daily_avg_net_purchase", "monthly_purchasers"]
+        .map(teamKpi).filter(Boolean);
+      return `<div class="card">
+        <div class="card-head">
+          <span class="card-icon ${behind ? "warning" : "success"}">${icon("target", "ic-sm")}</span>
+          <div><div class="card-title">Team Goals</div>
+          <div class="card-sub">Your targets — the whole managed book · ${esc(TEAM_GOALS.monthLabel || "")}</div></div>
+          <div class="spacer"></div>
+          <button type="button" class="btn" data-go="team">Open ${icon("chev-right", "ic-xs")}</button>
+        </div>
+        <div class="card-body stack-10">
+          ${tableHtml(["KPI", "Goal", "Pace", "Status"],
+            headline.map(k => [
+              esc(k.label), esc(k.goalDisplay), esc(k.paceDisplay),
+              `<span class="badge ${k.statusTone || ""}">${esc(k.status)}</span>`,
+            ]),
+            ["left", "right", "right", "left"],
+            headline.map(k => k.statusTone || "neutral"), { markerCol: 0 })}
+          <div class="row">
+            <span class="badge success">${icon("check-circle", "ic-xs")}${onTrack} on track</span>
+            <span class="badge ${behind ? "danger" : ""}">${icon("alert", "ic-xs")}${behind} need attention</span>
+          </div>
+        </div>
+      </div>`;
+    }
+
+    function viewTeamGoals() {
+      if (!app.unlocked) return gateHtml();
+      if (!TEAM_GOALS) {
+        return emptyState("target", "No team goals in this brief",
+          "Add a team row for this month to data/elite_goals.tsv and re-run the generator.");
+      }
+      if (!TEAM_GOALS.available) {
+        return emptyState("target", "Team goals unavailable",
+          TEAM_GOALS.note || "No team target row for this month.");
+      }
+      const g = TEAM_GOALS;
+      const kpis = g.kpis || [];
+      const subtitle = [
+        g.monthLabel || "",
+        g.asOf ? `as of ${g.asOf}` : "",
+        (g.elapsedDays && g.daysInMonth) ? `day ${g.elapsedDays} of ${g.daysInMonth}` : "",
+      ].filter(Boolean).join(" · ");
+
+      const cards = [
+        { label: "Team Book", value: (g.portfolioSize || 0).toLocaleString(), icon: "list",
+          tone: "neutral", foot: `${(g.portfolioLocked || 0).toLocaleString()} locked, still counted` },
+        { label: "MTD Purchase", value: compactMoney(g.mtdPurchase || 0), icon: "dollar",
+          tone: "success", foot: money(g.mtdPurchase || 0) },
+        { label: "MTD Net Purchase", value: compactMoney(g.mtdNetPurchase || 0), icon: "banknote",
+          tone: "brand", foot: money(g.mtdNetPurchase || 0) },
+        { label: "Purchasers", value: (teamKpi("monthly_purchasers") || {}).actualDisplay || "—",
+          icon: "users", tone: "brand", foot: "Distinct across the whole managed book" },
+      ];
+
+      const rows = kpis.map(k => [
+        esc(k.label), esc(k.weightLabel), esc(k.goalDisplay), esc(k.actualDisplay),
+        esc(k.paceDisplay), esc(k.gapDisplay),
+        `<span class="badge ${k.statusTone || ""}">${esc(k.status)}</span>`,
+      ]);
+
+      /* No per-AM breakdown here, by the user's decision: these are their own
+         goals, not a roll-up of their employees', and the Goals Leaderboard on
+         the Dashboard already covers who contributed what. */
+      return `<div class="stack">
+        <div class="card">
+          <div class="card-head">
+            <span class="card-icon">${icon("target", "ic-sm")}</span>
+            <div><div class="card-title">Elite Goals · Team</div>
+            <div class="card-sub">Your own targets, measured over the whole managed book</div></div>
+            <div class="spacer"></div>
+            <span class="badge">${esc(subtitle)}</span>
+          </div>
+        </div>
+        <div class="stats">${cards.map(statCard).join("")}</div>
+        <div class="card">
+          ${tableHtml(["KPI", "Weight", "Goal", "Actual", "Pace", "Gap", "Status"], rows,
+            ["left", "right", "right", "right", "right", "right", "left"],
+            kpis.map(k => k.statusTone || "neutral"), { markerCol: 0 })}
+        </div>
+        <div class="note">These are your own targets, loaded as given — never derived
+          from the AMs' targets. Progress is measured over the whole managed book,
+          Alon's portfolio included: Purchasers, Reactivation and % Active are counted
+          as distinct accounts across the book, and ARPPU and % Active are rebuilt from
+          the book totals rather than averaged across the AMs.</div>
+        <div class="note">${esc(g.definitionsNote || "")}</div>
+        <div class="note">${esc(g.achievementCapNote || "")}</div>
+      </div>`;
+    }
+
     function viewTop20() {
       const players = rowsFor("decline");
       const stateKey = `dec_${app.agent}`;
@@ -1483,6 +1603,8 @@
         ${greet ? `<div class="hero"><div class="stack-6">${greet}</div></div>` : ""}
         <div class="stats">${cards.map(statCard).join("")}</div>
 
+        ${teamGoalsCard()}
+
         ${scored.length ? `<div class="card">
           <div class="card-head">
             <span class="card-icon">${icon("target", "ic-sm")}</span>
@@ -1649,7 +1771,7 @@
 
     function topbar() {
       const v = VIEWS[app.view] || VIEWS.home;
-      const isManager = app.view === "dashboard";
+      const isManager = !!v.managerOnly;
       const who = isManager ? "All AMs" : app.agent;
       return `<header class="topbar">
         <button type="button" class="icon-btn" id="toggleSidebar" title="Toggle menu">${icon("panel", "ic-sm")}</button>
@@ -1674,9 +1796,9 @@
     }
 
     const VIEW_FN = {
-      dashboard: viewDashboard, home: viewHome, goals: viewGoals, top10: viewTop10,
-      top20: viewTop20, rd: viewPendingRd, rdfirst: viewFirstRd, tickets: viewTickets,
-      locks: viewLocks, birthdays: viewBirthdays,
+      dashboard: viewDashboard, team: viewTeamGoals, home: viewHome, goals: viewGoals,
+      top10: viewTop10, top20: viewTop20, rd: viewPendingRd, rdfirst: viewFirstRd,
+      tickets: viewTickets, locks: viewLocks, birthdays: viewBirthdays,
     };
 
     /* ---------------- ticket modal ---------------- */
@@ -1799,7 +1921,7 @@
           if (gateToken(gateInput.value) === GATE_TOKEN) {
             app.unlocked = true;
             app.gateError = "";
-            sessionStorage.setItem("eliteAmBriefUnlocked", GATE_TOKEN);
+            rememberGate();
           } else {
             app.gateError = "That passcode does not match.";
           }

@@ -84,6 +84,15 @@ GOALS_AGENT_DISPLAY = {
     "rachel_a": "Rachel",
 }
 
+# The manager's own book — the four AMs measured as one team, against the
+# manager's own targets. Those targets are NOT the sum of the four AM targets
+# (Aug 2026: $210,000 vs 4 x $51,000, 2,250 purchasers vs 4 x 546), so they are
+# loaded from their own TSV rows and never computed from the AM rows.
+TEAM_AGENT_TAG = "team"
+TEAM_DISPLAY_NAME = "Team"
+GOALS_TARGET_TAGS = GOALS_AGENT_TAGS + (TEAM_AGENT_TAG,)
+GOALS_DISPLAY_ALL = {**GOALS_AGENT_DISPLAY, TEAM_AGENT_TAG: TEAM_DISPLAY_NAME}
+
 # Achievement capped at 100% of goal (same as goals_q2 achievement_ratio).
 ACHIEVEMENT_CAP = 1.0
 
@@ -153,7 +162,7 @@ def load_goals_tsv(path: Path | None = None) -> list[GoalsTarget]:
             agent = (rec.get("Agent Name") or "").strip()
             if not agent or agent.lower() in {"total", ""}:
                 continue
-            if agent not in GOALS_AGENT_TAGS:
+            if agent not in GOALS_TARGET_TAGS:
                 continue
             month = int(parse_number_required(rec.get("month")))
             year = int(parse_number_required(rec.get("year")))
@@ -367,14 +376,22 @@ def build_agent_goals_block(
     upgrades_available: bool = True,
     upgrades_note: str = "",
     appreciation: dict[str, Any] | None = None,
+    include_score: bool = True,
 ) -> dict[str, Any] | None:
-    """Build the Goals payload section for one AM. None if Alon / no targets."""
-    if agent_tag not in GOALS_AGENT_TAGS:
+    """Build the Goals payload section for one AM. None if Alon / no targets.
+
+    Also builds the manager's team block (`agent_tag="team"`), which runs the
+    same KPIs, weights and pace logic over actuals already aggregated across the
+    four books. `include_score=False` drops the score block entirely — the team
+    view carries no 80 + 20 meter, because the manager's 20 points are an award
+    they make to an AM and there is nobody to award the team's.
+    """
+    if agent_tag not in GOALS_TARGET_TAGS:
         return None
     if target is None:
         return {
             "agent": agent_tag,
-            "agentName": GOALS_AGENT_DISPLAY[agent_tag],
+            "agentName": GOALS_DISPLAY_ALL[agent_tag],
             "available": False,
             "note": f"No goals TSV row for {report_date.strftime('%b %Y')}.",
             "kpis": [],
@@ -558,12 +575,16 @@ def build_agent_goals_block(
     tracked_pct = (
         (weighted_points / weight_used * 100.0) if weight_used > 0 else None
     )
-    score = build_score_block(weighted_points, weight_used, appreciation)
+    score = (
+        build_score_block(weighted_points, weight_used, appreciation)
+        if include_score
+        else None
+    )
 
     return {
-        "score": score,
+        **({"score": score} if include_score else {}),
         "agent": agent_tag,
-        "agentName": GOALS_AGENT_DISPLAY[agent_tag],
+        "agentName": GOALS_DISPLAY_ALL[agent_tag],
         "available": True,
         "monthLabel": report_date.strftime("%b %Y"),
         "monthStart": month_start.isoformat(),
@@ -685,6 +706,42 @@ def actuals_by_agent(rows: list[dict]) -> dict[str, dict]:
     return out
 
 
+def team_actuals(rows: list[dict]) -> dict:
+    """The team row from goals_mtd_actuals — the four books rolled up as one.
+
+    The row arrives already aggregated over the union of the books (a ROLLUP in
+    the same query, so it costs nothing extra), which is what makes ARPPU and
+    % Active correct: both are ratios and must be rebuilt from team totals.
+    Averaging the four AM figures is the classic error here and gives a
+    different, wrong answer — team ARPPU paces On track for Aug 2026 while one
+    AM's own ARPPU reads Behind.
+    """
+    for r in rows:
+        if str(r.get("agent") or "").strip() == TEAM_AGENT_TAG:
+            return r
+    return {}
+
+
+def build_team_goals_block(
+    target: GoalsTarget | None,
+    actuals: dict[str, Any],
+    report_date: date,
+    *,
+    upgrades_available: bool = True,
+    upgrades_note: str = "",
+) -> dict[str, Any] | None:
+    """The manager-only team block: same KPIs and weights, no score meter."""
+    return build_agent_goals_block(
+        TEAM_AGENT_TAG,
+        target,
+        actuals,
+        report_date,
+        upgrades_available=upgrades_available,
+        upgrades_note=upgrades_note,
+        include_score=False,
+    )
+
+
 def strip_payload_for_am(payload: dict, agent_name: str) -> dict:
     """File-level isolation: one AM's sections only — no Overview, no other AMs."""
     agents = [a for a in payload.get("agents") or [] if a.get("agentName") == agent_name]
@@ -698,7 +755,10 @@ def strip_payload_for_am(payload: dict, agent_name: str) -> dict:
     goals_meta = dict(payload.get("goalsMeta") or {})
     if goals_meta.get("goalsAmOrder"):
         goals_meta["goalsAmOrder"] = [agent_name]
-    # Drop multi-AM overview / share tables entirely.
+    # Drop multi-AM overview / share tables entirely. Rebuilding from a fixed
+    # key list rather than deleting keys is what keeps manager-only data —
+    # `teamGoals`, `managerGate` — out of an AM's file by construction: a new
+    # manager key has to be opted in here before it can ever leak.
     return {
         "report": report,
         "amShares": [],

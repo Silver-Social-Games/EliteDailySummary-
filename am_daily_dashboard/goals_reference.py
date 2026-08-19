@@ -13,6 +13,8 @@ Columns match elite_goals.tsv exactly except for `day`, so a row can be copied
 across with the headers unchanged. `day` is the as-of day of month and must match
 the report date — a reference captured on the 16th says nothing about the 17th.
 Blank cells simply do not diff.
+
+A `team` row is accepted too, and diffs against the manager's own Team Goals view.
 """
 
 from __future__ import annotations
@@ -21,7 +23,7 @@ import csv
 from dataclasses import dataclass
 from pathlib import Path
 
-from goals import DATA_DIR, GOALS_AGENT_TAGS, parse_number
+from goals import DATA_DIR, GOALS_TARGET_TAGS, parse_number
 
 DEFAULT_REFERENCE_TSV = DATA_DIR / "elite_goals_reference.tsv"
 
@@ -69,7 +71,11 @@ def load_reference_tsv(path: Path | None = None) -> list[ReferenceRow]:
     with path.open(newline="", encoding=encoding) as handle:
         for rec in csv.DictReader(handle, delimiter="\t"):
             agent = (rec.get("Agent Name") or "").strip()
-            if agent not in GOALS_AGENT_TAGS:
+            # `team` is accepted alongside the four AMs so the manager can paste
+            # their own sheet and have the audit diff the team row too — that
+            # gap otherwise has to be decomposed by hand, which is exactly what
+            # cost time when Alon turned out to be missing from the rollup.
+            if agent not in GOALS_TARGET_TAGS:
                 continue
             year, month, day = (
                 _int_cell(rec.get("year")),

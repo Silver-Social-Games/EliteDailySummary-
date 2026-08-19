@@ -6,6 +6,7 @@ from calendar import monthrange
 from datetime import date, timedelta
 
 from elite_lib.bigquery import PROJECT_ID, dashboard_elite_ctes
+from goals import TEAM_AGENT_TAG
 from config import (
     BIG_WINNER_MIN_PLAYER_WIN,
     BIRTHDAYS_LOOKBACK_DAYS,
@@ -470,8 +471,17 @@ ORDER BY agent
 """.strip()
 
 
-# Goals AMs only (Alon omitted). gabriel normalized to gabriel_e in Python.
-GOALS_AGENT_TAGS_SQL = ", ".join(
+# The book this query reads. Alon is in it **only** for the manager's team
+# rollup — the manager owns his portfolio too, and leaving him out understated
+# their Daily Avg Purchase by ~$4,000/day. He has no targets, so
+# `actuals_by_agent` drops his per-agent row and he still gets no Goals section.
+GOALS_BOOK_TAGS_SQL = ", ".join(
+    f"'{t}'"
+    for t in ("coral_s", "gabriel_e", "lee_t", "rachel_a", "gabriel", "alon_tish")
+)
+# The four AMs who carry targets. The month-shape divisors are measured on these
+# only, so adding Alon to the team rollup cannot move anybody's per-AM pace.
+GOALS_SCORED_TAGS_SQL = ", ".join(
     f"'{t}'" for t in ("coral_s", "gabriel_e", "lee_t", "rachel_a", "gabriel")
 )
 
@@ -533,7 +543,13 @@ elite_goals AS (
     account_id,
     CASE WHEN agent = 'gabriel' THEN 'gabriel_e' ELSE agent END AS agent
   FROM elite_am
-  WHERE agent IN ({GOALS_AGENT_TAGS_SQL})
+  WHERE agent IN ({GOALS_BOOK_TAGS_SQL})
+),
+-- Only the four AMs who carry targets. Used for the month-shape reference so
+-- the per-AM pace divisors stay exactly what they were before Alon joined the
+-- team rollup.
+scored_book AS (
+  SELECT account_id FROM elite_goals WHERE agent != 'alon_tish'
 ),
 day_kpi AS (
   SELECT
@@ -570,9 +586,16 @@ day_kpi AS (
   WHERE k.date BETWEEN DATE '{lookback}' AND DATE '{d}'
   GROUP BY k.account_id, k.date
 ),
+-- Every per-agent aggregate below also rolls up to a '{TEAM_AGENT_TAG}' row: the
+-- manager is measured on the four books as one, and ROLLUP computes that over
+-- the *union* of accounts in the same pass, at no extra query cost. It must be
+-- a rollup rather than a sum of the four rows, because Monthly Purchasers,
+-- Reactivations and Active Players are distinct-account counts. ARPPU and
+-- % Active are then rebuilt in Python from these team totals — averaging the
+-- four AM ratios is the classic error and gives a different, wrong answer.
 mtd_kpi AS (
   SELECT
-    e.agent,
+    IFNULL(e.agent, '{TEAM_AGENT_TAG}') AS agent,
     SUM(k.purchased) AS mtd_purchase,
     SUM(k.net_purchase) AS mtd_net_purchase,
     SUM(k.net_purchase_paid_redeem) AS mtd_net_purchase_paid_redeem,
@@ -580,7 +603,7 @@ mtd_kpi AS (
   FROM day_kpi k
   INNER JOIN elite_goals e ON e.account_id = k.account_id
   WHERE k.date BETWEEN DATE '{month_start}' AND DATE '{d}'
-  GROUP BY e.agent
+  GROUP BY ROLLUP(e.agent)
 ),
 -- Reactivation and % Active come from the AMs' Tableau source, not the revenue
 -- KPI view, so the board reports the same number the team is measured on.
@@ -607,7 +630,7 @@ purchase_days AS (
 -- purchase >= params.churn_period_days (20). Counted once per AID in the month.
 reactivations AS (
   SELECT
-    e.agent,
+    IFNULL(e.agent, '{TEAM_AGENT_TAG}') AS agent,
     COUNT(DISTINCT p.account_id) AS reactivations
   FROM purchase_days p
   INNER JOIN elite_goals e ON e.account_id = p.account_id
@@ -615,7 +638,7 @@ reactivations AS (
     AND p.prev_purchase_date IS NOT NULL
     AND DATE_DIFF(p.purchase_date, p.prev_purchase_date, DAY)
         >= {GOALS_REACTIVATION_GAP_DAYS}
-  GROUP BY e.agent
+  GROUP BY ROLLUP(e.agent)
 ),
 -- % Active numerator: still-active players as of the as-of date, i.e. last
 -- successful purchase within GOALS_ACTIVE_LOOKBACK_DAYS. Point-in-time, so it
@@ -633,11 +656,11 @@ recent_buyers AS (
 ),
 active_players AS (
   SELECT
-    e.agent,
+    IFNULL(e.agent, '{TEAM_AGENT_TAG}') AS agent,
     COUNT(DISTINCT r.account_id) AS active_players
   FROM elite_goals e
   INNER JOIN recent_buyers r ON r.account_id = e.account_id
-  GROUP BY e.agent
+  GROUP BY ROLLUP(e.agent)
 ),
 portfolio AS (
   -- % Active denominator is the whole tagged book, locked included. Verified
@@ -645,7 +668,7 @@ portfolio AS (
   -- Rachel 84.4% vs 85.0. portfolio_locked stays exposed so the locked drag is
   -- still visible next to it.
   SELECT
-    e.agent,
+    IFNULL(e.agent, '{TEAM_AGENT_TAG}') AS agent,
     COUNT(DISTINCT e.account_id) AS portfolio_size,
     COUNT(DISTINCT e.account_id) AS portfolio_size_all,
     COUNT(DISTINCT IF(COALESCE(ua.locked, FALSE), e.account_id, NULL))
@@ -653,7 +676,7 @@ portfolio AS (
   FROM elite_goals e
   LEFT JOIN `{PROJECT_ID}.transactional_data.uam_accounts` ua
     ON ua.id = e.account_id
-  GROUP BY e.agent
+  GROUP BY ROLLUP(e.agent)
 ),
 last_prior AS (
   SELECT MAX(snapshot_date) AS snap
@@ -697,15 +720,15 @@ first_agent AS (
 ),
 upgrades AS (
   SELECT
-    f.agent,
+    IFNULL(f.agent, '{TEAM_AGENT_TAG}') AS agent,
     COUNT(*) AS upgrades
   FROM mtd_elite m
   INNER JOIN first_agent f
     ON f.account_id = m.account_id AND f.rn = 1
   LEFT JOIN prior_elite p ON p.account_id = m.account_id
   WHERE p.account_id IS NULL
-    AND f.agent IN ('coral_s', 'gabriel_e', 'lee_t', 'rachel_a')
-  GROUP BY f.agent
+    AND f.agent IN ({GOALS_BOOK_TAGS_SQL})
+  GROUP BY ROLLUP(f.agent)
 ),
 -- Month-shape reference: the two complete months before the report month.
 ref_bounds AS (
@@ -728,6 +751,7 @@ ref_purchasers AS (
                       k.account_id, NULL)) AS to_day,
     COUNT(DISTINCT k.account_id) AS full_month
   FROM day_kpi k
+  INNER JOIN scored_book s ON s.account_id = k.account_id
   CROSS JOIN ref_bounds b
   WHERE k.purchased > 0
     AND k.date BETWEEN b.ms AND b.me
@@ -753,7 +777,7 @@ ref_month_elite AS (
   INNER JOIN `{PROJECT_ID}.dbt_utils.elite_account_tags` t
     ON t.snapshot_date BETWEEN b.ms AND b.me
   WHERE t.category = 'Elite'
-    AND t.tag_agent_1 IN ('coral_s', 'gabriel_e', 'gabriel', 'lee_t', 'rachel_a')
+    AND t.tag_agent_1 IN ({GOALS_SCORED_TAGS_SQL})
   GROUP BY b.ms, t.account_id
 ),
 ref_upgrades AS (

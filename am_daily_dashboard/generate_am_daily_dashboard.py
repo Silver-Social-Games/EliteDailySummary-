@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import re
 import sys
 from datetime import date, timedelta
 from pathlib import Path
@@ -35,11 +34,15 @@ from goals import (  # noqa: E402
     GOALS_AGENT_TAGS,
     INCLUDED_WEIGHT_TOTAL,
     MANAGER_APPRECIATION_MAX,
+    TEAM_AGENT_TAG,
+    TEAM_DISPLAY_NAME,
     actuals_by_agent,
     appreciation_for_month,
     build_agent_goals_block,
+    build_team_goals_block,
     strip_payload_for_am,
     targets_for_month,
+    team_actuals,
 )
 from goals_reference import (  # noqa: E402
     gap_text,
@@ -593,9 +596,15 @@ def focus_for_agent(
     }
 
 
-def build_goals_blocks(report_date: date, client) -> dict[str, dict | None]:
-    """Goals block per AM display name. One query, so `--goals-only` can verify
-    the numbers without paying for the whole board."""
+def build_goals_blocks(
+    report_date: date, client
+) -> tuple[dict[str, dict | None], dict | None]:
+    """Goals blocks per AM display name, plus the manager's team block.
+
+    One query, so `--goals-only` can verify the numbers without paying for the
+    whole board. The team row comes out of the same query's ROLLUP, so the
+    manager view costs nothing extra to compute.
+    """
     print("  Fetching Elite Goals MTD actuals...")
     goals_raw = run_query(
         client,
@@ -644,7 +653,24 @@ def build_goals_blocks(report_date: date, client) -> dict[str, dict | None]:
     for name in AM_ORDER:
         if name not in goals_by_display:
             goals_by_display[name] = None  # Alon
-    return goals_by_display
+    team_block = build_team_goals_block(
+        goals_targets.get(TEAM_AGENT_TAG),
+        team_actuals(goals_raw),
+        report_date,
+        upgrades_available=True,
+        upgrades_note=UPGRADES_NOTE,
+    )
+    if team_block and team_block.get("available"):
+        print(
+            f"    {TEAM_DISPLAY_NAME}: book={team_block.get('portfolioSize')} "
+            f"tracked={team_block.get('weightedTrackedDisplay')}"
+        )
+    elif not goals_targets.get(TEAM_AGENT_TAG):
+        print(
+            f"  No '{TEAM_AGENT_TAG}' target row in elite_goals.tsv for "
+            f"{report_date:%b %Y} — team view will report unavailable"
+        )
+    return goals_by_display, team_block
 
 
 def build_payload(report_date: date, client) -> dict:
@@ -691,7 +717,7 @@ def build_payload(report_date: date, client) -> dict:
     book_by_tag = {r["agent"]: int(r.get("total_players") or 0) for r in book_raw}
     print(f"  AM book sizes: {len(book_by_tag)} agents")
 
-    goals_by_display = build_goals_blocks(report_date, client)
+    goals_by_display, team_goals = build_goals_blocks(report_date, client)
 
     print("  Fetching Elite / Jackpota weekday summary...")
     sql = build_sql(report_date)
@@ -825,42 +851,11 @@ def build_payload(report_date: date, client) -> dict:
             "asOf": report_date.isoformat(),
             "goalsAmOrder": GOALS_AM_ORDER,
         },
-        # Manager-only. strip_payload_for_am rebuilds the payload from a fixed
-        # key list, so this never reaches a per-AM file.
+        # Manager-only, both of them. strip_payload_for_am rebuilds the payload
+        # from a fixed key list, so neither reaches a per-AM file.
+        "teamGoals": team_goals,
         "managerGate": manager_gate_token(),
     }
-
-
-DATE_RE = re.compile(r"^(\d{4}-\d{2}-\d{2})_elite_am_brief(?:_([a-z]+))?\.html$")
-
-
-def archive_entries(slug: str = "", report_date: str = "") -> list[dict[str, str]]:
-    """Dates that already have a brief HTML on disk, for the calendar control.
-
-    Built by listing the export folder rather than by walking back N days: the
-    board is not generated every day (Fri/Sat are skipped, and runs get missed),
-    so any date we compute rather than observe risks a dead link. `slug` selects
-    the audience — "" is the manager file, otherwise that AM's own files, since
-    an AM must never be offered a day their file does not exist for.
-    """
-    seen: dict[str, str] = {}
-    if OUTPUT_DIR.exists():
-        for path in OUTPUT_DIR.glob("*_elite_am_brief*.html"):
-            m = DATE_RE.match(path.name)
-            if m and (m.group(2) or "") == slug:
-                seen[m.group(1)] = path.name
-    if report_date:
-        seen[report_date] = (
-            f"{report_date}_elite_am_brief{f'_{slug}' if slug else ''}.html"
-        )
-    return [{"d": d, "f": seen[d]} for d in sorted(seen)]
-
-
-def with_archive(payload: dict, slug: str = "") -> dict:
-    """Copy of the payload whose report carries the archive list for `slug`."""
-    report = dict(payload.get("report") or {})
-    report["archive"] = archive_entries(slug, str(report.get("date") or ""))
-    return {**payload, "report": report}
 
 
 def write_outputs(
@@ -872,7 +867,7 @@ def write_outputs(
     canvas_path = canvas_dir / f"elite-am-brief-{d}.canvas.tsx"
     canvas_path.write_text(render_am_brief_canvas(payload), encoding="utf-8")
     html_path = OUTPUT_DIR / f"{d}_elite_am_brief.html"
-    write_am_brief_html(with_archive(payload), html_path)
+    write_am_brief_html(payload, html_path)
     json_path = OUTPUT_DIR / f"{d}_elite_am_brief.json"
     json_path.write_text(
         json.dumps(payload, indent=2, default=str),
@@ -887,20 +882,19 @@ def write_outputs(
     # Dateless copies so a bookmark survives to tomorrow. The dated file stays
     # the archive; these are overwritten every run and are what people open.
     latest_paths: list[Path] = [OUTPUT_DIR / "elite_am_brief.html"]
-    write_am_brief_html(with_archive(payload), latest_paths[0])
+    write_am_brief_html(payload, latest_paths[0])
     for name in GOALS_AM_ORDER:
         slug = name.lower()
         am_payload = strip_payload_for_am(payload, name)
-        am_with_archive = with_archive(am_payload, slug)
         am_html = OUTPUT_DIR / f"{d}_elite_am_brief_{slug}.html"
         am_json = OUTPUT_DIR / f"{d}_elite_am_brief_{slug}.json"
-        write_am_brief_html(am_with_archive, am_html)
+        write_am_brief_html(am_payload, am_html)
         am_json.write_text(
             json.dumps(am_payload, indent=2, default=str),
             encoding="utf-8",
         )
         am_latest = OUTPUT_DIR / f"elite_am_brief_{slug}.html"
-        write_am_brief_html(am_with_archive, am_latest)
+        write_am_brief_html(am_payload, am_latest)
         latest_paths.append(am_latest)
         am_canvas = canvas_dir / f"elite-am-brief-{d}-{slug}.canvas.tsx"
         am_canvas.write_text(render_am_brief_canvas(am_payload), encoding="utf-8")
@@ -913,6 +907,43 @@ def write_outputs(
     return canvas_path, html_path
 
 
+def rebuild_html_from_json(report_date: date, *, publish: bool = False) -> Path:
+    """Rewrite every HTML file for a date from the saved payload, no query.
+
+    Editing the web shell used to mean a full ~90s run against BigQuery just to
+    see the change, and the saved JSON already holds everything the HTML needs.
+    Per-AM files are re-derived with strip_payload_for_am rather than read from
+    their own JSONs, so this cannot drift from what a real run produces.
+    """
+    d = report_date.isoformat()
+    json_path = OUTPUT_DIR / f"{d}_elite_am_brief.json"
+    if not json_path.exists():
+        raise SystemExit(
+            f"No saved payload for {d}: {json_path}\n"
+            "Run without --html-only once to fetch the data."
+        )
+    payload = json.loads(json_path.read_text(encoding="utf-8"))
+    written: list[Path] = []
+    manager_dated = OUTPUT_DIR / f"{d}_elite_am_brief.html"
+    for path in (manager_dated, OUTPUT_DIR / "elite_am_brief.html"):
+        write_am_brief_html(payload, path)
+        written.append(path)
+    for name in GOALS_AM_ORDER:
+        slug = name.lower()
+        am_payload = strip_payload_for_am(payload, name)
+        for path in (
+            OUTPUT_DIR / f"{d}_elite_am_brief_{slug}.html",
+            OUTPUT_DIR / f"elite_am_brief_{slug}.html",
+        ):
+            write_am_brief_html(am_payload, path)
+            written.append(path)
+    print(f"Rebuilt {len(written)} HTML files from {json_path.name} (no query)")
+    if publish:
+        publish_am_brief(manager_dated)
+    mirror_to_cursor("am_brief", *written)
+    return manager_dated
+
+
 def print_goals_audit(payload: dict) -> None:
     """Compact audit table for verification against external Goals sheet.
 
@@ -921,6 +952,13 @@ def print_goals_audit(payload: dict) -> None:
     in the audit itself rather than in a manual read-out. See goals_reference.py.
     """
     reference = load_reference_tsv()
+    # The team block lives outside `agents` (it is manager-only), so append it
+    # here rather than at each call site — otherwise a full run audits four AMs
+    # while --goals-only audits five.
+    rows = list(payload.get("agents") or [])
+    team = payload.get("teamGoals")
+    if team and not any(a.get("agentName") == TEAM_DISPLAY_NAME for a in rows):
+        rows.append({"agentName": TEAM_DISPLAY_NAME, "goals": team})
     print("\n=== Goals audit (as of report date) ===")
     has_ref = bool(reference)
     header = (
@@ -931,7 +969,7 @@ def print_goals_audit(payload: dict) -> None:
         header += f" {'Yours':>12} {'Gap':>16}"
     print(header)
     print("-" * len(header))
-    for a in payload.get("agents") or []:
+    for a in rows:
         goals = a.get("goals")
         if not goals or not goals.get("available"):
             continue
@@ -1002,18 +1040,28 @@ def main() -> None:
         help="Print the Goals audit from one query and exit; writes no files. "
         "Use to check Goal/MTD/Pace against an external sheet.",
     )
+    parser.add_argument(
+        "--html-only",
+        action="store_true",
+        help="Rebuild every HTML file for the date from the saved JSON, with no "
+        "BigQuery query (~3s vs ~90s). Use after editing the web shell.",
+    )
     args = parser.parse_args()
     report_date = resolve_report_date(args.date)
+    if args.html_only:
+        rebuild_html_from_json(report_date, publish=args.publish)
+        return
     client = get_client()
     if args.goals_only:
-        goals = build_goals_blocks(report_date, client)
+        goals, team_goals = build_goals_blocks(report_date, client)
         print_goals_audit(
             {
                 "agents": [
                     {"agentName": name, "goals": block}
                     for name, block in goals.items()
                     if block
-                ]
+                ],
+                "teamGoals": team_goals,
             }
         )
         return
