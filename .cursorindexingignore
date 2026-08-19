@@ -1,0 +1,42 @@
+# Excluded from Cursor's codebase index (still readable if explicitly needed).
+# Generated, reproducible artifacts — several are 0.3-1.1 MB of HTML/JSON.
+# Verify AM Brief output with am_daily_dashboard/verify_brief.py instead of
+# reading these files.
+
+am_daily_dashboard/exports/
+am_daily_dashboard/handoffs/
+automated_offers_buckets/exports/
+campaign_email_readers/exports/
+campaign_email_readers/handoffs/
+crm_offer_calendar/handoffs/
+daily_summary/daily_summaries/
+daily_summary/handoffs/
+daily_summary/logs/
+decline_protocol/decline_protocols/
+declining_fri_sat_promo/exports/
+feedback_cro/exports/
+feedback_cro/handoffs/
+last_push_60d/exports/
+last_push_60d/handoffs/
+last_push_60d/logs/
+new_elite_players_adding/exports/
+purchase_lookup/exports/
+purchase_lookup/handoffs/
+vip_event/exports/
+vip_event/handoffs/
+wow_drop_analysis/exports/
+wow_drop_analysis/handoffs/
+exports/
+docs/
+
+*.xlsx
+*.pptx
+*.png
+*.jpg
+
+__pycache__/
+*.pyc
+node_modules/
+.venv/
+out.txt
+out2.txt

@@ -1,0 +1,13 @@
+{
+  "name": "am-brief-render-tests",
+  "private": true,
+  "type": "module",
+  "description": "jsdom render tests for the standalone Elite AM Brief HTML (elite_am_brief_web.html). No BigQuery, no committed fixtures — see README.md.",
+  "scripts": {
+    "pretest": "python ../testing/build_fixtures.py",
+    "test": "node --test render.test.mjs"
+  },
+  "devDependencies": {
+    "jsdom": "^30.0.1"
+  }
+}

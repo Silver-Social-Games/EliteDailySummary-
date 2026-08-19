@@ -34,6 +34,14 @@ exports/
 !.cursor/skills/**
 
 # Initiative source is versioned; generated or source-data artifacts are ignored.
+am_daily_dashboard/exports/
+am_daily_dashboard/handoffs/*
+!am_daily_dashboard/handoffs/elite_am_brief_web.html
+am_daily_dashboard/tests_js/node_modules/
+am_daily_dashboard/tests_js/fixtures/
+automated_offers_buckets/exports/
+crm_offer_calendar/handoffs/
+crm_offer_calendar/data/
 ceo_h1_slide/
 last_push_60d/exports/
 last_push_60d/handoffs/
@@ -44,6 +52,8 @@ purchase_lookup/handoffs/
 vip_event/data/
 vip_event/exports/
 vip_event/handoffs/
+campaign_email_readers/exports/
+campaign_email_readers/handoffs/
 declining_fri_sat_promo/exports/
 new_elite_players_adding/data/
 new_elite_players_adding/exports/
@@ -53,6 +63,8 @@ new_elite_players_adding/*.csv
 new_elite_players_adding/*.xlsx
 slide_removed.png
 Elite.code-workspace
+out.txt
+out2.txt
 
 # Node
 node_modules/

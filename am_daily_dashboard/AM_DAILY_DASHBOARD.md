@@ -11,30 +11,187 @@ Morning board for Coral, Gabriel, Lee, Rachel, and Alon — complementary to the
 Read this section plus the Skill (`.cursor/skills/elite-am-brief/SKILL.md`) and you
 have the current state. Everything below is detail and history.
 
+### Pick up here — next session
+
+**Architectural hardening is in progress, started 2026-08-19, before Big
+Winners (Batch 8 item 3).** The user asked for a code review of the whole AM
+Brief product with three explicit asks: no "spaghetti JS risk," easy to
+extend, and render tests to stay safe while doing it. Decision made with the
+user: **the standalone HTML (`handoffs/elite_am_brief_web.html`) is the
+canonical product.** Canvas and Streamlit are compatibility-only and do not
+block this work.
+
+Five phases, phase 0 done:
+
+- [x] **Phase 0 — render test harness (done 2026-08-19).** Committed jsdom
+  suite lives in `tests_js/` (`render.test.mjs`, `README.md`,
+  `package.json`) with Python fixtures in `testing/` (`payload_fixtures.py`
+  builds payloads via the real production section builders — no BigQuery, no
+  committed JSON; `build_fixtures.py` writes them through the real
+  `write_am_brief_html`, so a payload-contract change breaks a fixture, not a
+  silent drift). 10 tests: blank-board + full nav coverage across three
+  boards (manager / single-AM / all-empty), per-AM isolation, manager gate
+  locked-then-unlocked, scored-vs-unscored score meter, archive calendar
+  month-scoping, and Open Tickets pagination/search. `npm test` from
+  `tests_js/` runs it standalone; `python -m unittest discover -s
+  am_daily_dashboard` also runs it via `test_render_js.py` (skips cleanly, not
+  a failure, if Node isn't on PATH). **`verify_brief.py --render-check`** now
+  additionally renders *today's real* generated HTML in the same way and
+  prints PASS/FAIL per nav item — closes the gap where a payload-correct,
+  JS-broken board could still pass every existing check.
+- [x] **Phase 1 (partial) — `</script>` escape, done 2026-08-19.**
+  `elite_lib/html_export.py` now escapes `</` to `<\/` in the injected JSON so
+  a stray `</script>` in any field (an AID note, a ticket subject) cannot
+  corrupt the page. Still open from Phase 1: nothing blocking — this was the
+  one safety fix worth doing immediately; the rest of Phase 1 is documentation
+  (this file already states HTML-canonical above).
+- [ ] **Phase 2 — de-spaghetti the inline JS.** `handoffs/elite_am_brief_web.html`
+  carries ~1,350 lines of inline `<script>` with global mutable state
+  (`app.*`), ad hoc event binding, and per-view render functions all in one
+  block. Plan: split into modular TS files bundled by esbuild into one
+  offline `<script>` (output must stay a single self-contained HTML file —
+  that is non-negotiable, OneDrive/offline use depends on it). Do this
+  *with* the Phase 0 suite running after every extraction step, not before
+  it exists — that ordering is why Phase 0 went first.
+- [ ] **Phase 3 — extract payload builders out of
+  `generate_am_daily_dashboard.py`** (currently a god-module) into their own
+  testable functions (e.g. `build_top10_section`, `build_rd_section`,
+  `focus_for_agent`, `greeting_lines`), with unit tests alongside the
+  existing `test_goals.py` style.
+  Also worth folding in here: `queries.py` builds dates into SQL via
+  f-string interpolation rather than parameters — low risk today (no
+  user-supplied dates reach it) but worth tightening while touching this file.
+- [ ] **Phase 4 — re-run `verify_brief.py --render-check` + the render suite**,
+  update `.cursor/skills/elite-am-brief/SKILL.md` routing for the new
+  `tests_js/`/`testing/` layout, then resume **Batch 8 item 3 (Big Winners)**
+  below.
+
+**Model guidance settled with the user 2026-08-19:** use a stronger/thinking
+model for Phase 2 (the JS refactor — real architectural risk, easy to
+introduce a subtle behavior change across ~1,350 lines) and Phase 3 (payload
+extraction touching the god-module). Phase 0 (this session) and Phase 4
+(mechanical verification + doc updates) are cheap and fine on a faster model.
+Switch up only for phases 2–3.
+
+**Nothing from Batches 10–11 is half-finished** — both were verified end to
+end on 2026-08-18 and every question they left open has been answered.
+
+**Batch 11 (manager team-total Goals view) is done and verified** — see *Team
+Goals* below for the model and every decision the user made. The generator was
+re-run for `--date 2026-08-17` after the final change and the output asserted in a
+real DOM; exports and the Elite_Cursor mirror are current as of 19:03.
+
+**One thing is worth raising with the user in the next session, and only that:**
+the team's Daily Avg Purchase still reads ~$377/day (0.18%) above their own sheet,
+and net ~$118/day (0.12%). This is diagnosed, not open — it decomposes into
+Rachel's known stale reference row and a $201/day difference on Alon, and Alon's
+net matches their sheet to the dollar. **Do not re-investigate it without a fresh
+sheet from them.** Ask for an updated table (theirs and Rachel's) and paste it into
+`data/elite_goals_reference.tsv` — which now accepts a **`team`** row, so
+`--goals-only` prints `Yours` and `Gap` for the manager's own line and the
+decomposition no longer has to be done by hand. That closes it in six seconds.
+
+**Start with Batch 8 item 3, Big Winners ≥ $20K** — worked one at a time with the
+user, as items 1 and 2 were. Its scope is already settled (players at ≤ −$20,000 GGR
+on the past day, with how much they redeemed and which game the win happened on;
+**non-Elite players included**, shown in **every AM's own view**, and the non-Elite
+rows labelled). Still to do: ask where it lives in `VIEWS` (its own section, Risk or
+Operations), and mock it.
+
+Then Batch 8 items 4 and 5, then Batch 9. Item 4 needs one decision (a column on an
+existing section, or its own). Item 5's weights are settled but its **ticket topic
+set must be defined with the user** before it can be built.
+
+**Remember the GGR sign** before touching item 3: `Elite.MD` defines GGR as
+`profit − loss` from the house's side, so a player's big win is a **negative** GGR
+day. Read it backwards and the whole section inverts.
+
+**Two small carry-overs**, neither blocking:
+
+- **Rachel's row in `data/elite_goals_reference.tsv` is stale** and will keep
+  reporting a ~0.4% gap that no code change can close, because her sheet predates a
+  backdated assignment. Ask her for a fresh table and replace the row. Do not
+  "investigate" that gap again — it is diagnosed in *A pinned re-run is not perfectly
+  reproducible*.
+- `exports/2026-07-27_elite_am_focus.html` / `.json` are orphans from the board's
+  original "Elite AM Focus" name, superseded by the same day's Brief files. Offered
+  for deletion 2026-08-18; the user did not decide, so they were left in place.
+
+**Working state.** The 2026-08-18 changes are **on disk and not committed** — no
+commit was requested. The repo carries many unrelated modified files from earlier
+sessions, so these are the ones that belong to this work:
+
+| File | Change |
+|---|---|
+| `am_daily_dashboard/canvas_to_html.py` | `archive_entries` / `with_archive` / `audience_slug` moved here; the writer attaches the archive; `convert()` keeps a per-AM name |
+| `am_daily_dashboard/generate_am_daily_dashboard.py` | its archive copy removed, `--html-only` added; team block built and put on the payload; audit includes Team |
+| `am_daily_dashboard/goals.py` | `TEAM_AGENT_TAG`, `build_team_goals_block`, `team_actuals`, `include_score` |
+| `am_daily_dashboard/queries.py` | `GROUP BY ROLLUP` on the five Goals aggregates; `GOALS_BOOK_TAGS_SQL` (Alon in) vs `GOALS_SCORED_TAGS_SQL` + `scored_book` (shapes unchanged) |
+| `am_daily_dashboard/data/elite_goals.tsv` | three `team` rows (Jul/Aug/Sep 2026) |
+| `am_daily_dashboard/handoffs/elite_am_brief_web.html` | `sessionStorage` guarded; Team Goals view + Dashboard card |
+| `am_daily_dashboard/goals_reference.py` | accepts a `team` row, so the manager's own sheet self-diffs |
+| `am_daily_dashboard/test_goals.py` | +22 tests (60 total) |
+| `AM_DAILY_DASHBOARD.md` + `.cursor/skills/elite-am-brief/SKILL.md` | this write-up |
+
+Run `python -m unittest discover -s am_daily_dashboard` (60 tests) to confirm the
+tree is sound before building on it. The jsdom harness used for the verification
+lived in a temp folder and is gone; the recipe to recreate it is below under *Verify
+rendering in a DOM*.
+
 **State as of 2026-08-18.** Eleven sections per AM tab, plus Overview for the
 manager. Elite Goals is built and reconciled: Daily Avg Purchase, Daily Avg Net
-Purchase and Monthly Purchasers match the AMs' own table **exactly** for all four,
-% Active lands within a point, and Upgrade to Elite is **knowingly wrong** and must
-not be treated as scored. Batches 1 and 3–4 are done; Batch 5 was built and then
-reverted at the user's request.
+Purchase and Monthly Purchasers match the AMs' own table **exactly** for Coral,
+Gabriel and Lee (Rachel now differs by one backdated assignment — see *A pinned
+re-run is not perfectly reproducible*), % Active lands within a point, and Upgrade
+to Elite is **knowingly wrong** and must not be treated as scored. Batches 1 and
+3–4 are done; Batch 5 was built and then reverted at the user's request.
 
 Batch 8 items 1 (Top Purchasers price ladder) and 2 (Pending Redemptions big winner
 + docs) shipped 2026-08-18.
 
-**Batch 10 (score out of 100 + archive calendar) is code-complete but NOT yet
-verified end to end.** Written 2026-08-18 and left at exactly that point when the
-session ran out of context. Unit tests (38) pass and the HTML JS syntax-checks, but
-**the generator has not been run since these edits**. First action in a new chat:
+**Batch 10 (score out of 100 + archive calendar) is verified end to end
+(2026-08-18).** The generator was run for `--date 2026-08-17`, and the generated
+files were then rendered in a real DOM and asserted against, not eyeballed. All
+three acceptance checks pass: every AM's Goals card reads `NN.N / 80` with a dashed
+empty manager track and a `Manager Pending` legend, the topbar calendar opens with
+only existing days clickable and navigates to them, and the dateless
+`elite_am_brief_<slug>.html` files exist and mirror to Elite_Cursor. Unit tests are
+now **50** (38 + 12 new archive/audience tests, minus consolidation). Three real
+defects were found by verifying rather than assuming — all fixed, all described
+below: the standalone JSON refresh produced a calendar-less file, a per-AM refresh
+could overwrite the manager brief, and one unguarded `sessionStorage` read could
+blank the entire board.
 
-```
-python am_daily_dashboard/generate_am_daily_dashboard.py --date 2026-08-17
+**Verify rendering in a DOM, not by grepping the HTML.** The legend, the score
+meter and the calendar are all built at runtime from the payload, so the literal
+string `Manager Pending` does not appear anywhere in the file — searching for it
+returns zero and proves nothing. Set up a scratch harness outside the repo:
+
+```bash
+mkdir %TEMP%\ambrief-verify && cd %TEMP%\ambrief-verify
+npm init -y && npm install jsdom
 ```
 
-then confirm (a) every AM's Goals card reads `NN.N / 80` with a dashed empty
-manager track and the legend saying `Manager Pending`, (b) the topbar calendar
-opens and a highlighted day navigates to that day's file, (c) the dateless
-`elite_am_brief_<slug>.html` files exist and mirror to Elite_Cursor. See
-*Score out of 100* and *Archive calendar* below for what was built and why.
+then load the generated file with `runScripts: "dangerously"`, click through
+`[data-go="<view>"]` / `[data-agent="<AM>"]` / `#calBtn`, and assert on elements
+(`.goal-pct`, `.trk.mgr.pending`, `.score-legend`, `.cal-day.has`). Four traps, each
+of which cost time on 2026-08-18:
+
+- Use a normal `https://` document URL. A `file://` URL is an opaque origin where
+  jsdom throws on `sessionStorage`, and the board rendered 0 characters.
+- Test the day-click navigation **last**. jsdom cannot navigate, and the failed
+  attempt leaves the window inert, so every later assertion passes vacuously.
+- To reach the gated Dashboard, seed `sessionStorage` with the payload's own
+  `managerGate` value before executing the script (`runScripts: "outside-only"`,
+  then `window.eval` the inline script). Do not try to guess the passcode.
+- Do not assert on exact CSS percentage strings — jsdom normalises `87.50%` to
+  `87.5%`, which reads as a failure when nothing is wrong.
+
+To exercise a state the data does not currently contain — a **scored** AM, since
+nobody is scored yet — patch a real payload through `goals.build_score_block` and
+write it with `write_am_brief_html` to a **temp path**. Never write a dated file into
+`exports/`: the archive is built by listing that folder, so a test file becomes a
+fake archive entry.
 
 **Batch 7 is done — close it, do not build it.** All four asks exist in the
 standalone HTML: left sidebar nav, manager-only gated dashboard, inline SVG icons,
@@ -43,9 +200,9 @@ and table pagination (`paginate()`, wired generically through `tableCard` /
 outstanding. The canvas and Streamlit implementations do not have the sidebar, so
 they have drifted, but that is the known architecture gap, not Batch 7 work.
 
-**Next up:** Batch 8 items 3–5, one at a time. Item 5's weights are settled but its
-ticket-topic set still needs defining with the user; items 3–4 carry a presentation
-question each. Then Batch 9 (trending games, dormant favourite game).
+**Three long-open questions were closed on 2026-08-18** — see the settled table
+below: leaderboard ranking, scheduling, and file retention. Nothing about Batch 10
+is outstanding now.
 
 **Blocked:** Zendesk auto-create (waiting on API credentials) and the "one month
 since AM assignment" rule (definition never settled).
@@ -67,10 +224,20 @@ the sections named.
 | Upgrade to Elite | Unreconciled; every tried definition is listed. Do not adopt the 60-day fit. |
 | Score = 80 + 20 | KPI points out of 80 plus the manager's 20, total 100. An unscored AM reads `/80`, **never** `/100`. → *Score out of 100* |
 | Two score tracks | The 80 and the 20 are separate bars with a gap and rounded ends. Do not merge them. → *Score out of 100* |
-| Archive dates | Built by listing the folder, never by date arithmetic. Per audience, so an AM is only offered days their own file exists for. → *Archive calendar* |
+| Archive dates | Built by listing the folder, never by date arithmetic. Per audience, so an AM is only offered days their own file exists for, and the audience comes from the **payload**, not the filename. → *Archive calendar* |
+| Late-recorded assignments | A pinned re-run can gain an account whose assignment was backdated, so a sub-1% gap on one AM is expected, not a regression. Never exclude accounts first tagged after the as-of date. → *A pinned re-run is not perfectly reproducible* |
+| Leaderboard ranking | Rank on `totalPctOfMax` including mixed scored/unscored, accepted knowing an unscored AM can outrank a scored one. → *Score out of 100* |
+| Scheduling | AM Brief stays **manual** — it does not join the Sun–Thu 10:00 task. Run it on request. |
+| File retention | **Keep every dated file, no pruning.** Space is negligible (~27 MB/month) and a deleted day cannot be faithfully recreated, since a re-run can return different numbers. → *Archive calendar* |
 | Docs column blank | We can only prove "no ticket names a missing document", never that documents are complete. No green all-clear. → *Pending Redemptions big winner and docs* |
+| Team targets | Loaded from their own `team` rows, **never** summed from the four AM rows — they do not match. → *Team Goals* |
+| Team book includes Alon | The manager owns his portfolio; excluding him understated Daily Avg Purchase ~$4,000/day. He still gets no targets and no Goals section. → *Team Goals* |
+| Shape divisors exclude Alon | Measured on the four scored AMs only, so widening the team book cannot move an AM's own pace. → *Team Goals* |
+| Team has no score meter | User's call, 2026-08-18: the team view carries **no** 80 + 20 meter and no `/80`. The KPI table stands alone. → *Team Goals* |
+| No per-AM breakdown on the team view | Built, shown, and dropped — "my team goals are not an add up of my employees". → *Team Goals* |
+| Team ratios | ARPPU and % Active are rebuilt from book totals, never averaged across the AMs. → *Team Goals* |
 
-### Two habits that caused the two worst mistakes here
+### Three habits that caused the worst mistakes here
 
 - **Reconcile with the reference file, not by reading numbers aloud.** Paste the
  AM's figures into `data/elite_goals_reference.tsv` and `--goals-only` prints the
@@ -93,9 +260,18 @@ the sections named.
 cd "c:\Users\Owner\Downloads\Elite"
 python am_daily_dashboard/generate_am_daily_dashboard.py
 python am_daily_dashboard/generate_am_daily_dashboard.py --date 2026-07-27
+python am_daily_dashboard/generate_am_daily_dashboard.py --date 2026-07-27 --html-only
 ```
 
-Default report date = **yesterday**.
+Default report date = **yesterday**. The brief is **manual by design** — it is not
+part of the Sun–Thu 10:00 scheduled task (settled 2026-08-18).
+
+**`--html-only` rebuilds all ten HTML files from that date's saved JSON with no
+BigQuery query** (~3s vs ~90s), then mirrors them. Reach for it after every edit to
+`handoffs/elite_am_brief_web.html`; a full run only exists to fetch data. Per-AM
+files are re-derived through `strip_payload_for_am` rather than read back from their
+own JSONs, so the output cannot drift from a real run. It refuses to guess if the
+date's JSON is missing.
 
 AM Brief does **not** publish to GitHub Pages. Open the HTML from
 `VIP\Elite_Cursor\AM Brief` (a working copy also stays in
@@ -128,6 +304,11 @@ python am_daily_dashboard/canvas_to_html.py am_daily_dashboard/exports/YYYY-MM-D
 1. Greeting (once)
 2. **Elite & Jackpota** weekday summary + **AM Share Of Elite** (incl. Purchased Of Portfolio)
 3. AM Overview metrics (click AM pill → that AM tab only)
+
+### Manager only (gated, never in a per-AM file)
+1. **Manager Dashboard** — roll-up cards, Team Goals card, Goals Leaderboard, AM Share, AM Overview
+2. **Team Goals** — the whole managed book (Alon included) against the manager's own
+   targets. **No** score meter and **no** per-AM breakdown. See *Team Goals* below
 
 ### Per AM tab
 1. Empowering intro with AM share of Elite + purchased players out of book
@@ -356,6 +537,38 @@ it changes nothing).
 **Not** an upgrade definition: `agent_start_managed_date` inside the month gives
 38/43/46/24 against the AM's 8/6/7/9. Use it to date *membership*, never to score
 upgrades — see the Goals definitions section for everything already ruled out.
+
+#### A pinned re-run is not perfectly reproducible, and that is not a bug
+
+Pinning fixed the large drift, but it cannot fix all of it, so **do not treat a
+small gap against a reference row as a regression to hunt.** Both fields the pin
+relies on — `agent_name` and `agent_start_managed_date` — are current state that
+can be written *later* with a date *earlier* than the as-of. When an assignment is
+recorded after the fact, a re-run of the same past date legitimately gains an
+account it did not have before.
+
+Measured on the 2026-08-18 re-run of `--date 2026-08-17`: Rachel's book read 562
+against the 561 recorded above, and her Daily Avg Purchase came out $177/day over
+her own table. That is **exactly one account** — AID 476756100, managed date
+2026-08-15, first tag snapshot 2026-08-18, $3,009.21 MTD, and `$3,009.21 / 17 =
+$177.01`. Her sheet was captured before that assignment record existed, so the
+board is now arguably the more correct of the two; the reference row is simply
+older than the roster.
+
+**Do not "fix" this by excluding accounts first tagged after the as-of date.** That
+rule is already rejected above and this run shows why again: Gabriel has two such
+accounts (AIDs 202295060 and 70046940, both managed 2026-08-17, first tagged
+2026-08-18) worth $1,823/day, and he reconciles to the dollar **with** them. The
+same shape of account is right for him and late for her, and no rule reading tag
+history can tell the two apart.
+
+Practical consequence: when the audit shows a sub-1% gap on one AM only, check the
+book for a late-recorded assignment before suspecting the KPI. The diagnostic is a
+join of the pinned book against `MIN(snapshot_date)` per account, filtered to
+`first_snapshot > as_of`. And refresh
+[`data/elite_goals_reference.tsv`](data/elite_goals_reference.tsv) when an AM
+re-sends their table — a stale row will keep reporting a gap that no code change
+can close.
 
 ### Tableau is the source of truth for Reactivation and % Active
 
@@ -614,12 +827,118 @@ end, so it's clear"*). Do not merge them back into a single continuous meter.
   unscored one out of 80, so ranking by point total would sort every unscored AM
   last by default.
 
+**Settled 2026-08-18: rank everyone on `totalPctOfMax`, mixed states included.**
+The consequence was put to the user explicitly and accepted, so do not "fix" it
+later: while only some AMs are scored the leaderboard compares two denominators, and
+an unscored AM can outrank a scored one. Rendered with two AMs scored, unscored Lee
+at `75.8 / 80` (94.8%) ranks **first**, above Coral at `93.1 / 100` and above
+Gabriel, who holds a perfect `20.0 / 20`. Rejected alternatives: ranking only fully
+scored AMs with the rest listed separately, and ranking on KPI points alone.
+
+The scored branch is verified working (2026-08-18): `/100` denominators, violet fill
+sized to the award, points clamped so an input of 26 renders `20.0 / 20`, and the
+per-AM note displayed.
+
 **Streamlit does not render Goals at all** — it never did, so there was no drift to
 fix. If Goals is ever added there, it needs this two-track treatment too.
 
 Tests: `ManagerAppreciationTests` in `test_goals.py` covers clamping, blank-means-
 unscored, missing file, header-only file, the `/80` vs `/100` denominators, and the
 unavailable-KPI case.
+
+---
+
+## Team Goals — the manager's own view
+
+Built 2026-08-18 (Batch 11), answering *"We also need to show the total goals of AM
+together… that's only for me: these are my goals consisted of all my team
+together."* Manager-only: a `team` entry in `VIEWS` with `managerOnly` +
+`gated`, plus a summary card on the Manager Dashboard.
+
+**The targets are given, not derived. The user restated this while it was being
+built: "my team goals are not an add up of my employees — just present the goals
+and update progress accordingly."** They live as `team` rows in
+[`data/elite_goals.tsv`](data/elite_goals.tsv) (Jul/Aug/Sep 2026), loaded through
+the same `targets_for_month`. Never compute them from the AM rows — for Aug 2026
+the sheet asks $210,000/day against 4 × $51,000 = $204,000, 2,250 purchasers
+against 2,184, 220 reactivations against 212 and 200 upgrades against 196.
+`TeamGoalsTests.test_team_targets_load_and_are_not_the_sum_of_the_ams` pins that
+difference so a future "simplification" fails loudly.
+
+Same seven KPIs, same weights, same pace strategies, same status thresholds — so
+`build_team_goals_block` is a thin wrapper over `build_agent_goals_block` rather
+than a parallel implementation.
+
+**No score meter, by the user's decision.** The team view carries no 80 + 20
+meter, no `/80` and no `Manager Pending` legend; the KPI table stands on its own.
+The manager's 20 points are an award they make to an AM, and there is nobody to
+award the team's. `include_score=False` omits the `score` key entirely rather than
+emitting an empty one, so a renderer cannot accidentally draw a zeroed meter.
+
+**The team book is all five AMs — Alon included.** The manager owns his
+portfolio too, so the rollup covers the whole managed book even though Alon has no
+targets and no Goals section. This was **wrong in the first build and the user
+caught it**: excluding him understated Daily Avg Purchase by about $4,000/day
+($203,619 against their $207,620). `GOALS_BOOK_TAGS_SQL` now carries `alon_tish`;
+`actuals_by_agent` still filters to the four scored tags, so his per-agent row is
+discarded and he gains no Goals block. Adding a sixth AM later means adding the tag
+in one place.
+
+**But the month-shape divisors stay measured on the four scored AMs**, via the
+`scored_book` CTE. Otherwise widening the book would have silently moved every
+AM's own Monthly Purchasers pace, and therefore their score — a change nobody
+asked for. Verified: Coral and Lee reconcile to the dollar before and after Alon
+joined the rollup. The team then paces on a four-AM shape, which is a deliberate
+approximation; the shape is a share-of-month ratio and is stable across books.
+
+**The actuals come from a ROLLUP, so the view costs no extra query.** Five
+aggregates in `goals_mtd_actuals_sql` — `mtd_kpi`, `reactivations`,
+`active_players`, `portfolio`, `upgrades` — `GROUP BY ROLLUP(agent)` and emit a
+`'team'` row alongside the per-agent ones. It must be a rollup over the *union of
+accounts*, not a sum of rows, because Monthly Purchasers, Reactivations and Active
+Players are distinct-account counts. The 2026-08-17 run happens to show the two
+agreeing on the four scored AMs (purchasers 1,874 = 482+482+476+434), which
+confirms the books are disjoint — but that is a property of the data on one day,
+not a rule to lean on.
+
+**Residual against the manager's own figures (2026-08-17), and it is the known
+late-assignment effect, not a bug.** Board $207,997/day against their $207,620
+(+0.18%) and net $99,132 against $99,014 (+0.12%). It decomposes exactly:
+Rachel +$177/day, the stale reference row already documented under *A pinned
+re-run is not perfectly reproducible*, and Alon +$201/day. Alon's **net**
+contribution matches their sheet to the dollar ($2,436/day), which is the strongest
+evidence his book is now included correctly. Two accounts in Rachel's pinned book
+were first tagged 2026-08-18 ($261/day between them). Do not hunt this further
+without a fresh sheet from the user.
+
+**ARPPU and % Active must be rebuilt from team totals, and this is not
+theoretical.** `build_agent_goals_block` already derives both from the totals it
+is handed, so passing it the team row is enough. Averaging the four AM figures
+would invert the answer: on 2026-08-17 team ARPPU paces $3,128 and reads **On
+track**, while Gabriel's own ARPPU reads Behind. Note the sheet agrees with this
+reading — team ARPPU (2,900) and team % Active (96%) are the *same* figures as the
+per-AM sheet rather than four times them, precisely because they are ratios.
+
+**No per-AM contribution breakdown.** One was built and shown, and the user
+dropped it: *"my team goals are not an add up of my employees."* The Goals
+Leaderboard on the Dashboard already covers who contributed what, and a
+per-AM table under the manager's own targets invited exactly the reading they were
+correcting. Do not re-add it.
+
+Team result for Aug 1–17 2026: 93.3% of the included 80% weight. The one real miss
+is **Daily Avg Net Purchase, $99,132 against $122,000**, because the team target
+sits above 4 × $30,000 while each AM runs near $24,000, so the shortfall compounds.
+
+**Isolation.** `strip_payload_for_am` rebuilds the payload from a fixed key list,
+so `teamGoals` and `managerGate` are excluded by construction — a new manager-only
+key has to be opted in there before it can leak. Verified in a DOM on all four
+per-AM files and both dateless copies: no `teamGoals` in the payload, no Team Goals
+nav item, and no team target anywhere on the page.
+
+**HTML only.** The canvas has no sidebar and no manager gate (the known
+architecture gap), and Streamlit does not render Goals at all, so there is nothing
+to mirror there. If either ever grows a gated manager surface, this view needs
+adding.
 
 ---
 
@@ -658,6 +977,51 @@ this is why the archive list is built per audience rather than shared.
 
 Calendar state lives on `app.calOpen` / `app.calMonth`; the outside-click and
 Escape handlers are bound **once on `document`**, not per render.
+
+### The writer attaches the archive, and the payload names the audience
+
+Both of these were defects found during the Batch 10 verification, and both were
+fixed by moving a decision to the place that actually knows the answer. They now
+live in `canvas_to_html.py` — `archive_entries`, `with_archive`, `audience_slug` —
+and the generator no longer has its own copy.
+
+**`write_am_brief_html` attaches the archive**, rather than each caller doing it.
+Originally the generator wrapped every write in `with_archive`, so the four
+generator paths were fine but the documented standalone refresh
+(`python am_daily_dashboard/canvas_to_html.py <json>`) wrote a file with **no
+calendar at all** — the JSON never carried one, because the archive is injected at
+HTML-write time and deliberately not persisted (a stored list goes stale the moment
+the next day is generated). An archive already on the payload is respected, so a
+caller can still override.
+
+**The audience comes from the payload, never from the filename.** The first fix read
+the slug off the output filename, on the reasoning that the file being written *is*
+the audience. That breaks the moment a caller passes `--out` with any other name:
+`--out cli_refresh_rachel.html` matched no pattern, fell through to the manager
+audience, and handed Rachel's file the manager's eight archive dates — and those
+dated manager files contain **every** AM's data. `strip_payload_for_am` already
+sets `singleAm` / `singleAmName`, which is authoritative; the filename is now only
+a fallback for a payload that says nothing.
+
+**`convert()` keeps a per-AM payload on its own filename.** It used to default every
+output to `{date}_elite_am_brief.html`, so refreshing
+`2026-08-17_elite_am_brief_coral.json` would overwrite the *manager* brief with a
+single AM's payload.
+
+### One unguarded storage read could blank the whole board
+
+The manager gate remembers an unlock in `sessionStorage`, and the read ran
+unguarded during state initialisation. Storage access **throws** where the origin is
+opaque — a sandboxed preview pane, or a file opened through some OneDrive/Office
+viewers — and because the read sat at the top of the script, the exception took the
+entire board down to an empty page rather than degrading. It is wrapped in
+`gateRemembered()` / `rememberGate()` now, so the worst case is that the unlock is
+not remembered. Verified by loading a generated file from a `file://` opaque origin:
+previously 0 characters rendered, now the full board renders with no uncaught error.
+
+**Anything read at state-init time deserves the same treatment.** A failure there is
+not a degraded feature, it is a blank file that an AM cannot use and cannot
+diagnose.
 
 ---
 
@@ -796,7 +1160,7 @@ Milestone Alerts* above before considering any of it again.
 - Drill-down from a summary row into `wow-drop-reason-analysis` / `purchase-lookup`
 - Scheduled/future ticket delivery for Locked/Take A Break unlock reminders (raised alongside the Batch 3 Locks request; needs new backend scheduling, not just a UI change — deferred out of Batch 3)
 
-### Batch 7 — UI/UX overhaul (requested 2026-08-18, not started)
+### Batch 7 — UI/UX overhaul (done — all four asks exist in the standalone HTML)
 
 Requested by the user right after the Goals reconciliation landed. Four asks,
 verbatim intent preserved so this can be picked up after the Goals work:
@@ -868,7 +1232,7 @@ inverts both big-winner features.
  user wants ticket **subjects or topics** shown next to the weight and asked to
  define that set together.
 
-### Batch 10 — Score out of 100 + archive calendar (code-complete, unverified)
+### Batch 10 — Score out of 100 + archive calendar (done, verified 2026-08-18)
 
 Raised by the user mid-Batch-8 on 2026-08-18 and built the same day. Design was
 mocked and approved first (`handoffs/elite_am_brief_goals_8020_proposal.html`, also
@@ -887,16 +1251,81 @@ one refinement — separate the two bars by a few pixels and round each end.
 - [x] Canvas: `ScoreMeter` + `score` on the `AgentBlock` goals type
 - [x] `archive_entries` / `with_archive`, dateless latest files, topbar month
   calendar with outside-click and Escape
-- [x] 8 new unit tests (38 total, passing); HTML JS syntax-checked
-- [ ] **Run the generator and verify end to end** — never executed after these edits
-- [ ] Confirm with the user whether the AM Brief joins the Sun–Thu 10:00 task
-- [ ] Retention/pruning of dated files — proposed 60 days, never answered
+- [x] 8 new unit tests; HTML JS syntax-checked
+- [x] **Ran the generator for 2026-08-17 and verified end to end in a real DOM.**
+  All three acceptance checks pass for the manager file and all four per-AM files.
+  Also verified: the gated manager leaderboard renders with its Manager column and
+  ranks in `totalPctOfMax` order, and the never-before-rendered **scored** branch
+  works (`/100`, violet fill, clamping, notes)
+- [x] Fixed three defects the verification exposed — calendar-less standalone
+  refresh, a per-AM refresh overwriting the manager brief, and an unguarded
+  `sessionStorage` read that could blank the board. 12 new tests (50 total)
+- [x] Scheduling answered 2026-08-18: **stays manual**, not on the Sun–Thu 10:00 task
+- [x] Retention answered 2026-08-18: **keep everything, no pruning**
+- [x] Leaderboard ranking answered 2026-08-18: **keep `totalPctOfMax`** across mixed
+  scored/unscored states, with the consequence accepted
 
-**Still unanswered by the user** (asked, superseded by "looks good" plus the two
-refinements, so treat the recommendation as provisional and confirm before relying
-on it): whether each AM sees their own manager score in their own file
-(recommended and built as **yes** — it appears on their card), points vs a scaled
-percentage (built as **points out of 20**), scheduling, and retention.
+Scheduling and retention are now answered (manual, keep everything). Two smaller
+questions were asked but overtaken by "looks good" plus the two refinements, so the
+built behaviour stands unless the user raises it: each AM sees their own manager
+score on their own card (**yes**), and appreciation is entered as **points out of
+20** rather than a scaled percentage.
+
+### Batch 11 — Manager team-total Goals view (done, verified 2026-08-18)
+
+Requested at the end of the 2026-08-18 session with a screenshot of the user's own
+goals sheet, deferred to a fresh chat, and built there the same day. Their words:
+*"We also need to show the total goals of AM together… that's only for me: these
+are my goals consisted of all my team together."*
+
+**Manager-only** (same `managerGate` as the Dashboard — it appears in no per-AM
+file), showing the team as one book against the manager's own targets. Full model,
+reasoning and verification: *Team Goals — the manager's own view* above.
+
+- [x] `team` target rows in `data/elite_goals.tsv`, `TEAM_AGENT_TAG` and
+  `GOALS_TARGET_TAGS` in `goals.py` — targets loaded, never summed
+- [x] `GROUP BY ROLLUP(agent)` on the five Goals aggregates — team actuals over the
+  union of the managed book at **no extra query**
+- [x] **Alon added to the team book** after the user spotted the totals were short,
+  with the month-shape reference kept on the four scored AMs so no per-AM pace moved
+- [x] Per-AM contribution table built, shown, and **removed** at the user's request
+- [x] `build_team_goals_block` / `team_actuals`, and `include_score=False` so the
+  block carries no score key at all
+- [x] HTML: gated `team` view (KPI table, stat cards, per-AM contribution) plus a
+  Team Goals card on the Manager Dashboard; `--goals-only` and the full-run audit
+  both print the Team row
+- [x] 7 new tests (57 total); JS syntax check
+- [x] **Ran the generator for 2026-08-17 and asserted the output in a real DOM** —
+  team targets scored (not the per-AM $51,000), no score meter, contribution table
+  complete, and all four per-AM files plus both dateless copies free of `teamGoals`
+
+Decisions taken during the build, all now in the settled table: it lives in **both**
+places (Dashboard card + its own sidebar section), it gets **no 80 + 20 score
+meter**, and it carries **no per-AM breakdown**. The quarter question was answered
+by the approved mock — the view shows the **report month only**.
+
+**The targets from their sheet — Elite, Q3 2026**, transcribed because the
+screenshot will not survive into another session. Re-supplied and re-checked
+2026-08-18; these are the rows now in the TSV:
+
+| Weight | Personal Goals | July | Aug | Sep |
+|---|---|---|---|---|
+| 15% | Daily Avg Purchase | $200,000 | $210,000 | $220,000 |
+| 15% | Daily Avg Net Purchase | $116,000 | $122,000 | $128,000 |
+| 15% | Monthly Purchasers | 2,100 | 2,250 | 2,310 |
+| 15% | ARPPU (avg purchase per paying player) | 2,952 | 2,900 | 2,900 |
+| 8% | # Reactivation | 200 | 220 | 240 |
+| 5% | Upgrade to Elite | 200 | 200 | 200 |
+| 7% | % Active players from portfolio | 95% | 96% | 96% |
+
+Same seven KPIs and the **same weights** as the per-AM sheet, which is why the
+existing `KPI_WEIGHTS`, pace logic and status thresholds carried over unchanged.
+The 80 + 20 score model is the one thing that did **not** carry over — see
+*Team Goals* for why.
+
+When the quarter rolls over, add three new `team` rows to
+`data/elite_goals.tsv` from the manager's next sheet. Nothing else needs touching:
+a missing row makes the view report unavailable rather than guessing.
 
 ### Batch 9 — Game intelligence (approved, not started)
 

@@ -34,9 +34,14 @@ def render_html_shell(
     """
     if not shell_path.exists():
         raise FileNotFoundError(f"Web shell missing: {shell_path}")
+    payload_json = json.dumps(payload, ensure_ascii=ensure_ascii, default=json_default)
+    # A "</" anywhere in payload text (an AID note, a ticket subject) would
+    # otherwise close the shell's own <script> tag early and corrupt the
+    # page. "<\/" is a valid escape inside a JS string/object literal and
+    # renders identically, so this is invisible to the app.
+    payload_json = payload_json.replace("</", "<\\/")
     html = shell_path.read_text(encoding="utf-8").replace(
-        PAYLOAD_PLACEHOLDER,
-        json.dumps(payload, ensure_ascii=ensure_ascii, default=json_default),
+        PAYLOAD_PLACEHOLDER, payload_json
     )
     if PAYLOAD_PLACEHOLDER in html:
         raise RuntimeError("Payload placeholder still present after replace")
