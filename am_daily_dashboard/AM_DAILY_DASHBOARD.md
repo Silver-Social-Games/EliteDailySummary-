@@ -13,13 +13,11 @@ have the current state. Everything below is detail and history.
 
 ### Pick up here — next session
 
-**Architectural hardening is in progress, started 2026-08-19, before Big
-Winners (Batch 8 item 3).** The user asked for a code review of the whole AM
-Brief product with three explicit asks: no "spaghetti JS risk," easy to
-extend, and render tests to stay safe while doing it. Decision made with the
-user: **the standalone HTML (`handoffs/elite_am_brief_web.html`) is the
-canonical product.** Canvas and Streamlit are compatibility-only and do not
-block this work.
+**Architectural hardening phases 0–3 are done (all 2026-08-19).** Next work
+is **Batch 8 item 3, Big Winners ≥ $20K** — players at ≤ −$20,000 GGR on
+the past day. Its scope is settled: non-Elite included, labelled, shown in
+every AM's own view. Still to do: confirm sidebar placement (Risk group),
+mock it, build. Read the GGR sign before touching it.
 
 Five phases, phase 0 done:
 
@@ -213,19 +211,15 @@ costs nothing.
 - [x] **Phase 2 — modularize the web board's JS.** Done 2026-08-19, all five
   steps committed (table above). `tsc --noEmit` clean, 64 Python tests pass,
   181 DOM snapshots byte-identical to the pre-refactor shell.
-- [ ] **Phase 3 — extract payload builders out of
-  `generate_am_daily_dashboard.py`** (currently a god-module) into their own
-  testable functions (e.g. `build_top10_section`, `build_rd_section`,
-  `focus_for_agent`, `greeting_lines`), with unit tests alongside the
-  existing `test_goals.py` style. Start this in a fresh session — Phase 2 used
-  most of the context budget available in this one.
-  Also worth folding in here: `queries.py` builds dates into SQL via
-  f-string interpolation rather than parameters — low risk today (no
-  user-supplied dates reach it) but worth tightening while touching this file.
-- [ ] **Then resume Batch 8 item 3 (Big Winners)** below — Phase 4 (re-run
-  `verify_brief.py --render-check` + update the Skill routing table) was
-  folded into Phase 2 step 5 and is already done, so there is no separate
-  Phase 4 left to do.
+- [x] **Phase 3 — extract payload builders (done 2026-08-19).** All pure
+  section builders extracted from `generate_am_daily_dashboard.py` into
+  `am_daily_dashboard/payload_builders.py` (no BQ, testable directly).
+  `generate_am_daily_dashboard.py` is now a thin orchestration shell.
+  98 unit tests in `test_payload_builders.py` pass; 162 Python tests total.
+  Also extracted: `build_am_shares_and_overview` (closes the `payload_fixtures.py`
+  inline-copy NOTE), and `queries._iso(d: date)` guards all SQL date
+  interpolations against non-date arguments. SKILL.md routing table updated.
+- [ ] **Then resume Batch 8 item 3 (Big Winners)** — the next work item.
 
 **Model guidance settled with the user 2026-08-19:** use a stronger/thinking
 model for Phase 2 (done) and Phase 3 (payload extraction touching the

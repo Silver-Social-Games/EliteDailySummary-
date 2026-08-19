@@ -1,7 +1,7 @@
 """Pure-Python AM Brief payload fixtures for render tests.
 
 Every fixture is assembled by calling the SAME production section builders
-the real generator uses (goals.py, generate_am_daily_dashboard.py) with small
+the real generator uses (goals.py, payload_builders.py) with small
 hand-written rows shaped like BigQuery results. There is no BigQuery call
 and nothing is ever read from a generated export or checked into git as a
 giant JSON blob — see the elite-am-brief Skill's "Cost discipline" section
@@ -11,12 +11,6 @@ If a builder's output shape changes, importing it here breaks loudly (an
 ImportError or a TypeError from a changed signature) instead of a fixture
 silently drifting from the real payload, which is the failure mode a
 hand-written JSON fixture would have.
-
-NOTE: the amShares/overview construction below intentionally mirrors the
-~15-line inline block inside generate_am_daily_dashboard.build_payload
-(there is no standalone function to import yet). Phase 3 of the AM Brief
-foundation plan extracts that block into a shared function — when that
-lands, replace the local copy here with the import so this cannot drift.
 """
 
 from __future__ import annotations
@@ -39,8 +33,9 @@ from goals import (  # noqa: E402
     build_team_goals_block,
     strip_payload_for_am,
 )
-from generate_am_daily_dashboard import (  # noqa: E402
+from payload_builders import (  # noqa: E402
     agent_display,
+    build_am_shares_and_overview,
     build_birthday_section,
     build_lock_section,
     build_rd_section,
@@ -187,27 +182,6 @@ def _decline_rows(raw: list[dict]) -> list[dict]:
     return soften_decline_rows(build_top10_rows(raw), raw)
 
 
-def _am_shares_and_overview(agents: list[dict]) -> tuple[list[dict], list[dict]]:
-    """Mirrors build_payload's amShares/overview loop — see module docstring."""
-    am_shares = [
-        {
-            "agentName": a["agentName"], "purchase": a["purchase"],
-            "purchasedPlayers": a["purchasedPlayers"], "totalPlayers": a["totalPlayers"],
-            "purchasedOfBook": a["purchasedOfBook"], "bookPurchaseRate": a["bookPurchaseRate"],
-            "purchaseShare": a["purchaseShare"], "playerShare": a["playerShare"],
-            "tone": "success",
-        }
-        for a in agents
-    ]
-    overview = [
-        {
-            "agentName": a["agentName"], "purchase": a["purchase"],
-            "purchasedPlayers": a["purchasedPlayers"], "totalPlayers": a["totalPlayers"],
-            "purchasedOfBook": a["purchasedOfBook"], **a["focus"], "tone": "success",
-        }
-        for a in agents
-    ]
-    return am_shares, overview
 
 
 def _archive(slug: str = "") -> list[dict]:
@@ -303,7 +277,7 @@ def build_manager_payload(*, ticket_count_for_coral: int = 1) -> dict:
         )
         for name in AM_ORDER
     ]
-    am_shares, overview = _am_shares_and_overview(agents)
+    am_shares, overview = build_am_shares_and_overview(agents)
 
     team_goals = build_team_goals_block(
         TEAM_TARGET, TEAM_ACTUALS, REPORT_DATE,

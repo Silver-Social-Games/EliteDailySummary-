@@ -122,8 +122,9 @@ Sidebar groups as built: **Command** (manager-only) · **Today** · **Performanc
 | **Locked & Take A Break** (Operations) | `locks` | `locked_players_sql` | `build_lock_section` (buckets: Self-exclusion / Take a break / Other locked) | `views/locks.ts` | `sections.py` → `title="Locked And Take A Break"` |
 | **Birthdays · Last 3 Days** | `birthdays` | `birthdays_last_3d_sql` | `build_birthday_section` | `views/birthdays.ts` | `sections.py` → `title="Birthdays · Last 3 Days"` |
 
-SQL = `am_daily_dashboard/queries.py`. Rows built by = `generate_am_daily_dashboard.py`
-unless a module is named. **HTML view = `am_daily_dashboard/web/src/` (Phase 2,
+SQL = `am_daily_dashboard/queries.py` (dates validated through `_iso()` — never raw strings). Rows built by = `am_daily_dashboard/payload_builders.py` (Phase 3,
+2026-08-19) — pure functions, no BQ, testable directly; `generate_am_daily_dashboard.py`
+is now a thin orchestration shell. **HTML view = `am_daily_dashboard/web/src/` (Phase 2,
 2026-08-19) — edit a view file there, then `node am_daily_dashboard/web/build.mjs`.
 `handoffs/elite_am_brief_web.html` is the bundled build output and carries a
 sha256 build stamp; never hand-edit it, and `test_web_build.py` fails loudly if
@@ -151,6 +152,9 @@ sources and output drift apart.** Canvas = `canvas_parts/`.
 | Which days are in the archive / which AM owns a file | `canvas_to_html.py` (`audience_slug`, `archive_entries`, `with_archive`) |
 | Zendesk draft wording | `am_brief_ticket_drafts.py` (WoW Gaps drafts: `wow_drop_analysis/ticket_draft.py`) |
 | Per-AM isolation / what a manager-only key may touch | `goals.strip_payload_for_am` (fixed key list) |
+| Row-building for any section (Top 10, RD, Birthdays, Locks...) | `payload_builders.py` -- pure, no BQ; tests in `test_payload_builders.py` |
+| amShares / overview lists | `payload_builders.build_am_shares_and_overview` -- single source for `build_payload` and `testing/payload_fixtures.py` |
+| SQL date literals | `queries._iso(d: date)` -- rejects non-date args; all DATE interpolations route through it |
 
 **Any section change is three implementations** — `canvas_parts/`,
 `am_daily_dashboard/web/src/` (never `handoffs/elite_am_brief_web.html` directly —

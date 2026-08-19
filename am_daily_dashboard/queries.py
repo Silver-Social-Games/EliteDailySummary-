@@ -16,6 +16,18 @@ from config import (
     PENDING_RD_MIN_AMOUNT,
 )
 
+
+def _iso(d: date) -> str:
+    """Return the ISO 8601 date string for a date literal in SQL.
+
+    Accepts only `datetime.date` objects so a raw string can never be
+    interpolated into a query — guards the f-string DATE '{_iso(d)}' pattern
+    used throughout this module against accidental string pass-through.
+    """
+    if not isinstance(d, date):
+        raise TypeError(f"Expected datetime.date, got {type(d).__name__!r}")
+    return d.isoformat()
+
 # Only these AMs appear on the board (tag_agent_1 values).
 ALLOWED_AGENT_TAGS = (
     "coral_s",
@@ -41,7 +53,7 @@ def _elite_am_book_ctes(as_of: date | None = None) -> str:
         elite_name="elite_book_raw",
         aid_alias="account_id",
         agent_alias="agent",
-        as_of=as_of.isoformat() if as_of else None,
+        as_of=_iso(as_of) if as_of else None,
     )
     return f"""
 {base},
@@ -68,7 +80,7 @@ def top10_purchasers_sql(report_date: date) -> str:
 
     The 30-day window ends on report_date inclusive.
     """
-    d = report_date.isoformat()
+    d = _iso(report_date)
     return f"""
 WITH
 {_elite_am_book_ctes()},
@@ -220,7 +232,7 @@ def locked_rd_over_5k_sql(report_date: date) -> str:
     positive-when-the-player-won, and only a genuine win is reported (a losing
     day comes back as 0, not a negative win).
     """
-    d = report_date.isoformat()
+    d = _iso(report_date)
     lookback_interval = PENDING_RD_LOOKBACK_DAYS - 1
     return f"""
 WITH
@@ -321,7 +333,7 @@ ORDER BY e.agent, f.amount DESC
 def birthdays_last_3d_sql(report_date: date) -> str:
     """Calendar birthdays within the trailing BIRTHDAYS_LOOKBACK_DAYS ending
     on report_date (MM-DD match), config.py."""
-    d = report_date.isoformat()
+    d = _iso(report_date)
     days_back_clauses = "\n  ".join(
         f"UNION ALL SELECT DATE_SUB(report_date, INTERVAL {n} DAY) FROM params"
         for n in range(1, BIRTHDAYS_LOOKBACK_DAYS)
@@ -433,7 +445,7 @@ ORDER BY e.agent, name
 
 def agent_day_purchase_sql(report_date: date) -> str:
     """Per-AM purchase $ and purchased-player count for report_date."""
-    d = report_date.isoformat()
+    d = _iso(report_date)
     return f"""
 WITH
 {_elite_am_book_ctes()},
@@ -527,10 +539,10 @@ def goals_mtd_actuals_sql(report_date: date) -> str:
     need no shape factor. Book-wide across the four Goals AMs: two months per
     agent is too thin to fit a per-agent curve.
     """
-    d = report_date.isoformat()
-    month_start = report_date.replace(day=1).isoformat()
+    d = _iso(report_date)
+    month_start = _iso(report_date.replace(day=1))
     # Look back far enough for 30d reactivation gaps (prior purchase date).
-    lookback = (report_date.replace(day=1) - timedelta(days=400)).isoformat()
+    lookback = _iso(report_date.replace(day=1) - timedelta(days=400))
     # Relative month position, so the reference day matches in shorter months.
     elapsed = (report_date - report_date.replace(day=1)).days + 1
     days_in_month = monthrange(report_date.year, report_date.month)[1]
