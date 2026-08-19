@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <!-- am-brief-build sources sha256:2f42e3ee731213c9165344318bcb58c9149680abed828b80df5dff8202b36870 output sha256:1596979a50157ec82e51b08c9501f208d2348934e3279b6724ede7eda0e42e98 -->
+  <!-- am-brief-build sources sha256:daf8e9579892eb57ad17892aec220460715b0bfbc374332975813a682fbcacc8 output sha256:056393ce88be7fab450ec5f792a7f9ca327c8eed78a0c05c893771c4beabe759 -->
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Elite AM Brief</title>
   <style>
@@ -866,80 +866,6 @@
     ).join("");
   }
 
-  // src/reason.ts
-  var REASON_EMPHASIS = [
-    "Redemption Blocked",
-    "Redemption in progress",
-    "Needs ",
-    "Same weekday skip",
-    "Spend Softening",
-    "Offline Since",
-    "Pending RD",
-    "RD $",
-    "Redeem Status ",
-    "Take a break",
-    "No Purchases",
-    "Played Today",
-    "Account locked",
-    "Red flag"
-  ];
-  function reasonPartIcon(part) {
-    const pl = part.toLowerCase();
-    if (part.startsWith("Red flag")) return "flag";
-    if (part.startsWith("Redemption Blocked")) return "ban";
-    if (part.startsWith("Redemption in progress")) return "hourglass";
-    if (part.startsWith("Account locked") || part.includes("Suspended")) return "lock";
-    if (part.startsWith("Needs Recent Acceptable POA") || pl.includes("poa")) return "file";
-    if (part.startsWith("Needs KYC") || pl.includes("verification document")) return "clipboard";
-    if (part.startsWith("RD $") || part.startsWith("Pending RD")) return "banknote";
-    if (part.startsWith("Same weekday skip")) return "calendar";
-    if (part.startsWith("Payment failed")) return "x-circle";
-    if (part.startsWith("No Purchases")) return "alert";
-    if (part.startsWith("Played Today")) return "slots";
-    if (part.startsWith("Redeem Status")) return "clipboard";
-    if (part.startsWith("Take a break")) return "clock";
-    if (part.startsWith("Spend Softening")) return "trend-down";
-    return "";
-  }
-  function actionHeadIcon(head) {
-    const hl = head.toLowerCase();
-    if (head.startsWith("Escalate Ops")) return "arrow-right";
-    if (head.startsWith("Escalate Compliance")) return "scale";
-    if (head.startsWith("Push purchase")) return "dollar";
-    if (head.startsWith("Fix payment method")) return "card";
-    if (head.startsWith("Remove restriction")) return "unlock";
-    if (head.startsWith("Send to Ops")) return "wrench";
-    if (head.startsWith("Soft check-in")) return "message";
-    if (head.startsWith("Agent call") || head.startsWith("Reactivation")) return "phone";
-    if (head.startsWith("No action")) return "check-circle";
-    if (hl.includes("no outreach") || hl.includes("no purchase push")) return "hand";
-    return "";
-  }
-  function reasonPartClass(part) {
-    if (part.startsWith("Red flag")) return "t-danger w-semibold";
-    if (part.startsWith("Needs ") || part.includes("Blocked")) return "t-warning w-semibold";
-    if (part.startsWith("Escalate") || part.includes("Suspended")) return "t-danger w-semibold";
-    if (part.startsWith("Same weekday skip") || part.startsWith("Played Today")) return "t-info";
-    return "";
-  }
-  function renderReason(parts, text) {
-    const segments = parts && parts.length ? parts : String(text || "").split("\u25CF").map((p) => p.trim()).filter(Boolean);
-    return segments.map((part, i) => {
-      const emphasize = i === 0 || REASON_EMPHASIS.some((pfx) => part.startsWith(pfx));
-      const name = reasonPartIcon(part);
-      const cls = emphasize ? reasonPartClass(part) || "w-semibold" : "";
-      const sep = i > 0 ? '<span class="sep">\xB7</span>' : "";
-      return sep + `<span class="${cls}">${name ? icon(name, "ic-xs") + " " : ""}${esc(part)}</span>`;
-    }).join("");
-  }
-  function renderAction(text) {
-    const chunks = String(text || "").split(" \xB7 ").filter(Boolean);
-    const head = chunks[0] || text || "";
-    const tail = chunks.slice(1).join(" \xB7 ");
-    const name = actionHeadIcon(String(head));
-    return `<span class="w-semibold">${name ? icon(name, "ic-xs") + " " : ""}${esc(head)}</span>` + (tail ? `<span class="t-tertiary"> \xB7 ${esc(tail)}</span>` : "");
-  }
-
   // src/filters.ts
   var URGENCY_RANK = { Today: 0, "48h": 1, Watch: 2, None: 3 };
   function sortBySoonestUnlock(rows) {
@@ -1106,102 +1032,7 @@
       </div>`;
   }
 
-  // src/main.ts
-  var GROUP_ORDER = ["Command", "Today", "Performance", "Risk", "Operations", "Care"];
-  var VIEWS = {
-    dashboard: {
-      label: "Manager Dashboard",
-      short: "Dashboard",
-      icon: "gauge",
-      group: "Command",
-      managerOnly: true,
-      gated: true,
-      sub: "Cross-AM roll-up \u2014 manager only"
-    },
-    team: {
-      label: "Team Goals",
-      icon: "target",
-      group: "Command",
-      managerOnly: true,
-      gated: true,
-      sub: "Your team as one book \u2014 manager only"
-    },
-    home: {
-      label: "Morning Brief",
-      icon: "sunrise",
-      group: "Today",
-      sub: "Where to start today"
-    },
-    goals: {
-      label: "Elite Goals",
-      icon: "target",
-      group: "Performance",
-      sub: "Month to date against target"
-    },
-    top10: {
-      label: "Top 10 Purchasers",
-      icon: "crown",
-      group: "Performance",
-      key: "top10",
-      sub: "Yesterday's biggest spenders"
-    },
-    top20: {
-      label: "Top 20 \xB7 WoW Gaps",
-      icon: "trend-down",
-      group: "Risk",
-      key: "decline",
-      sub: `Same-weekday drops vs last ${day}`
-    },
-    rd: {
-      label: "Pending Redemptions",
-      icon: "banknote",
-      group: "Operations",
-      key: "rdOver5k",
-      sub: "Locked withdrawals awaiting release"
-    },
-    rdfirst: {
-      label: "First-Time Locked RD",
-      icon: "sparkles",
-      group: "Operations",
-      key: "rdFirstTime",
-      sub: "First-ever redemption \u2014 under review"
-    },
-    tickets: {
-      label: "Open Tickets",
-      icon: "ticket",
-      group: "Operations",
-      key: "zendesk",
-      sub: "Open Zendesk tickets on your book"
-    },
-    locks: {
-      label: "Locked & Take A Break",
-      icon: "lock",
-      group: "Operations",
-      key: "locks",
-      sub: "New locks and breaks due to end"
-    },
-    birthdays: {
-      label: "Birthdays \xB7 Last 3 Days",
-      short: "Birthdays",
-      icon: "gift",
-      group: "Care",
-      key: "birthdays",
-      sub: "A reason to reach out"
-    }
-  };
-  var NAV_ORDER = [
-    "dashboard",
-    "team",
-    "home",
-    "goals",
-    "top10",
-    "top20",
-    "rd",
-    "rdfirst",
-    "tickets",
-    "locks",
-    "birthdays"
-  ];
+  // src/components.ts
   function segmentCard() {
     const segments = REPORT.segments || [];
     const title = REPORT.segmentTitle || `${day} vs last ${day} \xB7 Elite & Jackpota`;
@@ -1241,7 +1072,6 @@
   }
   function statCard(o) {
     const tag = o.view ? "button" : "div";
-    const attrs = o.view ? ` data-go="${esc(o.view)}"` : " class-flat";
     return `<${tag} class="stat t-${o.tone || "neutral"}${o.view ? "" : " flat"}"${o.view ? ` data-go="${esc(o.view)}"` : ""}>
         <div class="stat-top">
           <span class="stat-chip">${icon(o.icon, "ic-sm")}</span>
@@ -1251,159 +1081,27 @@
         ${o.foot ? `<div class="stat-foot">${o.foot}</div>` : ""}
       </${tag}>`;
   }
-  function viewHome() {
-    var _a, _b, _c, _d, _e, _f, _g;
-    const b = agentBlock();
-    const f = b.focus || {};
-    const greet = (b.greetingLines || []).map((line, i) => richText(line, i === 0)).join("");
-    const cards = [
-      {
-        label: "Open Tickets",
-        value: (_a = f.openZd) != null ? _a : 0,
-        icon: "ticket",
-        view: "tickets",
-        tone: f.openZd ? "info" : "success"
-      },
-      {
-        label: "Top 20 Decline",
-        value: (_b = f.declineCount) != null ? _b : 0,
-        icon: "trend-down",
-        view: "top20",
-        tone: f.declineCount ? "warning" : "success"
-      },
-      {
-        label: "Pending RD",
-        value: (_c = f.rdOver5k) != null ? _c : 0,
-        icon: "banknote",
-        view: "rd",
-        tone: f.rdOver5k ? "warning" : "success"
-      },
-      {
-        label: "Take A Break",
-        value: (_d = f.takeABreak) != null ? _d : 0,
-        icon: "clock",
-        view: "locks",
-        tone: f.takeABreak ? "warning" : "success"
-      },
-      {
-        label: "Other Locked",
-        value: (_e = f.otherLocked) != null ? _e : 0,
-        icon: "lock",
-        view: "locks",
-        tone: f.otherLocked ? "warning" : "success"
-      },
-      {
-        label: "Self-Exclusion",
-        value: (_f = f.selfExclusion) != null ? _f : 0,
-        icon: "shield",
-        view: "locks",
-        tone: "neutral"
-      },
-      {
-        label: "Birthdays (3d)",
-        value: (_g = f.birthdays) != null ? _g : 0,
-        icon: "gift",
-        view: "birthdays",
-        tone: f.birthdays ? "brand" : "neutral"
-      }
-    ];
-    return `<div class="stack">
-        ${greet ? `<div class="hero"><div class="stack-6">${greet}</div></div>` : ""}
-        <div class="stats">${cards.map(statCard).join("")}</div>
-        ${goalsSummaryCard(b.goals)}
-        ${segmentCard()}
+  function emptyState(ico, title, body) {
+    return `<div class="card"><div class="card-body" style="text-align:center;padding:48px 20px">
+        <div class="card-icon neutral" style="margin:0 auto 12px;width:44px;height:44px">${icon(ico, "ic-lg")}</div>
+        <div class="card-title" style="margin-bottom:5px">${esc(title)}</div>
+        <div class="t-tertiary t-small">${esc(body)}</div>
+      </div></div>`;
+  }
+  function gateHtml() {
+    return `<div class="gate">
+        <div class="gate-mark">${icon("key", "ic-xl")}</div>
+        <h2>Manager Dashboard</h2>
+        <p>Cross-AM revenue, goals and risk roll-up. Enter the passcode to view.</p>
+        <input type="password" id="gateInput" placeholder="\u2022\u2022\u2022\u2022\u2022\u2022" autocomplete="off" spellcheck="false">
+        <div class="err">${esc(app.gateError)}</div>
+        <button type="button" class="btn primary" id="gateSubmit" style="width:100%;justify-content:center">
+          ${icon("unlock", "ic-sm")} Unlock
+        </button>
       </div>`;
   }
-  function goalsSummaryCard(goals) {
-    var _a, _b;
-    if (!goals || !goals.available) return "";
-    const score = goals.score || {};
-    const pct = Number(goals.weightedTrackedPct);
-    const kpis = goals.kpis || [];
-    const onTrack = kpis.filter((k) => k.statusTone === "success").length;
-    const behind = kpis.filter((k) => k.statusTone === "danger" || k.statusTone === "warning").length;
-    const meterTone = pct >= 90 ? "success" : pct >= 70 ? "warning" : "danger";
-    return `<div class="card">
-        <div class="card-head">
-          <span class="card-icon ${meterTone}">${icon("target", "ic-sm")}</span>
-          <div><div class="card-title">Elite Goals</div>
-          <div class="card-sub">${esc(goals.monthLabel || "")}${goals.asOf ? ` \xB7 as of ${esc(goals.asOf)}` : ""}</div></div>
-          <div class="spacer"></div>
-          <button type="button" class="btn" data-go="goals">Open ${icon("chev-right", "ic-xs")}</button>
-        </div>
-        <div class="card-body stack-10">
-          <div class="goal-score">
-            <span class="goal-pct t-${meterTone}">${esc((_a = score.totalPoints) != null ? _a : "\u2014")}</span>
-            <span class="t-tertiary">of ${esc((_b = score.totalPointsMax) != null ? _b : 80)} \xB7 ${esc(score.scoreSubline || "")}</span>
-          </div>
-          ${scoreMeterHtml(score, meterTone)}
-          ${scoreLegendHtml(score, meterTone)}
-          <div class="row">
-            <span class="badge success">${icon("check-circle", "ic-xs")}${onTrack} on track</span>
-            <span class="badge ${behind ? "danger" : ""}">${icon("alert", "ic-xs")}${behind} need attention</span>
-          </div>
-        </div>
-      </div>`;
-  }
-  function viewGoals() {
-    const goals = agentBlock().goals;
-    if (!goals) {
-      return emptyState(
-        "target",
-        "No goals for this AM",
-        "Goals are tracked for Coral, Gabriel, Lee and Rachel."
-      );
-    }
-    if (!goals.available) {
-      return emptyState("target", "Goals unavailable", goals.note || "No goals for this AM.");
-    }
-    const kpis = goals.kpis || [];
-    const score = goals.score || {};
-    const pct = Number(goals.weightedTrackedPct);
-    const meterTone = pct >= 90 ? "success" : pct >= 70 ? "warning" : "danger";
-    const subtitle = [
-      goals.monthLabel || "",
-      goals.asOf ? `as of ${goals.asOf}` : "",
-      goals.elapsedDays && goals.daysInMonth ? `day ${goals.elapsedDays} of ${goals.daysInMonth}` : ""
-    ].filter(Boolean).join(" \xB7 ");
-    const rows = kpis.map((k) => [
-      esc(k.label),
-      esc(k.weightLabel),
-      esc(k.goalDisplay),
-      esc(k.actualDisplay),
-      esc(k.paceDisplay),
-      esc(k.gapDisplay),
-      `<span class="badge ${k.statusTone || ""}">${esc(k.status)}</span>`
-    ]);
-    return `<div class="stack">
-        <div class="card">
-          <div class="card-body stack-10">
-            <div class="row">
-              <div class="goal-score">
-                <span class="goal-pct t-${meterTone}">${esc(score.totalDisplay || "\u2014")}</span>
-                <span class="t-tertiary">${esc(score.scoreSubline || "")}</span>
-              </div>
-              <div class="spacer"></div>
-              <span class="badge">${esc(subtitle)}</span>
-            </div>
-            ${scoreMeterHtml(score, meterTone)}
-            ${scoreLegendHtml(score, meterTone)}
-          </div>
-        </div>
-        <div class="card">
-          ${tableHtml(
-      ["KPI", "Weight", "Goal", "Actual", "Pace", "Gap", "Status"],
-      rows,
-      ["left", "right", "right", "right", "right", "right", "left"],
-      kpis.map((k) => k.statusTone || "neutral"),
-      { markerCol: 0 }
-    )}
-        </div>
-        <div class="note">${esc(goals.definitionsNote || "")}</div>
-        <div class="note">${esc(goals.achievementCapNote || "")}</div>
-        <div class="note">${esc(score.scoreNote || "")}</div>
-      </div>`;
-  }
+
+  // src/views/team.ts
   function teamKpi(key) {
     return TEAM_GOALS && (TEAM_GOALS.kpis || []).find((k) => k.key === key) || null;
   }
@@ -1532,233 +1230,8 @@
         <div class="note">${esc(g.achievementCapNote || "")}</div>
       </div>`;
   }
-  function viewTop20() {
-    const players = rowsFor("decline");
-    const stateKey = `dec_${app.agent}`;
-    const search = getState(stateKey + "_search", "");
-    const reason = getState(stateKey + "_reason", "all");
-    const sortBy = getState(stateKey + "_sortBy", "urgency");
-    const reasons = [...new Set(players.map((p) => p.reason).filter(Boolean))].sort();
-    const ordered = sortPlayers(players.filter((row) => (reason === "all" || row.reason === reason) && matchesDecline(row, search)), sortBy);
-    const { slice, pager, total } = paginate(ordered, stateKey);
-    const priorTotal = ordered.reduce((sum, p) => sum + (p.priorPriorNum || 0), 0);
-    const active = search.trim() !== "" || reason !== "all";
-    const headers = [
-      "#",
-      "Agent Name",
-      "AID",
-      "Name",
-      TITLES.lifetimePurchase,
-      TITLES.lifetimeHold,
-      TITLES.thisPurchase,
-      TITLES.priorPurchase,
-      TITLES.purchase7d,
-      TITLES.favouriteGame7d,
-      "Urgency",
-      "Reason",
-      "Recommendation",
-      "Ticket"
-    ];
-    const rows = slice.map((p, i) => [
-      String(ordered.indexOf(p) + 1),
-      esc(p.agentName),
-      aidHtml(p),
-      esc(p.name),
-      moneyHtml(p.lifetimePurchase, (p.lifetimePurchasedNum || 0) >= 5e4),
-      holdHtml(p.lifetimeHold),
-      moneyHtml(p.thisDay, p.zeroDay),
-      moneyHtml(p.priorDay, (p.sortGap || 0) >= 2e3),
-      p7dHtml(p.purchase7d),
-      esc(p.favouriteGame7d),
-      urgencyHtml(p.urgency),
-      `<div class="reason-cell">${renderReason(p.reasonParts, p.reasonTable || p.reason)}</div>`,
-      `<div class="action-cell">${renderAction(p.recommendation)}</div>`,
-      ticketHtml(p)
-    ]);
-    const tones = slice.map((p) => p.tone || "neutral");
-    if (rows.length) {
-      rows.push(["", "", "", "Total (all filtered)", "", "", "", money(priorTotal), "", "", "", "", "", ""]);
-      tones.push("neutral");
-    }
-    return `<div class="card">
-        <div class="toolbar">
-          <label class="search">${icon("search", "ic-sm")}
-            <input type="search" placeholder="Search name, AID, reason\u2026" value="${esc(search)}" data-state="${esc(stateKey + "_search")}">
-          </label>
-          <span class="select-wrap"><select data-state="${esc(stateKey + "_sortBy")}">
-            <option value="urgency" ${sortBy === "urgency" ? "selected" : ""}>Sort: Urgency + gap</option>
-            <option value="priorHigh" ${sortBy === "priorHigh" ? "selected" : ""}>Prior purchase \u2193</option>
-            <option value="lifetimeHigh" ${sortBy === "lifetimeHigh" ? "selected" : ""}>Lifetime purchase \u2193</option>
-            <option value="gapHigh" ${sortBy === "gapHigh" ? "selected" : ""}>WoW gap \u2193</option>
-          </select>${icon("chev-down", "ic-xs")}</span>
-          <div class="spacer"></div>
-          <span class="badge ${active ? "brand" : ""}">${active ? `${ordered.length} of ${players.length}` : `${players.length} players`}</span>
-        </div>
-        ${reasons.length ? `<div class="chip-row">
-          <button type="button" class="chip ${reason === "all" ? "active" : ""}" data-reason-state="${esc(stateKey + "_reason")}" data-reason="all">All reasons</button>
-          ${reasons.map((r) => `<button type="button" class="chip ${reason === r ? "active" : ""}" data-reason-state="${esc(stateKey + "_reason")}" data-reason="${esc(r)}">${esc(r)}</button>`).join("")}
-        </div>` : ""}
-        ${tableHtml(
-      headers,
-      rows,
-      ["center", "left", "left", "left", "right", "right", "right", "right", "left", "left", "center", "left", "left", "center"],
-      tones,
-      {
-        tableClass: "players-table",
-        totalRowIndex: rows.length - 1,
-        empty: "No players match the current filters."
-      }
-    )}
-        ${total ? pager : ""}
-      </div>`;
-  }
-  function viewTop10() {
-    return tableCard({
-      rows: rowsFor("top10"),
-      stateKey: `t10_${app.agent}`,
-      extraKeys: ["offerCode", "offerTitle"],
-      compact: true,
-      headers: ["#", "AID", "Name", "Purchased $", "Purchases (#)", "Top Offer", "Price", "Usual \u2192 Ceiling (30D)"],
-      align: ["center", "left", "left", "right", "right", "left", "right", "left"],
-      markerCol: 3,
-      empty: "No purchasers yesterday.",
-      renderRow: (p) => [
-        esc(p.rank),
-        aidHtml(p),
-        esc(p.name),
-        `<span class="t-success w-semibold">${esc(p.purchased)}</span>`,
-        esc(p.orderCount),
-        esc(p.offerCode),
-        `<span class="${p.offerPriceVaries ? "t-warning" : ""}">${esc(p.offerPrice)}${p.offerPriceVaries ? " avg" : ""}</span>`,
-        esc(p.packageFit)
-      ]
-    });
-  }
-  function viewPendingRd() {
-    return tableCard({
-      rows: rowsFor("rdOver5k"),
-      stateKey: `rd5_${app.agent}`,
-      showSearch: false,
-      sortOptions: [
-        { value: "amount", label: "Sort: Amount \u2193" },
-        { value: "won", label: "Sort: Won Yesterday \u2193" },
-        { value: "oldest", label: "Sort: Oldest first" }
-      ],
-      defaultSort: "amount",
-      sortFn: (rows, s) => s === "oldest" ? sortByNumKey(rows, "daysPending", true) : s === "won" ? sortByNumKey(rows, "wonYesterdayNum", true) : sortByNumKey(rows, "amountNum", true),
-      headers: ["AID", "Name", "RD ID", "Amount", "Status", "Created", "Won Yesterday", "Docs", "LTP", "Hold", "7D Purchase"],
-      align: ["left", "left", "left", "right", "left", "left", "right", "left", "right", "right", "right"],
-      markerCol: 3,
-      empty: "No pending redemptions.",
-      renderRow: (p) => [
-        aidHtml(p),
-        esc(p.name),
-        esc(p.redeemId),
-        `<span class="t-warning w-semibold">${esc(p.amount)}</span>`,
-        esc(p.status),
-        agingHtml(p.created, p.daysPending, p.agingFlag),
-        bigWinHtml(p),
-        docsHtml(p.docsStatus),
-        esc(p.lifetimePurchase || "\u2014"),
-        esc(p.lifetimeHold || "\u2014"),
-        esc(p.purchase7d || "\u2014")
-      ]
-    });
-  }
-  function viewFirstRd() {
-    return tableCard({
-      rows: rowsFor("rdFirstTime"),
-      stateKey: `rdf_${app.agent}`,
-      showSearch: false,
-      headers: ["AID", "Name", "RD ID", "Amount", "Status", "Created", "Ticket"],
-      align: ["left", "left", "left", "right", "left", "left", "center"],
-      markerCol: 3,
-      empty: "No first-time redemptions today.",
-      renderRow: (p) => [
-        aidHtml(p),
-        esc(p.name),
-        esc(p.redeemId),
-        `<span class="t-warning w-semibold">${esc(p.amount)}</span>`,
-        esc(p.status),
-        esc(p.created),
-        ticketHtml(p)
-      ]
-    });
-  }
-  function viewBirthdays() {
-    return tableCard({
-      rows: rowsFor("birthdays"),
-      stateKey: `bd_${app.agent}`,
-      showSearch: false,
-      headers: ["AID", "Name", "Email", "DOB", "Age", "Ticket"],
-      align: ["left", "left", "left", "left", "right", "center"],
-      markerCol: 3,
-      empty: "No birthdays in the last 3 days.",
-      renderRow: (p) => {
-        var _a;
-        return [
-          aidHtml(p),
-          esc(p.name),
-          esc(p.email),
-          `<span class="t-success w-semibold">${esc(p.dob)}</span>`,
-          esc((_a = p.age) != null ? _a : "\u2014"),
-          ticketHtml(p)
-        ];
-      }
-    });
-  }
-  function viewTickets() {
-    return tableCard({
-      rows: rowsFor("zendesk"),
-      stateKey: `zd_${app.agent}`,
-      extraKeys: ["ticketIds"],
-      sortOptions: [
-        { value: "ltp", label: "Sort: LTP \u2193" },
-        { value: "tickets", label: "Sort: Open Tickets \u2193" },
-        { value: "purchase7d", label: "Sort: 7D Purchase \u2193" }
-      ],
-      defaultSort: "ltp",
-      sortFn: (rows, s) => s === "tickets" ? sortByNumKey(rows, "openTickets", true) : s === "purchase7d" ? sortByNumKey(rows, "purchase7dNum", true) : sortByNumKey(rows, "lifetimePurchasedNum", true),
-      headers: ["AID", "Name", "LTP", "Hold", "7D Purchase", "Open Tickets", "Ticket"],
-      align: ["left", "left", "right", "right", "right", "right", "left"],
-      markerCol: 2,
-      empty: "No open tickets.",
-      renderRow: (p) => [
-        aidHtml(p),
-        esc(p.name),
-        moneyHtml(p.lifetimePurchase || "$0", (p.lifetimePurchasedNum || 0) >= 5e4),
-        holdHtml(p.lifetimeHold || "n/a"),
-        moneyHtml(p.purchase7d || "$0"),
-        esc(p.openTickets),
-        ticketIdsHtml(p)
-      ]
-    });
-  }
-  function viewLocks() {
-    return tableCard({
-      rows: rowsFor("locks"),
-      stateKey: `lk_${app.agent}`,
-      showSearch: false,
-      sortFn: (rows) => sortBySoonestUnlock(rows),
-      headers: ["AID", "Name", "Lock Reason", "Days Remaining / Unlock"],
-      align: ["left", "left", "left", "left"],
-      markerCol: 2,
-      empty: "No new locks and no breaks due to end.",
-      renderRow: (p) => [
-        aidHtml(p),
-        esc(p.name),
-        `<span class="t-${p.tone || "warning"}">${esc(p.lockReason)}</span>`,
-        unlockHtml(p.unlockDetail, p.unlockRemainingDays)
-      ]
-    });
-  }
-  function emptyState(ico, title, body) {
-    return `<div class="card"><div class="card-body" style="text-align:center;padding:48px 20px">
-        <div class="card-icon neutral" style="margin:0 auto 12px;width:44px;height:44px">${icon(ico, "ic-lg")}</div>
-        <div class="card-title" style="margin-bottom:5px">${esc(title)}</div>
-        <div class="t-tertiary t-small">${esc(body)}</div>
-      </div></div>`;
-  }
+
+  // src/views/dashboard.ts
   function viewDashboard() {
     if (!app.unlocked) return gateHtml();
     const purchase = AM_SHARES.reduce((s, r) => s + toNum(r.purchase), 0);
@@ -1904,18 +1377,583 @@
         </div>
       </div>`;
   }
-  function gateHtml() {
-    return `<div class="gate">
-        <div class="gate-mark">${icon("key", "ic-xl")}</div>
-        <h2>Manager Dashboard</h2>
-        <p>Cross-AM revenue, goals and risk roll-up. Enter the passcode to view.</p>
-        <input type="password" id="gateInput" placeholder="\u2022\u2022\u2022\u2022\u2022\u2022" autocomplete="off" spellcheck="false">
-        <div class="err">${esc(app.gateError)}</div>
-        <button type="button" class="btn primary" id="gateSubmit" style="width:100%;justify-content:center">
-          ${icon("unlock", "ic-sm")} Unlock
-        </button>
+
+  // src/views/goals.ts
+  function goalsSummaryCard(goals) {
+    var _a, _b;
+    if (!goals || !goals.available) return "";
+    const score = goals.score || {};
+    const pct = Number(goals.weightedTrackedPct);
+    const kpis = goals.kpis || [];
+    const onTrack = kpis.filter((k) => k.statusTone === "success").length;
+    const behind = kpis.filter((k) => k.statusTone === "danger" || k.statusTone === "warning").length;
+    const meterTone = pct >= 90 ? "success" : pct >= 70 ? "warning" : "danger";
+    return `<div class="card">
+        <div class="card-head">
+          <span class="card-icon ${meterTone}">${icon("target", "ic-sm")}</span>
+          <div><div class="card-title">Elite Goals</div>
+          <div class="card-sub">${esc(goals.monthLabel || "")}${goals.asOf ? ` \xB7 as of ${esc(goals.asOf)}` : ""}</div></div>
+          <div class="spacer"></div>
+          <button type="button" class="btn" data-go="goals">Open ${icon("chev-right", "ic-xs")}</button>
+        </div>
+        <div class="card-body stack-10">
+          <div class="goal-score">
+            <span class="goal-pct t-${meterTone}">${esc((_a = score.totalPoints) != null ? _a : "\u2014")}</span>
+            <span class="t-tertiary">of ${esc((_b = score.totalPointsMax) != null ? _b : 80)} \xB7 ${esc(score.scoreSubline || "")}</span>
+          </div>
+          ${scoreMeterHtml(score, meterTone)}
+          ${scoreLegendHtml(score, meterTone)}
+          <div class="row">
+            <span class="badge success">${icon("check-circle", "ic-xs")}${onTrack} on track</span>
+            <span class="badge ${behind ? "danger" : ""}">${icon("alert", "ic-xs")}${behind} need attention</span>
+          </div>
+        </div>
       </div>`;
   }
+  function viewGoals() {
+    const goals = agentBlock().goals;
+    if (!goals) {
+      return emptyState(
+        "target",
+        "No goals for this AM",
+        "Goals are tracked for Coral, Gabriel, Lee and Rachel."
+      );
+    }
+    if (!goals.available) {
+      return emptyState("target", "Goals unavailable", goals.note || "No goals for this AM.");
+    }
+    const kpis = goals.kpis || [];
+    const score = goals.score || {};
+    const pct = Number(goals.weightedTrackedPct);
+    const meterTone = pct >= 90 ? "success" : pct >= 70 ? "warning" : "danger";
+    const subtitle = [
+      goals.monthLabel || "",
+      goals.asOf ? `as of ${goals.asOf}` : "",
+      goals.elapsedDays && goals.daysInMonth ? `day ${goals.elapsedDays} of ${goals.daysInMonth}` : ""
+    ].filter(Boolean).join(" \xB7 ");
+    const rows = kpis.map((k) => [
+      esc(k.label),
+      esc(k.weightLabel),
+      esc(k.goalDisplay),
+      esc(k.actualDisplay),
+      esc(k.paceDisplay),
+      esc(k.gapDisplay),
+      `<span class="badge ${k.statusTone || ""}">${esc(k.status)}</span>`
+    ]);
+    return `<div class="stack">
+        <div class="card">
+          <div class="card-body stack-10">
+            <div class="row">
+              <div class="goal-score">
+                <span class="goal-pct t-${meterTone}">${esc(score.totalDisplay || "\u2014")}</span>
+                <span class="t-tertiary">${esc(score.scoreSubline || "")}</span>
+              </div>
+              <div class="spacer"></div>
+              <span class="badge">${esc(subtitle)}</span>
+            </div>
+            ${scoreMeterHtml(score, meterTone)}
+            ${scoreLegendHtml(score, meterTone)}
+          </div>
+        </div>
+        <div class="card">
+          ${tableHtml(
+      ["KPI", "Weight", "Goal", "Actual", "Pace", "Gap", "Status"],
+      rows,
+      ["left", "right", "right", "right", "right", "right", "left"],
+      kpis.map((k) => k.statusTone || "neutral"),
+      { markerCol: 0 }
+    )}
+        </div>
+        <div class="note">${esc(goals.definitionsNote || "")}</div>
+        <div class="note">${esc(goals.achievementCapNote || "")}</div>
+        <div class="note">${esc(score.scoreNote || "")}</div>
+      </div>`;
+  }
+
+  // src/views/home.ts
+  function viewHome() {
+    var _a, _b, _c, _d, _e, _f, _g;
+    const b = agentBlock();
+    const f = b.focus || {};
+    const greet = (b.greetingLines || []).map((line, i) => richText(line, i === 0)).join("");
+    const cards = [
+      {
+        label: "Open Tickets",
+        value: (_a = f.openZd) != null ? _a : 0,
+        icon: "ticket",
+        view: "tickets",
+        tone: f.openZd ? "info" : "success"
+      },
+      {
+        label: "Top 20 Decline",
+        value: (_b = f.declineCount) != null ? _b : 0,
+        icon: "trend-down",
+        view: "top20",
+        tone: f.declineCount ? "warning" : "success"
+      },
+      {
+        label: "Pending RD",
+        value: (_c = f.rdOver5k) != null ? _c : 0,
+        icon: "banknote",
+        view: "rd",
+        tone: f.rdOver5k ? "warning" : "success"
+      },
+      {
+        label: "Take A Break",
+        value: (_d = f.takeABreak) != null ? _d : 0,
+        icon: "clock",
+        view: "locks",
+        tone: f.takeABreak ? "warning" : "success"
+      },
+      {
+        label: "Other Locked",
+        value: (_e = f.otherLocked) != null ? _e : 0,
+        icon: "lock",
+        view: "locks",
+        tone: f.otherLocked ? "warning" : "success"
+      },
+      {
+        label: "Self-Exclusion",
+        value: (_f = f.selfExclusion) != null ? _f : 0,
+        icon: "shield",
+        view: "locks",
+        tone: "neutral"
+      },
+      {
+        label: "Birthdays (3d)",
+        value: (_g = f.birthdays) != null ? _g : 0,
+        icon: "gift",
+        view: "birthdays",
+        tone: f.birthdays ? "brand" : "neutral"
+      }
+    ];
+    return `<div class="stack">
+        ${greet ? `<div class="hero"><div class="stack-6">${greet}</div></div>` : ""}
+        <div class="stats">${cards.map(statCard).join("")}</div>
+        ${goalsSummaryCard(b.goals)}
+        ${segmentCard()}
+      </div>`;
+  }
+
+  // src/views/top10.ts
+  function viewTop10() {
+    return tableCard({
+      rows: rowsFor("top10"),
+      stateKey: `t10_${app.agent}`,
+      extraKeys: ["offerCode", "offerTitle"],
+      compact: true,
+      headers: ["#", "AID", "Name", "Purchased $", "Purchases (#)", "Top Offer", "Price", "Usual \u2192 Ceiling (30D)"],
+      align: ["center", "left", "left", "right", "right", "left", "right", "left"],
+      markerCol: 3,
+      empty: "No purchasers yesterday.",
+      renderRow: (p) => [
+        esc(p.rank),
+        aidHtml(p),
+        esc(p.name),
+        `<span class="t-success w-semibold">${esc(p.purchased)}</span>`,
+        esc(p.orderCount),
+        esc(p.offerCode),
+        `<span class="${p.offerPriceVaries ? "t-warning" : ""}">${esc(p.offerPrice)}${p.offerPriceVaries ? " avg" : ""}</span>`,
+        esc(p.packageFit)
+      ]
+    });
+  }
+
+  // src/reason.ts
+  var REASON_EMPHASIS = [
+    "Redemption Blocked",
+    "Redemption in progress",
+    "Needs ",
+    "Same weekday skip",
+    "Spend Softening",
+    "Offline Since",
+    "Pending RD",
+    "RD $",
+    "Redeem Status ",
+    "Take a break",
+    "No Purchases",
+    "Played Today",
+    "Account locked",
+    "Red flag"
+  ];
+  function reasonPartIcon(part) {
+    const pl = part.toLowerCase();
+    if (part.startsWith("Red flag")) return "flag";
+    if (part.startsWith("Redemption Blocked")) return "ban";
+    if (part.startsWith("Redemption in progress")) return "hourglass";
+    if (part.startsWith("Account locked") || part.includes("Suspended")) return "lock";
+    if (part.startsWith("Needs Recent Acceptable POA") || pl.includes("poa")) return "file";
+    if (part.startsWith("Needs KYC") || pl.includes("verification document")) return "clipboard";
+    if (part.startsWith("RD $") || part.startsWith("Pending RD")) return "banknote";
+    if (part.startsWith("Same weekday skip")) return "calendar";
+    if (part.startsWith("Payment failed")) return "x-circle";
+    if (part.startsWith("No Purchases")) return "alert";
+    if (part.startsWith("Played Today")) return "slots";
+    if (part.startsWith("Redeem Status")) return "clipboard";
+    if (part.startsWith("Take a break")) return "clock";
+    if (part.startsWith("Spend Softening")) return "trend-down";
+    return "";
+  }
+  function actionHeadIcon(head) {
+    const hl = head.toLowerCase();
+    if (head.startsWith("Escalate Ops")) return "arrow-right";
+    if (head.startsWith("Escalate Compliance")) return "scale";
+    if (head.startsWith("Push purchase")) return "dollar";
+    if (head.startsWith("Fix payment method")) return "card";
+    if (head.startsWith("Remove restriction")) return "unlock";
+    if (head.startsWith("Send to Ops")) return "wrench";
+    if (head.startsWith("Soft check-in")) return "message";
+    if (head.startsWith("Agent call") || head.startsWith("Reactivation")) return "phone";
+    if (head.startsWith("No action")) return "check-circle";
+    if (hl.includes("no outreach") || hl.includes("no purchase push")) return "hand";
+    return "";
+  }
+  function reasonPartClass(part) {
+    if (part.startsWith("Red flag")) return "t-danger w-semibold";
+    if (part.startsWith("Needs ") || part.includes("Blocked")) return "t-warning w-semibold";
+    if (part.startsWith("Escalate") || part.includes("Suspended")) return "t-danger w-semibold";
+    if (part.startsWith("Same weekday skip") || part.startsWith("Played Today")) return "t-info";
+    return "";
+  }
+  function renderReason(parts, text) {
+    const segments = parts && parts.length ? parts : String(text || "").split("\u25CF").map((p) => p.trim()).filter(Boolean);
+    return segments.map((part, i) => {
+      const emphasize = i === 0 || REASON_EMPHASIS.some((pfx) => part.startsWith(pfx));
+      const name = reasonPartIcon(part);
+      const cls = emphasize ? reasonPartClass(part) || "w-semibold" : "";
+      const sep = i > 0 ? '<span class="sep">\xB7</span>' : "";
+      return sep + `<span class="${cls}">${name ? icon(name, "ic-xs") + " " : ""}${esc(part)}</span>`;
+    }).join("");
+  }
+  function renderAction(text) {
+    const chunks = String(text || "").split(" \xB7 ").filter(Boolean);
+    const head = chunks[0] || text || "";
+    const tail = chunks.slice(1).join(" \xB7 ");
+    const name = actionHeadIcon(String(head));
+    return `<span class="w-semibold">${name ? icon(name, "ic-xs") + " " : ""}${esc(head)}</span>` + (tail ? `<span class="t-tertiary"> \xB7 ${esc(tail)}</span>` : "");
+  }
+
+  // src/views/top20.ts
+  function viewTop20() {
+    const players = rowsFor("decline");
+    const stateKey = `dec_${app.agent}`;
+    const search = getState(stateKey + "_search", "");
+    const reason = getState(stateKey + "_reason", "all");
+    const sortBy = getState(stateKey + "_sortBy", "urgency");
+    const reasons = [...new Set(players.map((p) => p.reason).filter(Boolean))].sort();
+    const ordered = sortPlayers(players.filter((row) => (reason === "all" || row.reason === reason) && matchesDecline(row, search)), sortBy);
+    const { slice, pager, total } = paginate(ordered, stateKey);
+    const priorTotal = ordered.reduce((sum, p) => sum + (p.priorPriorNum || 0), 0);
+    const active = search.trim() !== "" || reason !== "all";
+    const headers = [
+      "#",
+      "Agent Name",
+      "AID",
+      "Name",
+      TITLES.lifetimePurchase,
+      TITLES.lifetimeHold,
+      TITLES.thisPurchase,
+      TITLES.priorPurchase,
+      TITLES.purchase7d,
+      TITLES.favouriteGame7d,
+      "Urgency",
+      "Reason",
+      "Recommendation",
+      "Ticket"
+    ];
+    const rows = slice.map((p) => [
+      String(ordered.indexOf(p) + 1),
+      esc(p.agentName),
+      aidHtml(p),
+      esc(p.name),
+      moneyHtml(p.lifetimePurchase, (p.lifetimePurchasedNum || 0) >= 5e4),
+      holdHtml(p.lifetimeHold),
+      moneyHtml(p.thisDay, p.zeroDay),
+      moneyHtml(p.priorDay, (p.sortGap || 0) >= 2e3),
+      p7dHtml(p.purchase7d),
+      esc(p.favouriteGame7d),
+      urgencyHtml(p.urgency),
+      `<div class="reason-cell">${renderReason(p.reasonParts, p.reasonTable || p.reason)}</div>`,
+      `<div class="action-cell">${renderAction(p.recommendation)}</div>`,
+      ticketHtml(p)
+    ]);
+    const tones = slice.map((p) => p.tone || "neutral");
+    if (rows.length) {
+      rows.push(["", "", "", "Total (all filtered)", "", "", "", money(priorTotal), "", "", "", "", "", ""]);
+      tones.push("neutral");
+    }
+    return `<div class="card">
+        <div class="toolbar">
+          <label class="search">${icon("search", "ic-sm")}
+            <input type="search" placeholder="Search name, AID, reason\u2026" value="${esc(search)}" data-state="${esc(stateKey + "_search")}">
+          </label>
+          <span class="select-wrap"><select data-state="${esc(stateKey + "_sortBy")}">
+            <option value="urgency" ${sortBy === "urgency" ? "selected" : ""}>Sort: Urgency + gap</option>
+            <option value="priorHigh" ${sortBy === "priorHigh" ? "selected" : ""}>Prior purchase \u2193</option>
+            <option value="lifetimeHigh" ${sortBy === "lifetimeHigh" ? "selected" : ""}>Lifetime purchase \u2193</option>
+            <option value="gapHigh" ${sortBy === "gapHigh" ? "selected" : ""}>WoW gap \u2193</option>
+          </select>${icon("chev-down", "ic-xs")}</span>
+          <div class="spacer"></div>
+          <span class="badge ${active ? "brand" : ""}">${active ? `${ordered.length} of ${players.length}` : `${players.length} players`}</span>
+        </div>
+        ${reasons.length ? `<div class="chip-row">
+          <button type="button" class="chip ${reason === "all" ? "active" : ""}" data-reason-state="${esc(stateKey + "_reason")}" data-reason="all">All reasons</button>
+          ${reasons.map((r) => `<button type="button" class="chip ${reason === r ? "active" : ""}" data-reason-state="${esc(stateKey + "_reason")}" data-reason="${esc(r)}">${esc(r)}</button>`).join("")}
+        </div>` : ""}
+        ${tableHtml(
+      headers,
+      rows,
+      ["center", "left", "left", "left", "right", "right", "right", "right", "left", "left", "center", "left", "left", "center"],
+      tones,
+      {
+        tableClass: "players-table",
+        totalRowIndex: rows.length - 1,
+        empty: "No players match the current filters."
+      }
+    )}
+        ${total ? pager : ""}
+      </div>`;
+  }
+
+  // src/views/pendingRd.ts
+  function viewPendingRd() {
+    return tableCard({
+      rows: rowsFor("rdOver5k"),
+      stateKey: `rd5_${app.agent}`,
+      showSearch: false,
+      sortOptions: [
+        { value: "amount", label: "Sort: Amount \u2193" },
+        { value: "won", label: "Sort: Won Yesterday \u2193" },
+        { value: "oldest", label: "Sort: Oldest first" }
+      ],
+      defaultSort: "amount",
+      sortFn: (rows, s) => s === "oldest" ? sortByNumKey(rows, "daysPending", true) : s === "won" ? sortByNumKey(rows, "wonYesterdayNum", true) : sortByNumKey(rows, "amountNum", true),
+      headers: ["AID", "Name", "RD ID", "Amount", "Status", "Created", "Won Yesterday", "Docs", "LTP", "Hold", "7D Purchase"],
+      align: ["left", "left", "left", "right", "left", "left", "right", "left", "right", "right", "right"],
+      markerCol: 3,
+      empty: "No pending redemptions.",
+      renderRow: (p) => [
+        aidHtml(p),
+        esc(p.name),
+        esc(p.redeemId),
+        `<span class="t-warning w-semibold">${esc(p.amount)}</span>`,
+        esc(p.status),
+        agingHtml(p.created, p.daysPending, p.agingFlag),
+        bigWinHtml(p),
+        docsHtml(p.docsStatus),
+        esc(p.lifetimePurchase || "\u2014"),
+        esc(p.lifetimeHold || "\u2014"),
+        esc(p.purchase7d || "\u2014")
+      ]
+    });
+  }
+
+  // src/views/firstRd.ts
+  function viewFirstRd() {
+    return tableCard({
+      rows: rowsFor("rdFirstTime"),
+      stateKey: `rdf_${app.agent}`,
+      showSearch: false,
+      headers: ["AID", "Name", "RD ID", "Amount", "Status", "Created", "Ticket"],
+      align: ["left", "left", "left", "right", "left", "left", "center"],
+      markerCol: 3,
+      empty: "No first-time redemptions today.",
+      renderRow: (p) => [
+        aidHtml(p),
+        esc(p.name),
+        esc(p.redeemId),
+        `<span class="t-warning w-semibold">${esc(p.amount)}</span>`,
+        esc(p.status),
+        esc(p.created),
+        ticketHtml(p)
+      ]
+    });
+  }
+
+  // src/views/tickets.ts
+  function viewTickets() {
+    return tableCard({
+      rows: rowsFor("zendesk"),
+      stateKey: `zd_${app.agent}`,
+      extraKeys: ["ticketIds"],
+      sortOptions: [
+        { value: "ltp", label: "Sort: LTP \u2193" },
+        { value: "tickets", label: "Sort: Open Tickets \u2193" },
+        { value: "purchase7d", label: "Sort: 7D Purchase \u2193" }
+      ],
+      defaultSort: "ltp",
+      sortFn: (rows, s) => s === "tickets" ? sortByNumKey(rows, "openTickets", true) : s === "purchase7d" ? sortByNumKey(rows, "purchase7dNum", true) : sortByNumKey(rows, "lifetimePurchasedNum", true),
+      headers: ["AID", "Name", "LTP", "Hold", "7D Purchase", "Open Tickets", "Ticket"],
+      align: ["left", "left", "right", "right", "right", "right", "left"],
+      markerCol: 2,
+      empty: "No open tickets.",
+      renderRow: (p) => [
+        aidHtml(p),
+        esc(p.name),
+        moneyHtml(p.lifetimePurchase || "$0", (p.lifetimePurchasedNum || 0) >= 5e4),
+        holdHtml(p.lifetimeHold || "n/a"),
+        moneyHtml(p.purchase7d || "$0"),
+        esc(p.openTickets),
+        ticketIdsHtml(p)
+      ]
+    });
+  }
+
+  // src/views/locks.ts
+  function viewLocks() {
+    return tableCard({
+      rows: rowsFor("locks"),
+      stateKey: `lk_${app.agent}`,
+      showSearch: false,
+      sortFn: (rows) => sortBySoonestUnlock(rows),
+      headers: ["AID", "Name", "Lock Reason", "Days Remaining / Unlock"],
+      align: ["left", "left", "left", "left"],
+      markerCol: 2,
+      empty: "No new locks and no breaks due to end.",
+      renderRow: (p) => [
+        aidHtml(p),
+        esc(p.name),
+        `<span class="t-${p.tone || "warning"}">${esc(p.lockReason)}</span>`,
+        unlockHtml(p.unlockDetail, p.unlockRemainingDays)
+      ]
+    });
+  }
+
+  // src/views/birthdays.ts
+  function viewBirthdays() {
+    return tableCard({
+      rows: rowsFor("birthdays"),
+      stateKey: `bd_${app.agent}`,
+      showSearch: false,
+      headers: ["AID", "Name", "Email", "DOB", "Age", "Ticket"],
+      align: ["left", "left", "left", "left", "right", "center"],
+      markerCol: 3,
+      empty: "No birthdays in the last 3 days.",
+      renderRow: (p) => {
+        var _a;
+        return [
+          aidHtml(p),
+          esc(p.name),
+          esc(p.email),
+          `<span class="t-success w-semibold">${esc(p.dob)}</span>`,
+          esc((_a = p.age) != null ? _a : "\u2014"),
+          ticketHtml(p)
+        ];
+      }
+    });
+  }
+
+  // src/registry.ts
+  var GROUP_ORDER = ["Command", "Today", "Performance", "Risk", "Operations", "Care"];
+  var VIEWS = {
+    dashboard: {
+      label: "Manager Dashboard",
+      short: "Dashboard",
+      icon: "gauge",
+      group: "Command",
+      managerOnly: true,
+      gated: true,
+      sub: "Cross-AM roll-up \u2014 manager only"
+    },
+    team: {
+      label: "Team Goals",
+      icon: "target",
+      group: "Command",
+      managerOnly: true,
+      gated: true,
+      sub: "Your team as one book \u2014 manager only"
+    },
+    home: {
+      label: "Morning Brief",
+      icon: "sunrise",
+      group: "Today",
+      sub: "Where to start today"
+    },
+    goals: {
+      label: "Elite Goals",
+      icon: "target",
+      group: "Performance",
+      sub: "Month to date against target"
+    },
+    top10: {
+      label: "Top 10 Purchasers",
+      icon: "crown",
+      group: "Performance",
+      key: "top10",
+      sub: "Yesterday's biggest spenders"
+    },
+    top20: {
+      label: "Top 20 \xB7 WoW Gaps",
+      icon: "trend-down",
+      group: "Risk",
+      key: "decline",
+      sub: `Same-weekday drops vs last ${day}`
+    },
+    rd: {
+      label: "Pending Redemptions",
+      icon: "banknote",
+      group: "Operations",
+      key: "rdOver5k",
+      sub: "Locked withdrawals awaiting release"
+    },
+    rdfirst: {
+      label: "First-Time Locked RD",
+      icon: "sparkles",
+      group: "Operations",
+      key: "rdFirstTime",
+      sub: "First-ever redemption \u2014 under review"
+    },
+    tickets: {
+      label: "Open Tickets",
+      icon: "ticket",
+      group: "Operations",
+      key: "zendesk",
+      sub: "Open Zendesk tickets on your book"
+    },
+    locks: {
+      label: "Locked & Take A Break",
+      icon: "lock",
+      group: "Operations",
+      key: "locks",
+      sub: "New locks and breaks due to end"
+    },
+    birthdays: {
+      label: "Birthdays \xB7 Last 3 Days",
+      short: "Birthdays",
+      icon: "gift",
+      group: "Care",
+      key: "birthdays",
+      sub: "A reason to reach out"
+    }
+  };
+  var NAV_ORDER = [
+    "dashboard",
+    "team",
+    "home",
+    "goals",
+    "top10",
+    "top20",
+    "rd",
+    "rdfirst",
+    "tickets",
+    "locks",
+    "birthdays"
+  ];
+  var VIEW_FN = {
+    dashboard: viewDashboard,
+    team: viewTeamGoals,
+    home: viewHome,
+    goals: viewGoals,
+    top10: viewTop10,
+    top20: viewTop20,
+    rd: viewPendingRd,
+    rdfirst: viewFirstRd,
+    tickets: viewTickets,
+    locks: viewLocks,
+    birthdays: viewBirthdays
+  };
+
+  // src/main.ts
   function navCount(viewId) {
     const v = VIEWS[viewId];
     if (!v || !v.key) return null;
@@ -2050,19 +2088,6 @@
         </div>
       </header>`;
   }
-  var VIEW_FN = {
-    dashboard: viewDashboard,
-    team: viewTeamGoals,
-    home: viewHome,
-    goals: viewGoals,
-    top10: viewTop10,
-    top20: viewTop20,
-    rd: viewPendingRd,
-    rdfirst: viewFirstRd,
-    tickets: viewTickets,
-    locks: viewLocks,
-    birthdays: viewBirthdays
-  };
   function renderModal() {
     const root = document.getElementById("modalRoot");
     const p = app.ticket;
@@ -2219,7 +2244,7 @@ ${val("tBody")}`, "Subject + message");
   function render() {
     if (app.view === "goals" && !agentBlock().goals) app.view = "home";
     if (VIEWS[app.view] && VIEWS[app.view].managerOnly && SINGLE_AM) app.view = "home";
-    const body = (VIEW_FN[app.view] || viewHome)();
+    const body = (VIEW_FN[app.view] || VIEW_FN.home)();
     document.getElementById("root").innerHTML = `<div class="app${app.collapsed ? " collapsed" : ""}${app.mobileOpen ? " mobile-open" : ""}">
         ${sidebar()}
         <div class="main">
