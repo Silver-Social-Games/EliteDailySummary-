@@ -122,7 +122,11 @@ Five phases, phase 0 done:
   Environment is ready: Node v24.15.0, npm 11.12.1, registry reachable, so
   `npm i -D esbuild typescript` in `web/` works. `node_modules/` at any depth
   is already gitignored.
-#### Phase 2 progress — pick up here
+#### Phase 2 — done (2026-08-19)
+
+All five steps are committed. `web/src/` is the source of truth for the board's
+JS; `handoffs/elite_am_brief_web.html` is the build output. Next work is
+Phase 3 — see the checklist a few paragraphs down.
 
 **Two questions the user answered 2026-08-19; do not re-ask.**
 
@@ -147,34 +151,17 @@ Five phases, phase 0 done:
 |---|---|
 | `e6b3301` | 1 — scaffold `web/`, whole script verbatim in `main.ts`, payload moved to a `<script type="application/json" id="am-brief-payload">` block, both jsdom harnesses updated, `tests_js/dom_snapshot.mjs` added |
 | `ff149b3` | 2 — leaf modules: `types`, `payload`, `state`, `selectors`, `format`, `toast`, `cells`, `reason`, `filters`, `table`. `main.ts` 1,361 → 908 lines |
-| (next) | 3 — **half done**, see below |
+| `709deec` | 3 — `components.ts`, all eleven `views/*.ts`, `registry.ts` (`GROUP_ORDER`/`VIEWS`/`NAV_ORDER`/`VIEW_FN`) |
+| `7521bbb` | 4 — `sidebar.ts`, `topbar.ts`, `calendar.ts`, `modal.ts`, `bind.ts`, `render.ts`; `main.ts` reduced to a bootstrap that wires `state.rerender` and document-level listeners |
+| (this write-up) | 5 — `pretest` builds the shell before fixtures (`tests_js/package.json`), hash guards re-implemented in pure Python (`test_web_build.py`), `tsc --noEmit` enforced via `test_web_typecheck.py`, Skill routing table now names `web/src/` files. Also fixed a real bug caught while wiring `pretest`: `build.mjs` did not pin `absWorkingDir`, so esbuild's per-module `// src/foo.ts` comments were relative to the *caller's* cwd — running the build from `tests_js/` (`../web/build.mjs`) stamped `../web/src/foo.ts` instead, a spurious diff on every rebuild from a different directory. Fixed with `absWorkingDir: __dirname` |
 
-**Step 3 is half written.** `src/components.ts` (`segmentCard`, `statCard`,
-`emptyState`, `gateHtml`) and ten of eleven views exist under `src/views/`
-(`home`, `goals` — which also owns `goalsSummaryCard` —, `team`, `top10`,
-`top20`, `pendingRd`, `firstRd`, `tickets`, `locks`, `birthdays`). They
-typecheck but **are not imported yet**, so the bundle still comes from the copies
-inside `main.ts`. To finish step 3:
-
-1. Write `src/views/dashboard.ts` (`viewDashboard`, the last one) — it needs
-   `teamGoalsCard` from `./team`, `gateHtml`/`statCard`/`segmentCard` from
-   components, `scoreMeterHtml`, `richText`, `toNum`/`money`/`compactMoney`,
-   `tableHtml`, and `AGENTS`/`AM_SHARES`/`OVERVIEW`/`REPORT`/`dayShort`.
-2. Write `src/registry.ts` with `GROUP_ORDER`, `VIEWS`, `NAV_ORDER` and
-   `VIEW_FN` (it imports every view; **no view may import the registry**, or the
-   cycle is back).
-3. Cut two regions out of `main.ts`: everything from
-   `/* ---- section registry ---- */` up to (not including)
-   `/* ---- chrome ---- */`, and the standalone `const VIEW_FN = {...};` block
-   after `topbar()`. Then import `GROUP_ORDER`/`VIEWS`/`NAV_ORDER`/`VIEW_FN`
-   from `./registry` and drop the now-unused imports.
-4. `statCard` in `components.ts` already dropped a dead `attrs` local that
-   nothing read — do not reintroduce it when deleting the `main.ts` copy.
-
-Then step 4 (`sidebar`, `topbar`, `calendar`, `modal`, `bind`, `render`,
-`main`) and step 5 (`pretest` builds the shell before fixtures, the two hash
-guard tests in a new `test_web_build.py`, `tsc --noEmit` in CI, and the Skill
-routing table naming files instead of functions).
+Step 3 needed no design decisions — every view/`components.ts` file already
+existed and typechecked from the step-3-prep commits below; step 3 itself was
+purely wiring the registry and deleting the `main.ts` copies. Step 4 needed
+one real decision, already applied: `modal.ts` and `bind.ts` call
+`state.rerender()` rather than importing `render()` directly, which is what
+keeps `render.ts` (which imports `bind`/`sidebar`/`topbar`/`modal`) from
+forming an import cycle with the modules it calls back into.
 
 **Model choice, revised 2026-08-19 once the snapshot harness existed.** The
 original "use a thinking model for all of Phase 2" was written before there was
@@ -223,25 +210,28 @@ costs nothing.
   (`core.autocrlf=true`), so raw-byte hashing makes a fresh clone disagree with
   the machine that built it.
 
+- [x] **Phase 2 — modularize the web board's JS.** Done 2026-08-19, all five
+  steps committed (table above). `tsc --noEmit` clean, 64 Python tests pass,
+  181 DOM snapshots byte-identical to the pre-refactor shell.
 - [ ] **Phase 3 — extract payload builders out of
   `generate_am_daily_dashboard.py`** (currently a god-module) into their own
   testable functions (e.g. `build_top10_section`, `build_rd_section`,
   `focus_for_agent`, `greeting_lines`), with unit tests alongside the
-  existing `test_goals.py` style.
+  existing `test_goals.py` style. Start this in a fresh session — Phase 2 used
+  most of the context budget available in this one.
   Also worth folding in here: `queries.py` builds dates into SQL via
   f-string interpolation rather than parameters — low risk today (no
   user-supplied dates reach it) but worth tightening while touching this file.
-- [ ] **Phase 4 — re-run `verify_brief.py --render-check` + the render suite**,
-  update `.cursor/skills/elite-am-brief/SKILL.md` routing for the new
-  `tests_js/`/`testing/` layout, then resume **Batch 8 item 3 (Big Winners)**
-  below.
+- [ ] **Then resume Batch 8 item 3 (Big Winners)** below — Phase 4 (re-run
+  `verify_brief.py --render-check` + update the Skill routing table) was
+  folded into Phase 2 step 5 and is already done, so there is no separate
+  Phase 4 left to do.
 
 **Model guidance settled with the user 2026-08-19:** use a stronger/thinking
-model for Phase 2 (the JS refactor — real architectural risk, easy to
-introduce a subtle behavior change across ~1,350 lines) and Phase 3 (payload
-extraction touching the god-module). Phase 0 (this session) and Phase 4
-(mechanical verification + doc updates) are cheap and fine on a faster model.
-Switch up only for phases 2–3.
+model for Phase 2 (done) and Phase 3 (payload extraction touching the
+god-module — same reasoning: real architectural risk, easy to introduce a
+subtle behavior change). Phase 0 and Phase 2 step 5 (mechanical verification
+and doc updates) were fine on a faster model.
 
 **Nothing from Batches 10–11 is half-finished** — both were verified end to
 end on 2026-08-18 and every question they left open has been answered.

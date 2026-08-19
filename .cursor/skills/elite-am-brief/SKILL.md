@@ -108,46 +108,64 @@ label; go straight to the row. Do not explore the folder to rediscover this.
 Sidebar groups as built: **Command** (manager-only) · **Today** · **Performance**
 · **Risk** · **Operations**.
 
-| Sidebar label (group) | Payload key | SQL | Rows built by | HTML view | Canvas |
+| Sidebar label (group) | Payload key | SQL | Rows built by | HTML view (`web/src/`) | Canvas |
 |---|---|---|---|---|---|
-| **Manager Dashboard** (Command) | `overview`, `amShares` | reuses the other queries | inline in `build_payload` | `viewDashboard()` | none — no gated canvas surface |
-| **Team Goals** (Command) | `teamGoals` | `goals_mtd_actuals_sql` (`ROLLUP` team row) | `goals.build_team_goals_block` | `viewTeamGoals()`, `teamGoalsCard()` | none |
-| **Morning Brief** (Today) | `report`, `agents[].focus`, `greetingLines` | `agent_day_purchase_sql`, `agent_book_size_sql`, `daily_summary.build_sql` (segments) | `greeting_lines`, `focus_for_agent` | `viewHome()`, `statCard()` | `sections.py` → Morning Checklist |
-| **Elite Goals** (Performance) | `agents[].goals` | `goals_mtd_actuals_sql` | `goals.build_agent_goals_block` | `viewGoals()`, `goalsSummaryCard()`, `scoreMeterHtml`, `scoreLegendHtml` | `sections.py` → `<H2>Elite Goals</H2>` |
-| **Top 10 Purchasers** (Performance) | `top10` | `top10_purchasers_sql` | `build_top10_section` + `build_package_fit` (the `Usual → Ceiling` cell) | `viewTop10()` | `sections.py` → `title="Top 10 Purchasers"` |
-| **Top 20 · WoW Gaps** (Risk) | `decline` | `wow_drop_analysis.fetch_top_same_day_by_agent` | `soften_decline_rows` (tone only; selection/classify is shared with Elite Daily Decline) | `viewTop20()` | `tables.py` → `Top20DeclineTable` |
-| **Pending Redemptions** (Operations) | `rdOver5k` | `locked_rd_over_5k_sql` (GGR + Won Yesterday join inside) | `build_rd_section` | `viewPendingRd()` | `sections.py` → `title="Pending Redemptions"` |
-| **First-Time Locked RD** (Operations) | `rdFirstTime` | `first_time_locked_rd_sql` | `build_rd_section` again — same function, no ageing threshold, `ticket_enrich=` instead of `metrics_enrich=`, so a change here hits Pending RD too | `viewFirstRd()` | `sections.py` → `title="First-Time Locked RD"` |
-| **Open Tickets** (Operations) | `zendesk` | `open_zendesk_sql` + `enrich_aids_sql` (LTP / Hold / 7D batch) | `build_zd_section` | `viewTickets()` | `sections.py` → `title="Open Tickets"` |
-| **Locked & Take A Break** (Operations) | `locks` | `locked_players_sql` | `build_lock_section` (buckets: Self-exclusion / Take a break / Other locked) | `viewLocks()` | `sections.py` → `title="Locked And Take A Break"` |
-| **Birthdays · Last 3 Days** | `birthdays` | `birthdays_last_3d_sql` | `build_birthday_section` | `viewBirthdays()` | `sections.py` → `title="Birthdays · Last 3 Days"` |
+| **Manager Dashboard** (Command) | `overview`, `amShares` | reuses the other queries | inline in `build_payload` | `views/dashboard.ts` | none — no gated canvas surface |
+| **Team Goals** (Command) | `teamGoals` | `goals_mtd_actuals_sql` (`ROLLUP` team row) | `goals.build_team_goals_block` | `views/team.ts` | none |
+| **Morning Brief** (Today) | `report`, `agents[].focus`, `greetingLines` | `agent_day_purchase_sql`, `agent_book_size_sql`, `daily_summary.build_sql` (segments) | `greeting_lines`, `focus_for_agent` | `views/home.ts` | `sections.py` → Morning Checklist |
+| **Elite Goals** (Performance) | `agents[].goals` | `goals_mtd_actuals_sql` | `goals.build_agent_goals_block` | `views/goals.ts` | `sections.py` → `<H2>Elite Goals</H2>` |
+| **Top 10 Purchasers** (Performance) | `top10` | `top10_purchasers_sql` | `build_top10_section` + `build_package_fit` (the `Usual → Ceiling` cell) | `views/top10.ts` | `sections.py` → `title="Top 10 Purchasers"` |
+| **Top 20 · WoW Gaps** (Risk) | `decline` | `wow_drop_analysis.fetch_top_same_day_by_agent` | `soften_decline_rows` (tone only; selection/classify is shared with Elite Daily Decline) | `views/top20.ts` | `tables.py` → `Top20DeclineTable` |
+| **Pending Redemptions** (Operations) | `rdOver5k` | `locked_rd_over_5k_sql` (GGR + Won Yesterday join inside) | `build_rd_section` | `views/pendingRd.ts` | `sections.py` → `title="Pending Redemptions"` |
+| **First-Time Locked RD** (Operations) | `rdFirstTime` | `first_time_locked_rd_sql` | `build_rd_section` again — same function, no ageing threshold, `ticket_enrich=` instead of `metrics_enrich=`, so a change here hits Pending RD too | `views/firstRd.ts` | `sections.py` → `title="First-Time Locked RD"` |
+| **Open Tickets** (Operations) | `zendesk` | `open_zendesk_sql` + `enrich_aids_sql` (LTP / Hold / 7D batch) | `build_zd_section` | `views/tickets.ts` | `sections.py` → `title="Open Tickets"` |
+| **Locked & Take A Break** (Operations) | `locks` | `locked_players_sql` | `build_lock_section` (buckets: Self-exclusion / Take a break / Other locked) | `views/locks.ts` | `sections.py` → `title="Locked And Take A Break"` |
+| **Birthdays · Last 3 Days** | `birthdays` | `birthdays_last_3d_sql` | `build_birthday_section` | `views/birthdays.ts` | `sections.py` → `title="Birthdays · Last 3 Days"` |
 
 SQL = `am_daily_dashboard/queries.py`. Rows built by = `generate_am_daily_dashboard.py`
-unless a module is named. HTML view = `handoffs/elite_am_brief_web.html`. Canvas =
-`canvas_parts/`.
+unless a module is named. **HTML view = `am_daily_dashboard/web/src/` (Phase 2,
+2026-08-19) — edit a view file there, then `node am_daily_dashboard/web/build.mjs`.
+`handoffs/elite_am_brief_web.html` is the bundled build output and carries a
+sha256 build stamp; never hand-edit it, and `test_web_build.py` fails loudly if
+sources and output drift apart.** Canvas = `canvas_parts/`.
 
 ### Cross-cutting — changes every section at once
 
-| If the ask is about… | Go to |
+| If the ask is about… | Go to (`web/src/` unless noted) |
 |---|---|
 | A threshold ($5k RD, lookback days, big-winner floor, gate) | `config.py` — never inline |
-| AID → Looker link | `aidHtml()` (HTML) · `AidLink` in `cells.py` (canvas) |
-| TID → Zendesk link | `ticketHtml()` / `ticketIdsHtml()` (HTML) · `cells.py` (canvas) |
-| WoW arrow, money, Hold, unlock, ageing, Big Winner, Docs, 7D, urgency cells | `wowHtml` / `moneyHtml` / `holdHtml` / `unlockHtml` / `agingHtml` / `bigWinHtml` / `docsHtml` / `p7dHtml` / `urgencyHtml` (HTML) · `cells.py` (canvas) |
-| Reason / Recommendation formatting and icons | `renderReason` / `renderAction` / `reasonPartIcon` / `actionHeadIcon` (HTML) · `cells.py` |
-| Search box, sort dropdown, pagination, table shell | `tableHtml` / `tableCard` / `paginate` (HTML) · `tables.py` (canvas) |
-| Sidebar labels, order, icons, grouping | `VIEWS` + `NAV_ORDER` in the HTML |
-| Elite & Jackpota weekday segment strip | `segmentCard()` (HTML); data from `daily_summary.build_report` |
+| AID → Looker link | `cells.ts::aidHtml()` · `AidLink` in `canvas_parts/cells.py` |
+| TID → Zendesk link | `cells.ts::ticketHtml()` / `ticketIdsHtml()` · `canvas_parts/cells.py` |
+| WoW arrow, money, Hold, unlock, ageing, Big Winner, Docs, 7D, urgency cells | `cells.ts` (`wowHtml` / `moneyHtml` / `holdHtml` / `unlockHtml` / `agingHtml` / `bigWinHtml` / `docsHtml` / `p7dHtml` / `urgencyHtml`) · `canvas_parts/cells.py` |
+| Reason / Recommendation formatting and icons | `reason.ts` · `canvas_parts/cells.py` |
+| Search box, sort dropdown, pagination, table shell | `table.ts` (`tableHtml` / `tableCard` / `paginate`) · `canvas_parts/tables.py` |
+| Sidebar labels, order, icons, grouping | `registry.ts` (`VIEWS` / `NAV_ORDER` / `GROUP_ORDER`), rendered by `sidebar.ts` |
+| Elite & Jackpota weekday segment strip | `components.ts::segmentCard()`; data from `daily_summary.build_report` |
+| Manager dashboard tiles / Goals leaderboard | `views/dashboard.ts` |
+| Archive month calendar (topbar) | `calendar.ts` — `report.archive` itself still comes from `canvas_to_html.py` (`archive_entries`, `with_archive`, `audience_slug`) |
+| Ticket draft modal (copy buttons, Zendesk open) | `modal.ts` |
+| Click/input/pager wiring, manager gate submit | `bind.ts` — calls `state.rerender()`, never `render()`, so it stays free of an import cycle with `render.ts` |
+| The one function that redraws the page | `render.ts` |
 | Score out of 80 + 20, weights, pace, status thresholds | `goals.py` (+ targets in `data/elite_goals.tsv`) |
 | An AM's own figures disagree with the board | `data/elite_goals_reference.tsv` then `--goals-only` — see above |
-| Archive calendar, dateless file, which audience a file is for | `canvas_to_html.py` (`audience_slug`, `archive_entries`, `with_archive`) |
+| Which days are in the archive / which AM owns a file | `canvas_to_html.py` (`audience_slug`, `archive_entries`, `with_archive`) |
 | Zendesk draft wording | `am_brief_ticket_drafts.py` (WoW Gaps drafts: `wow_drop_analysis/ticket_draft.py`) |
 | Per-AM isolation / what a manager-only key may touch | `goals.strip_payload_for_am` (fixed key list) |
 
 **Any section change is three implementations** — `canvas_parts/`,
-`handoffs/elite_am_brief_web.html`, and `daily_summary/streamlit_app/am_brief_app.py`.
-Grep all three; the Churn removal was half-missed exactly here. Then
-`--html-only` and `verify_brief.py`.
+`am_daily_dashboard/web/src/` (never `handoffs/elite_am_brief_web.html` directly —
+that is the build output; run `node am_daily_dashboard/web/build.mjs` after
+editing a `.ts` file), and `daily_summary/streamlit_app/am_brief_app.py`. Grep
+all three; the Churn removal was half-missed exactly here. Then `--html-only`
+and `verify_brief.py`.
+
+**Verifying a `web/src/` change:** `npx tsc --noEmit` in `web/` (strict,
+no `// @ts-nocheck` anywhere in the tree), then from `tests_js/`:
+`node dom_snapshot.mjs --out <dir>` on the pre-change shell, make the edit,
+rebuild, `node dom_snapshot.mjs --check <dir>` for byte-for-byte DOM equality,
+then `npm test` (rebuilds the shell and fixtures itself via `pretest`). See
+`tests_js/README.md` and the *Phase 2 progress* section of
+`AM_DAILY_DASHBOARD.md` for the full recipe and the traps found building it.
 
 ## Output
 
@@ -371,26 +389,35 @@ Streamlit are compatibility-only. Phase 0 (committed jsdom render suite +
 **done and committed** (`fb60e63`, `36a6b85`) — the AM Brief tree is clean, 61
 tests pass, and Phase 2 has a clean baseline to diff against.
 
-**Phase 2 — in progress. The board now builds from
-`am_daily_dashboard/web/`:** modular TS bundled by esbuild back into the one
-self-contained `handoffs/elite_am_brief_web.html`. Steps 1 and 2 are committed
-(`e6b3301`, `ff149b3`); step 3 (views + components + registry) is half written.
+**Phase 2 — done (2026-08-19), all five steps committed.** The board now
+builds from `am_daily_dashboard/web/`: modular, fully-typed TS (`tsc --noEmit`
+passes strict, no `// @ts-nocheck` anywhere) bundled by esbuild back into the
+one self-contained `handoffs/elite_am_brief_web.html`. The routing table above
+already names the `web/src/` files instead of functions inside one script.
 
 **`handoffs/elite_am_brief_web.html` is a BUILD OUTPUT — do not edit it.** Edit
 `web/src/*.ts` and run `node am_daily_dashboard/web/build.mjs`, then
 `--html-only` to refresh the briefs. Two embedded hashes make both mistakes
-loud: editing the TS without rebuilding, and hand-editing the generated HTML.
+loud — editing the TS without rebuilding, and hand-editing the generated HTML —
+enforced by `test_web_build.py`, which recomputes both in pure Python (no Node
+needed) so the guard still fires on a machine without it. `tests_js`'s
+`pretest` rebuilds the shell and fixtures before every `npm test`, and
+`test_web_typecheck.py` runs `tsc --noEmit` as part of
+`python -m unittest discover`.
 
-Exact remaining steps, the answered scope questions, the DOM-snapshot
-verification recipe and four traps found the hard way are under *Phase 2
-progress — pick up here* in
+Every step was verified the same way before being committed: 181 DOM
+snapshots (`tests_js/dom_snapshot.mjs`) byte-identical to the pre-refactor
+shell, the 10-test jsdom suite, and the full Python suite. Full history,
+the four traps found along the way, and one real bug caught mid-refactor
+(esbuild's per-module path comments were caller-cwd-relative, not pinned —
+fixed via `absWorkingDir` in `build.mjs` once `pretest` started invoking it
+from a different directory) are under *Phase 2 progress* in
 [`AM_DAILY_DASHBOARD.md`](../../../am_daily_dashboard/AM_DAILY_DASHBOARD.md).
-Read that before opening a file, and use a stronger/thinking model: the risk is
-a subtle behaviour change, not a missing feature.
 
-Then Phase 3 (extract payload builders out of
-`generate_am_daily_dashboard.py`), Phase 4 (re-verify + update the routing
-table below to name files), then resume **Batch 8 item 3, Big Winners ≥ $20K**.
+Next: Phase 3 (extract payload builders out of
+`generate_am_daily_dashboard.py` into testable functions — needs a
+stronger/thinking model, same reasoning as Phase 2, since it touches the
+god-module), then resume **Batch 8 item 3, Big Winners ≥ $20K**.
 
 **Batch 11 (manager-only team-total Goals view) is done and verified** — see the
 Team Goals bullet above.

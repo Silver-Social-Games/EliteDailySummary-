@@ -81,6 +81,13 @@ async function bundle() {
     minify: false,
     write: false,
     logLevel: "warning",
+    // Unminified output gets a "// src/foo.ts" comment before each module,
+    // relative to absWorkingDir (default: process.cwd()). Pin it to this
+    // directory so the build is byte-identical regardless of the caller's
+    // cwd - e.g. tests_js/package.json's pretest invokes this file as
+    // "../web/build.mjs", which would otherwise stamp every comment
+    // "../web/src/foo.ts" instead of "src/foo.ts".
+    absWorkingDir: __dirname,
     // The pre-refactor board ran under an inline `"use strict"`. Pinning it to
     // the bundle rather than to whichever module statement lands first keeps
     // that guarantee no matter how the modules are later reshuffled.
