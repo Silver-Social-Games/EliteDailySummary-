@@ -45,8 +45,9 @@ Five phases, phase 0 done:
   corrupt the page. Still open from Phase 1: nothing blocking — this was the
   one safety fix worth doing immediately; the rest of Phase 1 is documentation
   (this file already states HTML-canonical above).
-- [ ] **Phase 2 — de-spaghetti the inline JS. Not started; the design below is
-  settled, so start by building it, not by re-deciding it.**
+- [~] **Phase 2 — de-spaghetti the inline JS. Steps 1 and 2 are done and
+  committed; step 3 is half-written. Pick up at *Phase 2 progress* below.** The
+  design in this bullet is settled and was built as written, not re-decided.
   `handoffs/elite_am_brief_web.html` carries ~1,350 lines of inline `<script>`
   with global mutable state (`app.*`), ad hoc event binding, and per-view
   render functions in one block. Split into modular TS bundled by esbuild into
@@ -121,6 +122,95 @@ Five phases, phase 0 done:
   Environment is ready: Node v24.15.0, npm 11.12.1, registry reachable, so
   `npm i -D esbuild typescript` in `web/` works. `node_modules/` at any depth
   is already gitignored.
+#### Phase 2 progress — pick up here
+
+**Two questions the user answered 2026-08-19; do not re-ask.**
+
+- `handoffs/elite_am_brief_web.html` is now a **build output**. Changing the
+  board means editing `web/src/*.ts` and running `node web/build.mjs`. The built
+  file **stays committed**, so a machine with no Node can still generate briefs.
+- **Both** hash guards must **fail loudly** in the test suite: "you edited the
+  TS and did not rebuild" *and* "you hand-edited the generated HTML, your change
+  will be lost". The second one is why `build.mjs` embeds an `output sha256`
+  as well as a `sources sha256` — a source hash alone cannot detect a hand-edit
+  of the output.
+
+**Done and committed.** The board builds from `am_daily_dashboard/web/`:
+`shell.html` (four markers: `__BUILD_STAMP__`, `__APP_CSS__`, `__ICON_SPRITE__`,
+`__APP_JS__`, plus `__PAYLOAD_JSON__` left for Python), `src/app.css` and
+`src/icons.svg` concatenated **verbatim**, `src/*.ts` bundled by esbuild
+(IIFE, es2019, unminified, `"use strict"` via banner), output written back to
+`handoffs/elite_am_brief_web.html` — the path `canvas_to_html.SHELL` and the
+`.gitignore` allowlist already point at.
+
+| Commit | Step |
+|---|---|
+| `e6b3301` | 1 — scaffold `web/`, whole script verbatim in `main.ts`, payload moved to a `<script type="application/json" id="am-brief-payload">` block, both jsdom harnesses updated, `tests_js/dom_snapshot.mjs` added |
+| `ff149b3` | 2 — leaf modules: `types`, `payload`, `state`, `selectors`, `format`, `toast`, `cells`, `reason`, `filters`, `table`. `main.ts` 1,361 → 908 lines |
+| (next) | 3 — **half done**, see below |
+
+**Step 3 is half written.** `src/components.ts` (`segmentCard`, `statCard`,
+`emptyState`, `gateHtml`) and ten of eleven views exist under `src/views/`
+(`home`, `goals` — which also owns `goalsSummaryCard` —, `team`, `top10`,
+`top20`, `pendingRd`, `firstRd`, `tickets`, `locks`, `birthdays`). They
+typecheck but **are not imported yet**, so the bundle still comes from the copies
+inside `main.ts`. To finish step 3:
+
+1. Write `src/views/dashboard.ts` (`viewDashboard`, the last one) — it needs
+   `teamGoalsCard` from `./team`, `gateHtml`/`statCard`/`segmentCard` from
+   components, `scoreMeterHtml`, `richText`, `toNum`/`money`/`compactMoney`,
+   `tableHtml`, and `AGENTS`/`AM_SHARES`/`OVERVIEW`/`REPORT`/`dayShort`.
+2. Write `src/registry.ts` with `GROUP_ORDER`, `VIEWS`, `NAV_ORDER` and
+   `VIEW_FN` (it imports every view; **no view may import the registry**, or the
+   cycle is back).
+3. Cut two regions out of `main.ts`: everything from
+   `/* ---- section registry ---- */` up to (not including)
+   `/* ---- chrome ---- */`, and the standalone `const VIEW_FN = {...};` block
+   after `topbar()`. Then import `GROUP_ORDER`/`VIEWS`/`NAV_ORDER`/`VIEW_FN`
+   from `./registry` and drop the now-unused imports.
+4. `statCard` in `components.ts` already dropped a dead `attrs` local that
+   nothing read — do not reintroduce it when deleting the `main.ts` copy.
+
+Then step 4 (`sidebar`, `topbar`, `calendar`, `modal`, `bind`, `render`,
+`main`) and step 5 (`pretest` builds the shell before fixtures, the two hash
+guard tests in a new `test_web_build.py`, `tsc --noEmit` in CI, and the Skill
+routing table naming files instead of functions).
+
+**How to verify — this is the whole method, do not substitute the 10 assertions.**
+
+```bash
+cd am_daily_dashboard/tests_js
+node dom_snapshot.mjs --out %TEMP%\ambrief-baseline    # from a known-good build
+# ... extract ... then:
+cd ../web && node build.mjs
+cd ../tests_js && python ../testing/build_fixtures.py
+node dom_snapshot.mjs --check %TEMP%\ambrief-baseline  # must be byte-identical
+npm test --silent
+```
+
+181 snapshots: every fixture x gate state x agent x view, plus interaction
+states (calendar open, prev month, pager, page size, search, reason chip, ticket
+modal, sidebar collapse, rejected passcode). Takes ~60s. **A fresh baseline may
+be taken from any committed state**, because every committed step is already
+proven byte-identical to the pre-refactor shell — the temp folder being wiped
+costs nothing.
+
+**Four traps found the hard way this session:**
+
+- **Never dedent a template literal.** The inner lines of the board's multi-line
+  template strings are literal DOM whitespace. Module code was re-indented to
+  2 spaces but every template literal keeps its original absolute indentation on
+  purpose; dedenting them changes the DOM and the snapshot check will fail.
+- **The sources hash covers all of `src/**`, imported or not.** Adding a file
+  changes the hash, so `node build.mjs --check` fails until you rebuild and
+  commit the HTML. That is correct behaviour, not a bug.
+- Both harnesses (`render.test.mjs`, `real_export_check.mjs`) filter out
+  `type="application/json"` before evaluating inline scripts. Remove that filter
+  and every test passes against a blank board.
+- Hash LF-normalised text in both implementations. The repo checks out CRLF
+  (`core.autocrlf=true`), so raw-byte hashing makes a fresh clone disagree with
+  the machine that built it.
+
 - [ ] **Phase 3 — extract payload builders out of
   `generate_am_daily_dashboard.py`** (currently a god-module) into their own
   testable functions (e.g. `build_top10_section`, `build_rd_section`,

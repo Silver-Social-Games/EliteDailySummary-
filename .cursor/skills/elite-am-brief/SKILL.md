@@ -371,17 +371,22 @@ Streamlit are compatibility-only. Phase 0 (committed jsdom render suite +
 **done and committed** (`fb60e63`, `36a6b85`) — the AM Brief tree is clean, 61
 tests pass, and Phase 2 has a clean baseline to diff against.
 
-**Next: Phase 2 — split the inline JS into modular TS under a new
-`am_daily_dashboard/web/`, bundled by esbuild back into the one self-contained
-`handoffs/elite_am_brief_web.html`.** Not started. The design is **settled** —
-target module layout, the payload moving to a `<script
-type="application/json">` block, the two test harnesses that eval the inline
-script and must be updated with it, the no-import-cycle rule, the stale-build
-hash guard, and the byte-identical DOM-snapshot verification method are all
-written up under *Pick up here — next session* in
+**Phase 2 — in progress. The board now builds from
+`am_daily_dashboard/web/`:** modular TS bundled by esbuild back into the one
+self-contained `handoffs/elite_am_brief_web.html`. Steps 1 and 2 are committed
+(`e6b3301`, `ff149b3`); step 3 (views + components + registry) is half written.
+
+**`handoffs/elite_am_brief_web.html` is a BUILD OUTPUT — do not edit it.** Edit
+`web/src/*.ts` and run `node am_daily_dashboard/web/build.mjs`, then
+`--html-only` to refresh the briefs. Two embedded hashes make both mistakes
+loud: editing the TS without rebuilding, and hand-editing the generated HTML.
+
+Exact remaining steps, the answered scope questions, the DOM-snapshot
+verification recipe and four traps found the hard way are under *Phase 2
+progress — pick up here* in
 [`AM_DAILY_DASHBOARD.md`](../../../am_daily_dashboard/AM_DAILY_DASHBOARD.md).
 Read that before opening a file, and use a stronger/thinking model: the risk is
-a subtle behaviour change across ~1,350 lines, not a missing feature.
+a subtle behaviour change, not a missing feature.
 
 Then Phase 3 (extract payload builders out of
 `generate_am_daily_dashboard.py`), Phase 4 (re-verify + update the routing
