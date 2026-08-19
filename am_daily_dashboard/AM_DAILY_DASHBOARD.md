@@ -45,14 +45,82 @@ Five phases, phase 0 done:
   corrupt the page. Still open from Phase 1: nothing blocking — this was the
   one safety fix worth doing immediately; the rest of Phase 1 is documentation
   (this file already states HTML-canonical above).
-- [ ] **Phase 2 — de-spaghetti the inline JS.** `handoffs/elite_am_brief_web.html`
-  carries ~1,350 lines of inline `<script>` with global mutable state
-  (`app.*`), ad hoc event binding, and per-view render functions all in one
-  block. Plan: split into modular TS files bundled by esbuild into one
-  offline `<script>` (output must stay a single self-contained HTML file —
-  that is non-negotiable, OneDrive/offline use depends on it). Do this
-  *with* the Phase 0 suite running after every extraction step, not before
-  it exists — that ordering is why Phase 0 went first.
+- [ ] **Phase 2 — de-spaghetti the inline JS. Not started; the design below is
+  settled, so start by building it, not by re-deciding it.**
+  `handoffs/elite_am_brief_web.html` carries ~1,350 lines of inline `<script>`
+  with global mutable state (`app.*`), ad hoc event binding, and per-view
+  render functions in one block. Split into modular TS bundled by esbuild into
+  one offline `<script>`. The output must stay a **single self-contained HTML
+  file** — non-negotiable, OneDrive/offline use depends on it. Run the Phase 0
+  suite after every extraction step, not just at the end.
+
+  **Target layout** (`am_daily_dashboard/web/`, new folder): `shell.html` with
+  three build markers (`__APP_CSS__`, `__ICON_SPRITE__`, `__APP_JS__`) plus the
+  existing `__PAYLOAD_JSON__` left untouched for Python; `src/app.css` and
+  `src/icons.svg` **concatenated verbatim** by the build (no esbuild CSS
+  processing — zero behaviour risk, and the CSS is not the spaghetti);
+  `src/` modules: `types.ts`, `payload.ts`, `state.ts`, `selectors.ts`,
+  `format.ts`, `toast.ts`, `cells.ts`, `reason.ts`, `filters.ts`, `table.ts`,
+  `components.ts` (statCard / segmentCard / emptyState), `registry.ts`
+  (`VIEWS` / `NAV_ORDER` / `GROUP_ORDER`), `views/<one file per sidebar
+  section>`, `sidebar.ts`, `topbar.ts`, `calendar.ts`, `modal.ts`, `bind.ts`,
+  `render.ts`, `main.ts`. `build.mjs` bundles `src/main.ts` (esbuild, IIFE,
+  es2019, **not minified** so the built shell stays diffable) and injects.
+  The built file stays at `handoffs/elite_am_brief_web.html`, which
+  `canvas_to_html.SHELL` and the `.gitignore` allowlist already point at.
+
+  **Four decisions already made, with the reasons:**
+
+  - **Payload moves to `<script type="application/json"
+    id="am-brief-payload">__PAYLOAD_JSON__</script>`**, parsed by
+    `payload.ts`. Safer than the current JS object literal (a raw U+2028 is a
+    syntax error in a literal but fine in JSON text) and it lets the test
+    harness read the gate token instead of regexing it. Keep the `</` escape
+    in `html_export.py` — inside a JSON block a literal `</script>` would
+    still end the element early, so that fix is what makes this safe.
+  - **Two consumers eval the inline script and both must be updated**, or the
+    board will silently test as blank: `tests_js/render.test.mjs` and
+    `tests_js/real_export_check.mjs` both do
+    `[...querySelectorAll("script")].find(s => !s.src)`, which would now find
+    the JSON block. Filter out `type="application/json"`, eval the remaining
+    inline scripts in order, and replace `real_export_check.mjs`'s
+    `/const DATA\s*=\s*(\{...\});\s*\n\s*const REPORT/` regex with a
+    `JSON.parse` of the payload block.
+  - **No import cycles: re-renders route through `state.rerender()`**, with
+    `main.ts` registering `render` via `setRenderHook()` at bootstrap.
+    `bind.ts` and `modal.ts` call `rerender()`, never `render()` directly —
+    otherwise `render.ts` and `bind.ts` import each other. `focusKey` becomes
+    `takeFocusKey()` (read-and-clear) and the pager's direct `tstate` write
+    becomes `setPage(key, n)`.
+  - **Stale-build guard, because the built shell is now a build output.**
+    `build.mjs` embeds `<!-- ... sources sha256:… -->` over the `web/` sources
+    (CRLF normalised to LF in both implementations, or a fresh clone
+    mismatches), and a Python test recomputes it and fails if someone edited
+    TS without rebuilding. This keeps the guard working on a machine with no
+    Node, since the shell itself is committed.
+
+  **Verify by DOM equality, not by the 10 assertions.** Before touching
+  anything, snapshot `#root.innerHTML` + `document.title` for every
+  (fixture × agent × view), locked and gate-seeded, from the **current**
+  committed shell into a temp folder; after each extraction step rebuild the
+  shell, rebuild fixtures, re-snapshot and require **byte-identical** output.
+  The fixture payloads are deterministic (`testing/payload_fixtures.py` pins
+  the date and hand-writes the archive), so any diff is a real behaviour
+  change. A `tests_js/dom_snapshot.mjs` doing this is worth committing for the
+  next refactor.
+
+  **Extraction order that keeps each step verifiable:** (1) scaffold `web/`
+  with the entire existing script moved verbatim into one `main.ts` (only
+  change: the payload read) and prove the build pipeline renders identically —
+  temporarily `// @ts-nocheck`, since esbuild does not typecheck and the types
+  arrive with the split; (2) leaf modules; (3) views + components + registry;
+  (4) chrome / modal / bind / render / main; (5) wire `npm test`'s `pretest` to
+  build the shell before fixtures, add the hash guard test and `tsc --noEmit`,
+  then update the Skill routing table to name files instead of functions.
+
+  Environment is ready: Node v24.15.0, npm 11.12.1, registry reachable, so
+  `npm i -D esbuild typescript` in `web/` works. `node_modules/` at any depth
+  is already gitignored.
 - [ ] **Phase 3 — extract payload builders out of
   `generate_am_daily_dashboard.py`** (currently a god-module) into their own
   testable functions (e.g. `build_top10_section`, `build_rd_section`,
@@ -117,9 +185,21 @@ day. Read it backwards and the whole section inverts.
   original "Elite AM Focus" name, superseded by the same day's Brief files. Offered
   for deletion 2026-08-18; the user did not decide, so they were left in place.
 
-**Working state.** The 2026-08-18 changes are **on disk and not committed** — no
-commit was requested. The repo carries many unrelated modified files from earlier
-sessions, so these are the ones that belong to this work:
+**Working state (2026-08-19). Everything below is now committed** — the AM Brief
+tree is clean and Phase 2 starts from a clean baseline, which is the point: a
+Phase 2 diff mixed with Batch 11 would be impossible to roll back. Two commits,
+deliberately split:
+
+| Commit | Contents |
+|---|---|
+| `fb60e63` *Give the AM Brief manager a team-total Goals view* | The whole 2026-08-18 Batch 11 work — the eight files in the table below |
+| `36a6b85` *Prove the AM Brief renders before refactoring its JS* | Phase 0 (`tests_js/`, `testing/`, `test_render_js.py`, `verify_brief.py`), the `</script>` escape in `elite_lib/html_export.py`, the two ignore files, and this write-up |
+
+The repo still carries many unrelated modified files from earlier sessions
+(birthday_gift, vip_event, daily_summary…) — those were left alone. Baseline at
+that point: **61 tests pass**, including the jsdom suite via `test_render_js.py`.
+
+The eight files in `fb60e63`:
 
 | File | Change |
 |---|---|
@@ -133,10 +213,11 @@ sessions, so these are the ones that belong to this work:
 | `am_daily_dashboard/test_goals.py` | +22 tests (60 total) |
 | `AM_DAILY_DASHBOARD.md` + `.cursor/skills/elite-am-brief/SKILL.md` | this write-up |
 
-Run `python -m unittest discover -s am_daily_dashboard` (60 tests) to confirm the
-tree is sound before building on it. The jsdom harness used for the verification
-lived in a temp folder and is gone; the recipe to recreate it is below under *Verify
-rendering in a DOM*.
+Run `python -m unittest discover -s am_daily_dashboard` (61 tests) to confirm the
+tree is sound before building on it. The jsdom harness is no longer a temp-folder
+recipe — it is committed in `tests_js/` (Phase 0). The *Verify rendering in a DOM*
+section below is still worth reading for the four traps it documents, which the
+committed harness already avoids.
 
 **State as of 2026-08-18.** Eleven sections per AM tab, plus Overview for the
 manager. Elite Goals is built and reconciled: Daily Avg Purchase, Daily Avg Net

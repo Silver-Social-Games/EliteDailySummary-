@@ -368,12 +368,24 @@ Manager-only and gated, in no per-AM file: **Manager Dashboard** and **Team Goal
 Winners.** Standalone HTML is now the **canonical product**; canvas and
 Streamlit are compatibility-only. Phase 0 (committed jsdom render suite +
 `verify_brief.py --render-check`) and the `</script>` payload-escape fix are
-**done**. Remaining: de-spaghetti the inline JS into modular TS (use a
-stronger/thinking model — real risk across ~1,350 lines), extract payload
-builders out of `generate_am_daily_dashboard.py`, then re-verify and resume
-**Batch 8 item 3, Big Winners ≥ $20K**. Full phase list and model guidance:
-*Pick up here — next session* in
+**done and committed** (`fb60e63`, `36a6b85`) — the AM Brief tree is clean, 61
+tests pass, and Phase 2 has a clean baseline to diff against.
+
+**Next: Phase 2 — split the inline JS into modular TS under a new
+`am_daily_dashboard/web/`, bundled by esbuild back into the one self-contained
+`handoffs/elite_am_brief_web.html`.** Not started. The design is **settled** —
+target module layout, the payload moving to a `<script
+type="application/json">` block, the two test harnesses that eval the inline
+script and must be updated with it, the no-import-cycle rule, the stale-build
+hash guard, and the byte-identical DOM-snapshot verification method are all
+written up under *Pick up here — next session* in
 [`AM_DAILY_DASHBOARD.md`](../../../am_daily_dashboard/AM_DAILY_DASHBOARD.md).
+Read that before opening a file, and use a stronger/thinking model: the risk is
+a subtle behaviour change across ~1,350 lines, not a missing feature.
+
+Then Phase 3 (extract payload builders out of
+`generate_am_daily_dashboard.py`), Phase 4 (re-verify + update the routing
+table below to name files), then resume **Batch 8 item 3, Big Winners ≥ $20K**.
 
 **Batch 11 (manager-only team-total Goals view) is done and verified** — see the
 Team Goals bullet above.
