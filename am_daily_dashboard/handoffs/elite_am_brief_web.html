@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <!-- am-brief-build sources sha256:daf8e9579892eb57ad17892aec220460715b0bfbc374332975813a682fbcacc8 output sha256:056393ce88be7fab450ec5f792a7f9ca327c8eed78a0c05c893771c4beabe759 -->
+  <!-- am-brief-build sources sha256:67bb849d6b5a9c7b1497626447ed43d35595ebfbeaa70901f0bda9c8652ce187 output sha256:359e193bb11a940553dcb9362f6580352205083b25a3f4335d310c571ec3440e -->
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Elite AM Brief</title>
   <style>
@@ -763,17 +763,6 @@
       (part) => part.startsWith("**") && part.endsWith("**") && part.length >= 4 ? `<em>${esc(part.slice(2, -2))}</em>` : esc(part)
     ).join("");
     return `<div class="hero-line ${lead ? "lead" : ""}">${inner}</div>`;
-  }
-
-  // src/toast.ts
-  var timer;
-  function toast(msg) {
-    const root = document.getElementById("toastRoot");
-    root.innerHTML = `<div class="toast">${icon("check", "ic-sm")}${esc(msg)}</div>`;
-    clearTimeout(timer);
-    timer = setTimeout(() => {
-      root.innerHTML = "";
-    }, 1800);
   }
 
   // src/cells.ts
@@ -1953,7 +1942,7 @@
     birthdays: viewBirthdays
   };
 
-  // src/main.ts
+  // src/sidebar.ts
   function navCount(viewId) {
     const v = VIEWS[viewId];
     if (!v || !v.key) return null;
@@ -2004,6 +1993,8 @@
         </div>
       </aside>`;
   }
+
+  // src/calendar.ts
   var ARCHIVE = REPORT.archive || [];
   var ARCHIVE_BY_DATE = new Map(ARCHIVE.map((a) => [a.d, a.f]));
   var ARCHIVE_MONTHS = [...new Set(ARCHIVE.map((a) => a.d.slice(0, 7)))].sort();
@@ -2063,6 +2054,8 @@
         <div class="cal-foot">${ARCHIVE.length ? `${ARCHIVE.length} brief${ARCHIVE.length === 1 ? "" : "s"} saved. Highlighted days have a report; the rest were not generated.` : "No other briefs saved yet \u2014 history starts from this one."}</div>
       </div>`;
   }
+
+  // src/topbar.ts
   function topbar() {
     const v = VIEWS[app.view] || VIEWS.home;
     const isManager = !!v.managerOnly;
@@ -2088,6 +2081,119 @@
         </div>
       </header>`;
   }
+
+  // src/bind.ts
+  function bind() {
+    const calBtn = document.getElementById("calBtn");
+    if (calBtn) calBtn.onclick = (e) => {
+      e.stopPropagation();
+      app.calOpen = !app.calOpen;
+      if (app.calOpen) app.calMonth = (REPORT.date || "").slice(0, 7);
+      rerender();
+    };
+    document.querySelectorAll("[data-cal-month]").forEach((el) => {
+      el.onclick = (e) => {
+        e.stopPropagation();
+        app.calMonth = el.getAttribute("data-cal-month");
+        rerender();
+      };
+    });
+    document.querySelectorAll("[data-cal-open]").forEach((el) => {
+      el.onclick = () => {
+        window.location.href = el.getAttribute("data-cal-open");
+      };
+    });
+    const calPop = document.getElementById("calPop");
+    if (calPop) calPop.onclick = (e) => e.stopPropagation();
+    document.querySelectorAll("[data-go]").forEach((el) => {
+      el.onclick = () => go(el.getAttribute("data-go"));
+    });
+    document.querySelectorAll("[data-agent]").forEach((el) => {
+      el.onclick = () => {
+        app.agent = el.getAttribute("data-agent");
+        if (app.view === "dashboard") app.view = "home";
+        rerender();
+        window.scrollTo({ top: 0, behavior: "auto" });
+      };
+    });
+    document.querySelectorAll("input[data-state]").forEach((el) => {
+      el.oninput = () => setState(el.getAttribute("data-state"), el.value);
+    });
+    document.querySelectorAll("select[data-state]").forEach((el) => {
+      el.onchange = () => setState(el.getAttribute("data-state"), el.value);
+    });
+    document.querySelectorAll("[data-reason-state]").forEach((el) => {
+      el.onclick = () => setState(el.getAttribute("data-reason-state"), el.getAttribute("data-reason"));
+    });
+    document.querySelectorAll("[data-page-key]").forEach((el) => {
+      el.onclick = () => {
+        setPage(el.getAttribute("data-page-key"), Number(el.getAttribute("data-page")));
+      };
+    });
+    document.querySelectorAll("[data-ticket-aid]").forEach((el) => {
+      el.onclick = () => {
+        const aid = el.getAttribute("data-ticket-aid");
+        const b = agentBlock();
+        const pool = [...b.decline || [], ...b.rdFirstTime || [], ...b.birthdays || []];
+        const p = pool.find((x) => String(x.aid) === aid);
+        if (p) {
+          app.ticket = p;
+          rerender();
+        }
+      };
+    });
+    const toggle = document.getElementById("toggleSidebar");
+    if (toggle) toggle.onclick = () => {
+      if (window.matchMedia("(max-width: 900px)").matches) app.mobileOpen = !app.mobileOpen;
+      else app.collapsed = !app.collapsed;
+      rerender();
+    };
+    const printBtn = document.getElementById("printBtn");
+    if (printBtn) printBtn.onclick = () => window.print();
+    const gateInput = document.getElementById("gateInput");
+    if (gateInput) {
+      const submit = () => {
+        if (gateToken(gateInput.value) === GATE_TOKEN) {
+          app.unlocked = true;
+          app.gateError = "";
+          rememberGate();
+        } else {
+          app.gateError = "That passcode does not match.";
+        }
+        rerender();
+      };
+      gateInput.onkeydown = (e) => {
+        if (e.key === "Enter") submit();
+      };
+      document.getElementById("gateSubmit").onclick = submit;
+      if (!app.gateError) gateInput.focus();
+    }
+    const focusKey2 = takeFocusKey();
+    if (focusKey2) {
+      const el = document.querySelector(`[data-state="${CSS.escape(focusKey2)}"]`);
+      if (el && el.tagName === "INPUT") {
+        el.focus();
+        const end = el.value.length;
+        try {
+          el.setSelectionRange(end, end);
+        } catch (e) {
+        }
+      }
+    }
+  }
+
+  // src/toast.ts
+  var timer;
+  function toast(msg) {
+    const root = document.getElementById("toastRoot");
+    root.innerHTML = `<div class="toast">${icon("check", "ic-sm")}${esc(msg)}</div>`;
+    clearTimeout(timer);
+    timer = setTimeout(() => {
+      root.innerHTML = "";
+    }, 1800);
+  }
+
+  // src/modal.ts
   function renderModal() {
     const root = document.getElementById("modalRoot");
     const p = app.ticket;
@@ -2123,7 +2229,7 @@
       </div>`;
     const close = () => {
       app.ticket = null;
-      render();
+      rerender();
     };
     const val = (id) => document.getElementById(id).value;
     const copy = (text, what) => {
@@ -2143,104 +2249,8 @@ ${val("tBody")}`, "Subject + message");
       if (p.zendeskUrl) window.open(p.zendeskUrl, "_blank", "noopener,noreferrer");
     };
   }
-  function bind() {
-    const calBtn = document.getElementById("calBtn");
-    if (calBtn) calBtn.onclick = (e) => {
-      e.stopPropagation();
-      app.calOpen = !app.calOpen;
-      if (app.calOpen) app.calMonth = (REPORT.date || "").slice(0, 7);
-      render();
-    };
-    document.querySelectorAll("[data-cal-month]").forEach((el) => {
-      el.onclick = (e) => {
-        e.stopPropagation();
-        app.calMonth = el.getAttribute("data-cal-month");
-        render();
-      };
-    });
-    document.querySelectorAll("[data-cal-open]").forEach((el) => {
-      el.onclick = () => {
-        window.location.href = el.getAttribute("data-cal-open");
-      };
-    });
-    const calPop = document.getElementById("calPop");
-    if (calPop) calPop.onclick = (e) => e.stopPropagation();
-    document.querySelectorAll("[data-go]").forEach((el) => {
-      el.onclick = () => go(el.getAttribute("data-go"));
-    });
-    document.querySelectorAll("[data-agent]").forEach((el) => {
-      el.onclick = () => {
-        app.agent = el.getAttribute("data-agent");
-        if (app.view === "dashboard") app.view = "home";
-        render();
-        window.scrollTo({ top: 0, behavior: "auto" });
-      };
-    });
-    document.querySelectorAll("input[data-state]").forEach((el) => {
-      el.oninput = () => setState(el.getAttribute("data-state"), el.value);
-    });
-    document.querySelectorAll("select[data-state]").forEach((el) => {
-      el.onchange = () => setState(el.getAttribute("data-state"), el.value);
-    });
-    document.querySelectorAll("[data-reason-state]").forEach((el) => {
-      el.onclick = () => setState(el.getAttribute("data-reason-state"), el.getAttribute("data-reason"));
-    });
-    document.querySelectorAll("[data-page-key]").forEach((el) => {
-      el.onclick = () => {
-        setPage(el.getAttribute("data-page-key"), Number(el.getAttribute("data-page")));
-      };
-    });
-    document.querySelectorAll("[data-ticket-aid]").forEach((el) => {
-      el.onclick = () => {
-        const aid = el.getAttribute("data-ticket-aid");
-        const b = agentBlock();
-        const pool = [...b.decline || [], ...b.rdFirstTime || [], ...b.birthdays || []];
-        const p = pool.find((x) => String(x.aid) === aid);
-        if (p) {
-          app.ticket = p;
-          render();
-        }
-      };
-    });
-    const toggle = document.getElementById("toggleSidebar");
-    if (toggle) toggle.onclick = () => {
-      if (window.matchMedia("(max-width: 900px)").matches) app.mobileOpen = !app.mobileOpen;
-      else app.collapsed = !app.collapsed;
-      render();
-    };
-    const printBtn = document.getElementById("printBtn");
-    if (printBtn) printBtn.onclick = () => window.print();
-    const gateInput = document.getElementById("gateInput");
-    if (gateInput) {
-      const submit = () => {
-        if (gateToken(gateInput.value) === GATE_TOKEN) {
-          app.unlocked = true;
-          app.gateError = "";
-          rememberGate();
-        } else {
-          app.gateError = "That passcode does not match.";
-        }
-        render();
-      };
-      gateInput.onkeydown = (e) => {
-        if (e.key === "Enter") submit();
-      };
-      document.getElementById("gateSubmit").onclick = submit;
-      if (!app.gateError) gateInput.focus();
-    }
-    const focusKey2 = takeFocusKey();
-    if (focusKey2) {
-      const el = document.querySelector(`[data-state="${CSS.escape(focusKey2)}"]`);
-      if (el && el.tagName === "INPUT") {
-        el.focus();
-        const end = el.value.length;
-        try {
-          el.setSelectionRange(end, end);
-        } catch (e) {
-        }
-      }
-    }
-  }
+
+  // src/render.ts
   function render() {
     if (app.view === "goals" && !agentBlock().goals) app.view = "home";
     if (VIEWS[app.view] && VIEWS[app.view].managerOnly && SINGLE_AM) app.view = "home";
@@ -2256,6 +2266,8 @@ ${val("tBody")}`, "Subject + message");
     bind();
     renderModal();
   }
+
+  // src/main.ts
   document.addEventListener("click", () => {
     if (app.calOpen) {
       app.calOpen = false;
