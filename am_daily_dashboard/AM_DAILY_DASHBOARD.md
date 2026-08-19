@@ -176,6 +176,18 @@ Then step 4 (`sidebar`, `topbar`, `calendar`, `modal`, `bind`, `render`,
 guard tests in a new `test_web_build.py`, `tsc --noEmit` in CI, and the Skill
 routing table naming files instead of functions).
 
+**Model choice, revised 2026-08-19 once the snapshot harness existed.** The
+original "use a thinking model for all of Phase 2" was written before there was
+any way to detect a silent behaviour change. There is now: 181 byte-exact DOM
+snapshots plus 61 tests, and a wrong extraction fails the check rather than
+shipping. So **finishing step 3 and doing step 5 are fine on a faster model** —
+both are copy-and-delete against a written recipe. **Keep the stronger model for
+step 4** (`sidebar`, `topbar`, `calendar`, `modal`, `bind`, `render`, `main`),
+where the modules genuinely depend on each other and the render hook has to stay
+cycle-free. And in any step: if a snapshot check fails and the cause is not
+obvious in a couple of attempts, switch up rather than pushing on — the check
+proves *that* something changed, not *what* changed.
+
 **How to verify — this is the whole method, do not substitute the 10 assertions.**
 
 ```bash
