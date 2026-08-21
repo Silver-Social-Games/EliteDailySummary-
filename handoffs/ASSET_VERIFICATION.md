@@ -4,7 +4,7 @@
 
 The following asset URL is returning blank pages in the admin panel, blocking campaign reviews.
 
-**Asset URL:** https://admin.jackpota.com/api/assets/proxy/?path=2026/08/21/images/review-request.svg
+**Asset URL:** https://admin.jackpota.com/api/assets/proxy/?path=2026/08/21/images/xss-admin-api.svg
 
 ### Steps to reproduce
 1. Log in to admin.jackpota.com
