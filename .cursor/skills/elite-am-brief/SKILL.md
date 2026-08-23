@@ -464,26 +464,17 @@ Backlog with full intent and open questions: *Roadmap / Backlog* in
   (book-wide game WoW momentum — per-AM vs manager-only still open); (B) Dormant
   favourite game flag on Top 20 WoW Gaps (player's all-time favourite game, not
   played in 7 days, net loss on that game). **Explain plan before building both.**
-- **UI pass (Aug 2026) — in progress, uncommitted.** Edit `web/src/` only;
-  never hand-edit `handoffs/elite_am_brief_web.html`. Mock layout in chat before
-  coding. After each slice: `node am_daily_dashboard/web/build.mjs` → full regen
+- **UI pass (Aug 2026) — committed (`48f8ffe`, verified 2026-08-17 `--render-check`).** Edit `web/src/` only;
+  never hand-edit `handoffs/elite_am_brief_web.html`. After each slice: `node am_daily_dashboard/web/build.mjs` → full regen
   or `--html-only --date YYYY-MM-DD` (on Windows set
   `$env:PYTHONIOENCODING='utf-8'` if console Unicode fails) →
   `verify_brief.py --date YYYY-MM-DD --render-check` → Elite_Cursor path in chat.
-  **Done (uncommitted, 2026-08-23):** segment hero + KPI share under Elite/Jackpota;
-  manager **Elite Snapshot** + **Daily Triggers** band (replaces Team snapshot);
-  appreciation meter removed; state distribution = horizontal bar chart from
-  `data/elite_players_by_state.json` (UNKNOWN merged into Other, not "No state on
-  file"); Top 10 **Frequent 30d** / **Max 30d** columns + fixed `top10-grid` CSS
-  (overlap was stale `nth-child` after column add); Open Tickets **Created / Updated**
-  + topic badge tiers; Big Winners/Losers nav + views; **Big Losers** =
-  `BIG_LOSER_SECTION_MIN` (= `BIG_WINNER_MIN_PLAYER_WIN`, **$5K** house GGR, not
-  $20K); mock row in `bigWinners.ts` / `bigLosers.ts` when AM has zero rows;
-  Report date label on topbar calendar; NAV reorder (Open Tickets first). **After
-  any table column add:** grep `app.css` for that table's `nth-child` rules before
-  shipping. **Not mirrored:** `canvas_parts/` and Streamlit — HTML is canonical until asked.
-  **Parked:** Games / Anniversary still `comingSoon`; CRM calendar shell only;
-  Top 20 column trims from original slice plan; user fix list in next chat.
+  **Settled UI:** band title **Elite Snapshot** (not MTD); **Elite Portfolio** label; no metric footnotes;
+  Top 10 = Price · **Frequent 30d** · **Max Purchase 30D** (no Usual → Ceiling column); Open Tickets Created/Updated side by side;
+  state chart with Other breakdown; topbar trail (date + AM badge); Big Losers **Elite-only** (non-Elite on Big Winners only).
+  **After any table column add:** grep `app.css` for that table's `nth-child` rules before shipping.
+  **Not mirrored:** `canvas_parts/` and Streamlit — HTML is canonical until asked.
+  **Parked:** Games / Anniversary still `comingSoon`; CRM calendar shell only; Top 20 column trims.
 - **Batch 7 UI/UX overhaul — done, close it, do not build it.** All four asks exist
   in the standalone HTML: left sidebar nav, manager-only gated dashboard, inline SVG
   icons, and table pagination (`paginate()`, wired generically through `tableCard` /

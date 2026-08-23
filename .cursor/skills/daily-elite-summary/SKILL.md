@@ -19,6 +19,7 @@ decline reasons**.
 | **Mon–Thu 10:00 AM Israel** | Same router → daily (yesterday) |
 | **Fri/Sat** | Skip — no scheduled run |
 | **On request** | `--force daily\|weekend` or `--date YYYY-MM-DD` |
+| **Sunday, Saturday daily only** | Router defaults to weekend (Thu–Sat). For one Saturday daily: `--force daily --date YYYY-MM-DD` (e.g. `--date 2026-08-22`) |
 | **In Cursor** | `@daily-elite-summary` or "run morning elite" |
 
 Register Windows task (once): `powershell -ExecutionPolicy Bypass -File daily_summary\register_daily_summary_task.ps1`
