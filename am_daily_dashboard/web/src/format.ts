@@ -22,6 +22,12 @@ export function money(n: number): string {
   return "$" + Math.round(n).toLocaleString();
 }
 
+/** Integer counts for KPI tiles — always thousands-separated when ≥ 1,000. */
+export function fmtCount(n: unknown): string {
+  const v = typeof n === "number" ? n : Number(String(n ?? "").replace(/[^\d.-]/g, ""));
+  return Number.isFinite(v) ? Math.round(v).toLocaleString() : String(n ?? "0");
+}
+
 export function compactMoney(n: number): string {
   const a = Math.abs(n);
   if (a >= 1e6) return "$" + (n / 1e6).toFixed(a >= 1e7 ? 0 : 1) + "M";
@@ -39,7 +45,19 @@ export function initials(name: unknown): string {
     .toUpperCase();
 }
 
-/** **bold** spans in the greeting copy, rendered as a hero line. */
+/** Render **bold** markers inline (no block wrapper). */
+export function inlineBold(text: unknown): string {
+  return String(text || "")
+    .split(/(\*\*[^*]+\*\*)/g)
+    .map((part) =>
+      part.startsWith("**") && part.endsWith("**") && part.length >= 4
+        ? `<strong>${esc(part.slice(2, -2))}</strong>`
+        : esc(part)
+    )
+    .join("");
+}
+
+/** **bold** spans in legacy greeting copy, rendered as a hero line. */
 export function richText(text: unknown, lead: boolean): string {
   const parts = String(text || "").split(/(\*\*[^*]+\*\*)/g);
   const inner = parts

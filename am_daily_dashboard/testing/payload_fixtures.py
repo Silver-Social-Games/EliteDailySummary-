@@ -15,6 +15,7 @@ hand-written JSON fixture would have.
 
 from __future__ import annotations
 
+import json
 import sys
 from datetime import date
 from pathlib import Path
@@ -36,6 +37,7 @@ from goals import (  # noqa: E402
 from payload_builders import (  # noqa: E402
     agent_display,
     build_am_shares_and_overview,
+    build_big_winners_section,
     build_birthday_section,
     build_lock_section,
     build_rd_section,
@@ -144,6 +146,29 @@ def _zd_row(agent_tag: str, aid: int, name: str, *, open_tickets: int = 1, **ext
     return row
 
 
+def _big_winner_row(
+    aid: int,
+    name: str,
+    *,
+    agent_tag: str | None = None,
+    win_ggr: float = 25_000.0,
+    sc_turnover: float = 10_000.0,
+    game: str = "Jackpota Jr",
+    pending_rd_amount: float = 0.0,
+    **extra: Any,
+) -> dict:
+    """Raw BigQuery-shaped row for big_winners_sql."""
+    is_elite = agent_tag is not None
+    row = {
+        "AID": aid, "name": name, "agent": agent_tag, "is_elite": is_elite,
+        "win_ggr": win_ggr, "sc_turnover": sc_turnover,
+        "sc_won": win_ggr + sc_turnover, "game": game,
+        "pending_rd_amount": pending_rd_amount,
+    }
+    row.update(extra)
+    return row
+
+
 def _lock_row(agent_tag: str, aid: int, name: str, *, lock_reason: str = "Take a break", days_ago: int = 0, **extra: Any) -> dict:
     row = {
         "AID": aid, "name": name, "agent": agent_tag, "lock_reason": lock_reason,
@@ -237,12 +262,19 @@ def build_manager_payload(*, ticket_count_for_coral: int = 1) -> dict:
         "Alon": [],
     }
 
+    bw_raw = [
+        _big_winner_row(508, "Coral Big Winner", agent_tag="coral_s", win_ggr=34_120.0,
+                        sc_turnover=22_000.0, game="Jackpota Jr", pending_rd_amount=30_000.0),
+        _big_winner_row(900, "Non-Elite Big Winner", agent_tag=None, win_ggr=22_800.0,
+                        sc_turnover=8_500.0, game="Jackpota"),
+    ]
     top10 = build_top10_section(top10_raw)
     rd5k = build_rd_section(rd_raw, REPORT_DATE, aging_threshold_days=1, metrics_enrich={})
     rd_first = build_rd_section(rd_first_raw, ticket_enrich={})
     birthdays = build_birthday_section(birthday_raw, ticket_enrich={})
     zd = build_zd_section(zd_raw, enrich_map={})
     locks = build_lock_section(lock_raw, REPORT_DATE)
+    big_winners = build_big_winners_section(bw_raw, enrich_map={})
     decline_by_am = {name: _decline_rows(raw) for name, raw in decline_raw.items()}
 
     purchase_by_agent = {
@@ -272,6 +304,7 @@ def build_manager_payload(*, ticket_count_for_coral: int = 1) -> dict:
             name, WEEKDAY,
             top10=top10, decline=decline_by_am.get(name, []), rd5k=rd5k,
             rd_first=rd_first, birthdays=birthdays, zd=zd, locks=locks,
+            big_winners=big_winners, big_losers=[],
             purchase=purchase_by_agent[name], total_players=total_players_by_agent[name],
             elite_rev=elite_rev, elite_ply=elite_ply, goals=goals_blocks.get(name),
         )
@@ -289,7 +322,12 @@ def build_manager_payload(*, ticket_count_for_coral: int = 1) -> dict:
             "date": REPORT_DATE.isoformat(), "weekday": WEEKDAY, "dayShort": DAY_SHORT,
             "subtitle": f"{WEEKDAY} {REPORT_DATE.strftime('%d %b %Y')}", "title": "Elite AM Brief",
             "headline": "Fixture headline — Elite steady vs last week.",
-            "segmentTitle": f"{WEEKDAY} vs last {WEEKDAY} \u00b7 Elite & Jackpota",
+            "segmentTitle": "WoW Purchase",
+            "geoChart": json.loads(
+                (Path(__file__).resolve().parent.parent / "data" / "elite_players_by_state.json").read_text(
+                    encoding="utf-8"
+                )
+            ) if (Path(__file__).resolve().parent.parent / "data" / "elite_players_by_state.json").is_file() else None,
             "overviewGreetingLines": ["Good morning.", f"Here is your {WEEKDAY} summary.", "Good luck \U0001f680"],
             "segments": [
                 {"label": "Jackpota", "revThis": "$41K", "revPrior": "$39K", "revWow": "+5.1%",

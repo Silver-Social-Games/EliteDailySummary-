@@ -58,6 +58,6 @@ export function calendarPopHtml(): string {
         </div>
         <div class="cal-foot">${ARCHIVE.length
           ? `${ARCHIVE.length} brief${ARCHIVE.length === 1 ? "" : "s"} saved. Highlighted days have a report; the rest were not generated.`
-          : "No other briefs saved yet — history starts from this one."}</div>
+          : "No other briefs saved yet. History starts from this one."}</div>
       </div>`;
 }

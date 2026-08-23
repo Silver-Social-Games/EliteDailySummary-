@@ -11,8 +11,8 @@
  */
 import type { Dict } from "./../types";
 import { TEAM_GOALS } from "./../payload";
-import { compactMoney, esc, icon, money } from "./../format";
-import { emptyState, gateHtml, statCard } from "./../components";
+import { esc, icon } from "./../format";
+import { emptyState, eliteSnapshotCards, gateHtml, metricBand } from "./../components";
 import { app } from "./../state";
 import { tableHtml } from "./../table";
 
@@ -28,11 +28,11 @@ export function teamGoalsCard(): string {
   const behind = kpis.filter((k) => k.statusTone === "danger" || k.statusTone === "warning").length;
   const headline = ["daily_avg_purchase", "daily_avg_net_purchase", "monthly_purchasers"]
     .map(teamKpi).filter(Boolean) as Dict[];
-  return `<div class="card">
+  return `<div class="card gold-top">
         <div class="card-head">
           <span class="card-icon ${behind ? "warning" : "success"}">${icon("target", "ic-sm")}</span>
           <div><div class="card-title">Team Goals</div>
-          <div class="card-sub">Your targets — the whole managed book · ${esc(TEAM_GOALS.monthLabel || "")}</div></div>
+          <div class="card-sub">Your targets, Elite Portfolio · ${esc(TEAM_GOALS.monthLabel || "")}</div></div>
           <div class="spacer"></div>
           <button type="button" class="btn" data-go="team">Open ${icon("chev-right", "ic-xs")}</button>
         </div>
@@ -70,16 +70,7 @@ export function viewTeamGoals(): string {
     g.elapsedDays && g.daysInMonth ? `day ${g.elapsedDays} of ${g.daysInMonth}` : "",
   ].filter(Boolean).join(" · ");
 
-  const cards = [
-    { label: "Team Book", value: (g.portfolioSize || 0).toLocaleString(), icon: "list",
-      tone: "neutral", foot: `${(g.portfolioLocked || 0).toLocaleString()} locked, still counted` },
-    { label: "MTD Purchase", value: compactMoney(g.mtdPurchase || 0), icon: "dollar",
-      tone: "success", foot: money(g.mtdPurchase || 0) },
-    { label: "MTD Net Purchase", value: compactMoney(g.mtdNetPurchase || 0), icon: "banknote",
-      tone: "brand", foot: money(g.mtdNetPurchase || 0) },
-    { label: "Purchasers", value: (teamKpi("monthly_purchasers") || {}).actualDisplay || "—",
-      icon: "users", tone: "brand", foot: "Distinct across the whole managed book" },
-  ];
+  const cards = eliteSnapshotCards();
 
   const rows = kpis.map((k) => [
     esc(k.label), esc(k.weightLabel), esc(k.goalDisplay), esc(k.actualDisplay),
@@ -91,22 +82,22 @@ export function viewTeamGoals(): string {
      goals, not a roll-up of their employees', and the Goals Leaderboard on
      the Dashboard already covers who contributed what. */
   return `<div class="stack">
-        <div class="card">
+        <div class="card gold-top">
           <div class="card-head">
             <span class="card-icon">${icon("target", "ic-sm")}</span>
             <div><div class="card-title">Elite Goals · Team</div>
-            <div class="card-sub">Your own targets, measured over the whole managed book</div></div>
+            <div class="card-sub">Your targets, Elite Portfolio · ${esc(g.monthLabel || "")}</div></div>
             <div class="spacer"></div>
             <span class="badge">${esc(subtitle)}</span>
           </div>
         </div>
-        <div class="stats">${cards.map(statCard).join("")}</div>
-        <div class="card">
+        ${metricBand("Elite Snapshot", cards, { cols: 4 })}
+        <div class="card gold-top">
           ${tableHtml(["KPI", "Weight", "Goal", "Actual", "Pace", "Gap", "Status"], rows,
             ["left", "right", "right", "right", "right", "right", "left"],
             kpis.map((k) => k.statusTone || "neutral"), { markerCol: 0 })}
         </div>
-        <div class="note">These are your own targets, loaded as given — never derived
+        <div class="note">These are your own targets, loaded as given, never derived
           from the AMs' targets. Progress is measured over the whole managed book,
           Alon's portfolio included: Purchasers, Reactivation and % Active are counted
           as distinct accounts across the book, and ARPPU and % Active are rebuilt from

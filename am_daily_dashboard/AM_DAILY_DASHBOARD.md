@@ -13,11 +13,27 @@ have the current state. Everything below is detail and history.
 
 ### Pick up here — next session
 
-**Architectural hardening phases 0–3 are done (all 2026-08-19).** Next work
-is **Batch 8 item 3, Big Winners ≥ $20K** — players at ≤ −$20,000 GGR on
-the past day. Its scope is settled: non-Elite included, labelled, shown in
-every AM's own view. Still to do: confirm sidebar placement (Risk group),
-mock it, build. Read the GGR sign before touching it.
+**UI pass (Aug 2026) — large uncommitted diff on `am_daily_dashboard/`. Last
+verified run: `--date 2026-08-17`, `verify_brief.py --render-check` PASS.
+Open from `VIP\Elite_Cursor\AM Brief\2026-08-17_elite_am_brief.html`. User
+will paste a fix list in the new chat — start there, do not re-ask defaults.**
+
+Workflow: edit `web/src/*.ts` (+ Python payload/SQL if needed) →
+`node am_daily_dashboard/web/build.mjs` →
+`python am_daily_dashboard/generate_am_daily_dashboard.py --date YYYY-MM-DD` →
+`python am_daily_dashboard/verify_brief.py --date YYYY-MM-DD --render-check`.
+
+Key definitions locked this session:
+- **Big Losers** = house GGR ≥ **$5K** (`BIG_LOSER_SECTION_MIN` in `config.py`)
+- **Big Winners** = player win ≥ **$20K** (`BIG_WINNER_SECTION_MIN`)
+- State chart = bar chart from `data/elite_players_by_state.json`; UNKNOWN → Other
+- Manager dashboard = Elite Snapshot + Daily Triggers (not Team snapshot)
+
+**Not updated:** canvas + Streamlit (HTML canonical). Games/Anniversary = coming
+soon placeholders. Do not commit unless user asks.
+
+Batch 9 (trending games + dormant favourite game flag) is scoped and parked
+— explain plan before building both parts.
 
 Five phases, phase 0 done:
 
@@ -219,7 +235,7 @@ costs nothing.
   Also extracted: `build_am_shares_and_overview` (closes the `payload_fixtures.py`
   inline-copy NOTE), and `queries._iso(d: date)` guards all SQL date
   interpolations against non-date arguments. SKILL.md routing table updated.
-- [ ] **Then resume Batch 8 item 3 (Big Winners)** — the next work item.
+- [x] **Batch 8 item 3 (Big Winners ≥ $20K) — done 2026-08-19.** See Batch 8 item 3 below.
 
 **Model guidance settled with the user 2026-08-19:** use a stronger/thinking
 model for Phase 2 (done) and Phase 3 (payload extraction touching the
@@ -245,18 +261,12 @@ sheet from them.** Ask for an updated table (theirs and Rachel's) and paste it i
 `--goals-only` prints `Yours` and `Gap` for the manager's own line and the
 decomposition no longer has to be done by hand. That closes it in six seconds.
 
-**Start with Batch 8 item 3, Big Winners ≥ $20K** — worked one at a time with the
-user, as items 1 and 2 were. Its scope is already settled (players at ≤ −$20,000 GGR
-on the past day, with how much they redeemed and which game the win happened on;
-**non-Elite players included**, shown in **every AM's own view**, and the non-Elite
-rows labelled). Still to do: ask where it lives in `VIEWS` (its own section, Risk or
-Operations), and mock it.
+**Batch 8 items 1–3 and 5 are done. Item 4 parked (design locked). Next session:
+UI/design improvement pass — ask what feels off, explain plan before building.**
+Batch 9 (trending games + dormant favourite game flag) scoped and parked; explain
+plan before building both parts.
 
-Then Batch 8 items 4 and 5, then Batch 9. Item 4 needs one decision (a column on an
-existing section, or its own). Item 5's weights are settled but its **ticket topic
-set must be defined with the user** before it can be built.
-
-**Remember the GGR sign** before touching item 3: `Elite.MD` defines GGR as
+**Remember the GGR sign** always: `Elite.MD` defines GGR as
 `profit − loss` from the house's side, so a player's big win is a **negative** GGR
 day. Read it backwards and the whole section inverts.
 
@@ -1352,7 +1362,7 @@ Scope note: all of this lives in `handoffs/elite_am_brief_web.html`. The
 are separate hand-written implementations of the same UI (see *Known
 architecture gap*) and will drift further unless deliberately re-synced.
 
-### Batch 8 — Team feedback, section content (items 1–2 done)
+### Batch 8 — Team feedback, section content (items 1, 2, 3, 5 done; item 4 parked)
 
 Five asks the user collected from the AM team and read out on 2026-08-18, to be
 worked **one at a time** with agreement on each before building. Their intent is
@@ -1379,25 +1389,48 @@ inverts both big-winner features.
  sort: Won Yesterday ↓. Big Winner outranks the ageing highlight for row tone. The
  all-clear docs case renders **blank** by the user's choice — see *Pending
  Redemptions big winner and docs* below for why that is the honest reading.
-3. **Big Winners ≥ $20K — new section.** Players at ≤ −$20,000 GGR on the past day,
- with how much they redeemed and which game the big win happened on. **Scope settled
- 2026-08-18:** non-Elite players **are** included, and they appear in **every AM's
- own view**, not just the manager Overview — the user's reasoning is that handling a
- $20K winner is part of every AM's daily job and they know when to address it. This
- is the **only** section on the board that reaches outside the Elite book, so the
- non-Elite rows must be labelled as such, and no other section may copy the wider
- filter. Elite rows stay scoped to that AM's book.
-4. **Last win above 1K SC — date plus redeemed yes/no.** Per player. Confirm whether
- this is a column on an existing section or its own.
-5. **Open Tickets — weighted prioritisation.** Four weights given verbatim:
- lifetime hold 25%, lifetime NGR 20%, **lifetime purchase 20%**, 30-day purchase
- 25%. That sums to **90%**. *Settled 2026-08-18:* nothing is missing — **normalise
- the four to 100%** (27.8 / 22.2 / 22.2 / 27.8) so the priority score reads out of
- 100. Unlike Goals, which deliberately scores out of its included 80%, this one is
- normalised. (An earlier note here recorded only three of the four and put the gap
- at 30%; the lifetime-purchase weight was dropped in transcription.) Still open: the
- user wants ticket **subjects or topics** shown next to the weight and asked to
- define that set together.
+3. [x] **Big Winners ≥ $20K — new section.** Done 2026-08-19. Risk group, payload
+ key `bigWinners`. Non-Elite players included and shown in every AM's tab —
+ the only section outside the Elite book. Non-Elite rows carry a "Non-Elite" badge.
+ Columns: AID · Name · Elite/AM · Win (GGR) · SC Turnover · SC Won · Game
+ (most spins on report_date from `fact_gameplay_daily`) · Pending RD.
+ Config keys: `BIG_WINNER_SECTION_MIN = 20_000` (section threshold),
+ `BIG_WINNER_MIN_PLAYER_WIN = 5_000` (RD flag — separate). GGR sign: player
+ win = negative GGR day; SQL uses `SUM(profit − loss) ≤ −BIG_WINNER_SECTION_MIN`.
+ All three implementations updated; 175 tests passed at ship.
+
+4. **Last win above 1K SC — date plus redeemed yes/no.** *Parked 2026-08-19.
+ Design locked — build in a fresh chat with no re-discussion needed.*
+ Decision: **new section** ("SC Big Wins — Unredeemed") in the Risk group,
+ search-to-reveal by AID (search input visible, table hidden until AID typed),
+ no AM column, **Elite only**, **14-day** lookback, **one row per player**
+ (most recent SC win ≥ 1K SC that has not yet been redeemed). "Redeemed?" =
+ any redemption request submitted after the win date (locked or paid). Payload
+ pre-loaded at generation time; no live query at search time. ~25–30 KB
+ additional payload (14-day window, Elite book only). One extra BQ query per run.
+
+5. [x] **Open Tickets — weighted prioritisation.** Done 2026-08-19. Priority
+ score = `(lifetime_net_purchase × 0.278 + lifetime_ngr × 0.222 +
+ lifetime_purchased × 0.222 + purchased_30d × 0.278) × topic_multiplier`.
+ Default sort changed from LTP to Priority ↓; LTP / Open Tickets / 7D still
+ available. New "Topic" column with tier-coloured badge. **Data changes:**
+ `enrich_aids_sql` now returns `lifetime_ngr` (added to the `lt` subquery) and
+ `purchased_30d` (new `k30` subquery). `open_zendesk_sql` now aggregates
+ `subjects` (LOWER ticket subjects) per player. **Topic tiers** (config.py
+ `TICKET_TOPIC_TIERS`, `TICKET_WEIGHT_*`):
+ - 2.0× — Withdrawal / Security (withdrawal, redeem, cash out, self-exclusion,
+   stop gambling, close account, chargeback, dispute, fraud, hack, security,
+   stolen)
+ - 1.5× — Account / KYC / Promo not credited (lock, suspend, block, ban,
+   document, verify, KYC, proof; bonus/offer/promo + not credited / missing /
+   didn't receive / wrong / issue)
+ - 1.2× — Service Issue (deposit, payment fail, card declined, error, crash,
+   bug, not working, disconnect, bonus/promo/offer standalone)
+ - 1.0× — General (everything else)
+ Classification: `_ticket_topic()` in `payload_builders.py` — combines all
+ subjects per player, walks tiers in order, first match wins. All three
+ implementations updated (`web/src/views/tickets.ts`, `canvas_parts/sections.py`,
+ `daily_summary/streamlit_app/am_brief_app.py`). 190 tests pass.
 
 ### Batch 10 — Score out of 100 + archive calendar (done, verified 2026-08-18)
 

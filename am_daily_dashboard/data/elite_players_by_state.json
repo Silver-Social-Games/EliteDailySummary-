@@ -1,0 +1,137 @@
+{
+  "title": "Elite Player by State",
+  "period": "2026-07-21 through 2026-08-19",
+  "total": 4602,
+  "slices": [
+    {
+      "state": "TOTAL",
+      "bettors": 2301,
+      "share": 100.0
+    },
+    {
+      "state": "TX",
+      "bettors": 405,
+      "share": 17.6
+    },
+    {
+      "state": "FL",
+      "bettors": 180,
+      "share": 7.8
+    },
+    {
+      "state": "OH",
+      "bettors": 166,
+      "share": 7.2
+    },
+    {
+      "state": "UNKNOWN",
+      "bettors": 133,
+      "share": 5.8
+    },
+    {
+      "state": "IL",
+      "bettors": 116,
+      "share": 5.0
+    },
+    {
+      "state": "MN",
+      "bettors": 116,
+      "share": 5.0
+    },
+    {
+      "state": "MO",
+      "bettors": 102,
+      "share": 4.4
+    },
+    {
+      "state": "MS",
+      "bettors": 87,
+      "share": 3.8
+    },
+    {
+      "state": "NC",
+      "bettors": 86,
+      "share": 3.7
+    },
+    {
+      "state": "VA",
+      "bettors": 82,
+      "share": 3.6
+    },
+    {
+      "state": "AZ",
+      "bettors": 81,
+      "share": 3.5
+    },
+    {
+      "state": "CO",
+      "bettors": 72,
+      "share": 3.1
+    },
+    {
+      "state": "OK",
+      "bettors": 68,
+      "share": 3.0
+    },
+    {
+      "state": "WI",
+      "bettors": 67,
+      "share": 2.9
+    },
+    {
+      "state": "AR",
+      "bettors": 64,
+      "share": 2.8
+    },
+    {
+      "state": "KS",
+      "bettors": 44,
+      "share": 1.9
+    },
+    {
+      "state": "SC",
+      "bettors": 40,
+      "share": 1.7
+    },
+    {
+      "state": "TN",
+      "bettors": 36,
+      "share": 1.6
+    },
+    {
+      "state": "MA",
+      "bettors": 36,
+      "share": 1.6
+    },
+    {
+      "state": "OR",
+      "bettors": 33,
+      "share": 1.4
+    },
+    {
+      "state": "NE",
+      "bettors": 32,
+      "share": 1.4
+    },
+    {
+      "state": "GA",
+      "bettors": 31,
+      "share": 1.3
+    },
+    {
+      "state": "IA",
+      "bettors": 31,
+      "share": 1.3
+    },
+    {
+      "state": "UT",
+      "bettors": 24,
+      "share": 1.0
+    },
+    {
+      "state": "Other",
+      "bettors": 169,
+      "share": 7.3
+    }
+  ]
+}

@@ -4,7 +4,21 @@
  * a TID, a WoW arrow or the score meter looks belongs here and in that file.
  */
 import type { Dict } from "./types";
-import { esc, icon } from "./format";
+import { esc, icon, toNum } from "./format";
+
+/** USD / count coloring — high = green, critical low = red, else plain. */
+export type NumTone = "high" | "low" | "neutral";
+
+const LTP_HIGH_USD = 50_000;
+const PURCHASE_HIGH_USD = 10_000;
+const HOLD_HIGH_PCT = 70;
+const HOLD_LOW_PCT = 30;
+
+function numToneSpan(value: unknown, tone: NumTone): string {
+  if (tone === "neutral") return esc(value);
+  const cls = tone === "high" ? "t-success" : "t-danger";
+  return `<span class="${cls} w-semibold">${esc(value)}</span>`;
+}
 
 export function marker(tone?: string): string {
   return `<span class="marker marker-${tone || "neutral"}"></span>`;
@@ -14,28 +28,70 @@ export function markerCell(tone: string | undefined, content: string): string {
   return `<span class="cell-marker">${marker(tone)}<span>${content}</span></span>`;
 }
 
+function wowTone(value: unknown): "success" | "danger" | "neutral" {
+  const v = String(value || "").trim();
+  const pct = (v.match(/\(([+-]?\d+(?:\.\d+)?)%\)/) || [])[1]
+    ?? (v.match(/^([+-]?\d+(?:\.\d+)?)%$/) || [])[1];
+  const n = pct != null ? Number(pct) : NaN;
+  if (!Number.isNaN(n)) {
+    if (n > 0) return "success";
+    if (n < 0) return "danger";
+    return "neutral";
+  }
+  if (v.startsWith("+") && !v.startsWith("+$0") && !v.startsWith("+0")) return "success";
+  if (v.startsWith("-") || v.startsWith("$-")) return "danger";
+  return "neutral";
+}
+
+/** Compact pill for segment KPI rows. */
+export function wowPillHtml(value: unknown): string {
+  const v = String(value || "").trim();
+  if (!v || v === "—") return `<span class="wow-pill neutral">—</span>`;
+  const tone = wowTone(v);
+  const label = v.replace(/^\(([+-]?\d+(?:\.\d+)?)%\)\s*/, "").trim() || v;
+  const arrow = tone === "success" ? "▲" : tone === "danger" ? "▼" : "";
+  const text = arrow ? `${label} ${arrow}` : label;
+  return `<span class="wow-pill ${tone}">${esc(text)}</span>`;
+}
+
 export function wowHtml(value: unknown): string {
   const v = String(value || "").trim();
-  const pct = (v.match(/\(([+-]?\d+(?:\.\d+)?)%\)/) || [])[1];
-  const n = pct != null ? Number(pct) : NaN;
-  const up =
-    (!Number.isNaN(n) && n > 0) ||
-    (v.startsWith("+") && !v.startsWith("+$0") && !v.startsWith("+0"));
-  const down = (!Number.isNaN(n) && n < 0) || v.startsWith("-") || v.startsWith("$-");
-  if (up) return `<span class="t-success w-semibold">${icon("trend-up", "ic-xs")} ${esc(value)}</span>`;
-  if (down) return `<span class="t-danger w-semibold">${icon("trend-down", "ic-xs")} ${esc(value)}</span>`;
+  const tone = wowTone(v);
+  if (tone === "success") return `<span class="t-success w-semibold">${icon("trend-up", "ic-xs")} ${esc(value)}</span>`;
+  if (tone === "danger") return `<span class="t-danger w-semibold">${icon("trend-down", "ic-xs")} ${esc(value)}</span>`;
   return esc(value);
 }
 
-export function moneyHtml(value: unknown, emphasize?: boolean): string {
-  return emphasize ? `<span class="t-danger w-semibold">${esc(value)}</span>` : esc(value);
+export function moneyHtml(value: unknown, tone: NumTone = "neutral"): string {
+  return numToneSpan(value, tone);
+}
+
+/** Lifetime purchase — high LTP green, zero red. */
+export function ltpHtml(value: unknown, num?: number): string {
+  const n = num ?? toNum(value);
+  if (n >= LTP_HIGH_USD) return numToneSpan(value, "high");
+  if (n <= 0) return numToneSpan(value, "low");
+  return esc(value);
+}
+
+/** Day / 7D purchase amounts — big green, zero or missing red. */
+export function purchaseMoneyHtml(value: unknown, num?: number): string {
+  const v = String(value ?? "").trim();
+  if (!v || v === "—" || v === "$0") return numToneSpan(value, "low");
+  const n = num ?? toNum(value);
+  if (n >= PURCHASE_HIGH_USD) return numToneSpan(value, "high");
+  if (n <= 0) return numToneSpan(value, "low");
+  return esc(value);
 }
 
 export function holdHtml(value: unknown): string {
-  const pct = parseFloat(value as string);
-  return !Number.isNaN(pct) && pct >= 70
-    ? `<span class="t-success w-semibold">${esc(value)}</span>`
-    : esc(value);
+  const v = String(value ?? "").trim();
+  if (!v || v === "—" || v.toLowerCase() === "n/a") return esc(value);
+  const pct = parseFloat(v);
+  if (Number.isNaN(pct)) return esc(value);
+  if (pct >= HOLD_HIGH_PCT) return numToneSpan(value, "high");
+  if (pct <= HOLD_LOW_PCT) return numToneSpan(value, "low");
+  return esc(value);
 }
 
 export function unlockHtml(detail: unknown, remainingDays: unknown): string {
@@ -53,33 +109,19 @@ export function agingHtml(created: unknown, daysPending: unknown, agingFlag: unk
     : `<span class="t-small">${esc(created)}${esc(suffix)}</span>`;
 }
 
-/* Two-track score meter. The KPI track fills to kpiPoints/kpiPointsMax; the
-   manager track stays dashed and empty until a score exists, because an
-   unset appreciation is neither 0 nor 20. */
+/* KPI-only score meter (out of 80). Manager appreciation stays off the AM view. */
 export function scoreMeterHtml(score: Dict, tone: string): string {
-  const kpiMax = Number(score.kpiPointsMax) || 0;
+  const kpiMax = Number(score.kpiPointsMax) || 80;
   const kpiPct =
     kpiMax > 0 ? Math.max(0, Math.min(100, (Number(score.kpiPoints) / kpiMax) * 100)) : 0;
-  const scored = !!score.managerScored;
-  const mgrMax = Number(score.managerPointsMax) || 0;
-  const mgrPct =
-    scored && mgrMax > 0
-      ? Math.max(0, Math.min(100, (Number(score.managerPoints) / mgrMax) * 100))
-      : 0;
-  return `<div class="score-meter">
+  return `<div class="score-meter single">
         <span class="trk kpi"><span class="fill ${tone}" style="width:${kpiPct.toFixed(2)}%"></span></span>
-        <span class="trk mgr${scored ? "" : " pending"}">${
-          scored ? `<span class="fill mgr" style="width:${mgrPct.toFixed(2)}%"></span>` : ""
-        }</span>
       </div>`;
 }
 
 export function scoreLegendHtml(score: Dict, tone: string): string {
-  const scored = !!score.managerScored;
   return `<div class="score-legend">
-        <span><i class="lg-${tone}"></i>KPI ${esc(score.kpiPointsDisplay || "")}</span>
-        <span><i class="lg-mgr"></i>Manager ${esc(score.managerPointsDisplay || "Pending")}</span>
-        ${scored && score.managerNote ? `<span class="t-tertiary">${esc(score.managerNote)}</span>` : ""}
+        <span><i class="lg-${tone}"></i>${esc(score.kpiPointsDisplay || "")} · Personal goals progress</span>
       </div>`;
 }
 
@@ -98,9 +140,12 @@ export function docsHtml(status: unknown): string {
   return `<span class="t-small t-warning w-semibold">${esc(status)}</span>`;
 }
 
-export function p7dHtml(value: unknown): string {
-  const none = value === "None In 7D";
-  return `<span class="p7d-cell ${none ? "t-warning w-semibold" : ""}">${esc(value)}</span>`;
+export function p7dHtml(value: unknown, num?: number): string {
+  const v = String(value ?? "").trim();
+  if (v === "None In 7D" || v === "—" || (num ?? toNum(value)) <= 0) {
+    return `<span class="p7d-cell t-danger w-semibold">${esc(value)}</span>`;
+  }
+  return `<span class="p7d-cell">${esc(value)}</span>`;
 }
 
 export function urgencyHtml(u: unknown): string {
@@ -125,13 +170,7 @@ export function ticketHtml(p: Dict): string {
       ? `<span class="badge">${icon("lock", "ic-xs")}${esc(p.ticketDisabledReason)}</span>`
       : '<span class="t-quaternary">—</span>';
   }
-  const subj = p.ticketSubject || "";
-  const preview = subj.length > 30 ? subj.slice(0, 29) + "…" : subj || "Draft";
-  return (
-    `<div><button type="button" class="chip" data-ticket-aid="${esc(p.aid)}">` +
-    `${icon("ticket", "ic-xs")} Draft</button>` +
-    `<div class="ticket-preview">${esc(preview)}</div></div>`
-  );
+  return `<button type="button" class="chip ticket-chip" data-ticket-aid="${esc(p.aid)}">${icon("ticket", "ic-xs")} Draft</button>`;
 }
 
 /** TIDs always link to Zendesk. */

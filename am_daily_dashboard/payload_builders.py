@@ -11,10 +11,21 @@ god-module becomes a thin orchestration shell over testable builders.
 
 from __future__ import annotations
 
-from datetime import date, timedelta
+import re
+from datetime import date, datetime, timedelta
 from typing import TYPE_CHECKING
 
-from config import LOCKS_REVIEW_WINDOW_DAYS, LOCKS_WINDOW_DAYS  # noqa: E402
+from config import (  # noqa: E402
+    LOCKS_REVIEW_WINDOW_DAYS,
+    LOCKS_WINDOW_DAYS,
+    TICKET_TOPIC_BASE_LABEL,
+    TICKET_TOPIC_BASE_MULTIPLIER,
+    TICKET_TOPIC_TIERS,
+    TICKET_WEIGHT_30D_PURCHASE,
+    TICKET_WEIGHT_LT_HOLD,
+    TICKET_WEIGHT_LT_NGR,
+    TICKET_WEIGHT_LT_PURCHASE,
+)
 from daily_summary.generate_daily_elite_canvas import fmt_money_short  # noqa: E402
 from daily_summary.generate_daily_elite_summary import (  # noqa: E402
     looker_account_portal_url,
@@ -220,6 +231,8 @@ def build_top10_section(rows: list[dict]) -> list[dict]:
                 usualPrice=fmt_price(r.get("usual_price")),
                 usualPriceOrders=_safe_int(r.get("usual_price_orders")),
                 ceilingPrice=fmt_price(r.get("ceiling_price")),
+                frequentLast30d=fmt_price(r.get("usual_price")) if r.get("usual_price") is not None else "—",
+                maxPurchase30d=fmt_price(r.get("max_purchase_30d")) if r.get("max_purchase_30d") is not None else "—",
                 packageFit=build_package_fit(
                     r.get("usual_price"),
                     r.get("usual_price_orders"),
@@ -363,8 +376,148 @@ def build_birthday_section(
     return out
 
 
-def build_zd_section(rows: list[dict], enrich_map: dict[int, dict] | None = None) -> list[dict]:
-    """Format raw Open Tickets BQ rows into payload dicts."""
+def build_big_winners_section(
+    rows: list[dict],
+    enrich_map: dict[int, dict] | None = None,
+) -> list[dict]:
+    """Players who won ≥ BIG_WINNER_SECTION_MIN on report_date.
+
+    Non-Elite rows (is_elite=False / agent=None) are included and appear in
+    every AM's tab — this is the only section that reaches outside the Elite
+    book. Elite rows are filtered to their AM in focus_for_agent via isElite
+    and agentName. Non-Elite rows carry a warning tone so they read as a
+    portfolio-wide signal rather than the AM's own player.
+
+    GGR sign: player win = negative GGR day. win_ggr is already the positive
+    player win (flipped by the query: win_ggr = -ggr_day).
+    """
+    out = []
+    for r in rows:
+        is_elite = bool(r.get("is_elite"))
+        agent_tag = r.get("agent") or ""
+        agent_name = agent_display(agent_tag) if is_elite and agent_tag else ""
+        win = float(r.get("win_ggr") or 0)
+        sc_turnover = float(r.get("sc_turnover") or 0)
+        sc_won = float(r.get("sc_won") or 0)
+        pending_rd = float(r.get("pending_rd_amount") or 0)
+        row = aid_row(
+            r.get("AID"),
+            r.get("name") or "n/a",
+            agent=agent_tag,
+            agentName=agent_name,
+            isElite=is_elite,
+            winGgr=fmt_money_short(win),
+            winGgrNum=win,
+            scTurnover=fmt_money_short(sc_turnover),
+            scWon=fmt_money_short(sc_won),
+            game=r.get("game") or "—",
+            pendingRd=fmt_money_short(pending_rd) if pending_rd > 0 else "—",
+            pendingRdNum=pending_rd,
+            # Non-Elite: warning so the AM knows this is outside their book.
+            # Elite: neutral — a big win is notable but not a risk flag itself.
+            tone="warning" if not is_elite else "neutral",
+        )
+        if enrich_map is not None:
+            m = enrich_map.get(_safe_int(r.get("AID")), {})
+            ltp_num = float(m.get("lifetime_purchased") or 0)
+            p7_num = float(m.get("purchased_7d") or 0)
+            row.update(
+                lifetimePurchase=format_lifetime_purchased(m) if m else fmt_money_short(0),
+                lifetimePurchasedNum=ltp_num,
+                purchase7d=fmt_money_short(p7_num),
+                purchase7dNum=p7_num,
+            )
+        out.append(row)
+    return out
+
+
+def build_big_losers_section(
+    rows: list[dict],
+    enrich_map: dict[int, dict] | None = None,
+) -> list[dict]:
+    """Players who lost ≥ BIG_LOSER_SECTION_MIN to the house on report_date."""
+    out = []
+    for r in rows:
+        is_elite = bool(r.get("is_elite"))
+        agent_tag = r.get("agent") or ""
+        agent_name = agent_display(agent_tag) if is_elite and agent_tag else ""
+        loss = float(r.get("loss_ggr") or 0)
+        sc_turnover = float(r.get("sc_turnover") or 0)
+        sc_won = float(r.get("sc_won") or 0)
+        pending_rd = float(r.get("pending_rd_amount") or 0)
+        row = aid_row(
+            r.get("AID"),
+            r.get("name") or "n/a",
+            agent=agent_tag,
+            agentName=agent_name,
+            isElite=is_elite,
+            lossGgr=fmt_money_short(loss),
+            lossGgrNum=loss,
+            scTurnover=fmt_money_short(sc_turnover),
+            scWon=fmt_money_short(sc_won),
+            game=r.get("game") or "—",
+            pendingRd=fmt_money_short(pending_rd) if pending_rd > 0 else "—",
+            pendingRdNum=pending_rd,
+            tone="warning" if not is_elite else "neutral",
+        )
+        if enrich_map is not None:
+            m = enrich_map.get(_safe_int(r.get("AID")), {})
+            ltp_num = float(m.get("lifetime_purchased") or 0)
+            p7_num = float(m.get("purchased_7d") or 0)
+            row.update(
+                lifetimePurchase=format_lifetime_purchased(m) if m else fmt_money_short(0),
+                lifetimePurchasedNum=ltp_num,
+                purchase7d=fmt_money_short(p7_num),
+                purchase7dNum=p7_num,
+            )
+        out.append(row)
+    return out
+
+
+def _classify_subject(subject: str) -> tuple[float, str]:
+    for multiplier, label, pattern in TICKET_TOPIC_TIERS:
+        if re.search(pattern, subject):
+            return multiplier, label
+    return TICKET_TOPIC_BASE_MULTIPLIER, TICKET_TOPIC_BASE_LABEL
+
+
+def _ticket_topic(subjects: list[str]) -> tuple[float, str, list[str]]:
+    """Return (best_multiplier, primary_label, topic_labels) for a player.
+
+    Each distinct ticket subject is classified on its own. We keep at most two
+    unique labels for display, ordered by first appearance after deduping SQL
+    duplicates from the Zendesk join.
+    """
+    unique_subjects = list(dict.fromkeys(s.strip() for s in subjects if s and str(s).strip()))
+    if not unique_subjects:
+        return TICKET_TOPIC_BASE_MULTIPLIER, TICKET_TOPIC_BASE_LABEL, [TICKET_TOPIC_BASE_LABEL]
+
+    labels: list[str] = []
+    best_mult = TICKET_TOPIC_BASE_MULTIPLIER
+    primary = TICKET_TOPIC_BASE_LABEL
+
+    for subject in unique_subjects:
+        mult, label = _classify_subject(subject)
+        if mult > best_mult:
+            best_mult = mult
+            primary = label
+        if label not in labels:
+            labels.append(label)
+
+    return best_mult, primary, ([primary] + [l for l in labels if l != primary])[:2]
+
+
+def build_zd_section(
+    rows: list[dict],
+    enrich_map: dict[int, dict] | None = None,
+    report_date: date | None = None,
+) -> list[dict]:
+    """Format raw Open Tickets BQ rows into payload dicts.
+
+    Rows are sorted descending by priority_score, which weights four lifetime
+    financial signals by their normalised weights and scales the result by a
+    topic multiplier derived from the ticket subjects.
+    """
     enrich_map = enrich_map or {}
     out = []
     for r in rows:
@@ -376,7 +529,37 @@ def build_zd_section(rows: list[dict], enrich_map: dict[int, dict] | None = None
             aid_i = 0
         enrich = enrich_map.get(aid_i, {})
         ltp_num = float(enrich.get("lifetime_purchased") or 0)
+        lt_hold_num = float(enrich.get("lifetime_net_purchase") or 0)
+        lt_ngr_num = float(enrich.get("lifetime_ngr") or 0)
+        p30_num = float(enrich.get("purchased_30d") or 0)
         p7_num = float(enrich.get("purchased_7d") or 0)
+
+        subjects: list[str] = list(r.get("subjects") or [])
+        topic_mult, topic_label, topic_labels = _ticket_topic(subjects)
+        oldest = parse_date_val(r.get("oldest_ticket_at"))
+        if isinstance(oldest, datetime):
+            oldest = oldest.date()
+        latest = parse_date_val(r.get("latest_ticket_at"))
+        if isinstance(latest, datetime):
+            latest = latest.date()
+        ticket_age_days = (report_date - oldest).days if report_date and oldest else None
+        ticket_updated_age_days = (report_date - latest).days if report_date and latest else None
+        if oldest:
+            ticket_created = oldest.strftime("%d %b %Y")
+        else:
+            ticket_created = "—"
+        if latest:
+            ticket_updated = latest.strftime("%d %b %Y")
+        else:
+            ticket_updated = "—"
+
+        raw_score = (
+            lt_hold_num * TICKET_WEIGHT_LT_HOLD
+            + lt_ngr_num * TICKET_WEIGHT_LT_NGR
+            + ltp_num * TICKET_WEIGHT_LT_PURCHASE
+            + p30_num * TICKET_WEIGHT_30D_PURCHASE
+        ) * topic_mult
+
         out.append(
             aid_row(
                 r.get("AID"),
@@ -393,9 +576,19 @@ def build_zd_section(rows: list[dict], enrich_map: dict[int, dict] | None = None
                 lifetimeHold=format_lifetime_hold(enrich) if enrich else "n/a",
                 purchase7d=fmt_money_short(p7_num),
                 purchase7dNum=p7_num,
+                topicLabel=topic_label,
+                topicLabels=topic_labels,
+                topicMult=topic_mult,
+                ticketCreated=ticket_created,
+                ticketAgeDays=ticket_age_days if ticket_age_days is not None and ticket_age_days >= 0 else None,
+                ticketUpdated=ticket_updated,
+                ticketUpdatedAgeDays=ticket_updated_age_days if ticket_updated_age_days is not None and ticket_updated_age_days >= 0 else None,
+                priorityScore=round(raw_score, 2),
+                priorityScoreFmt=fmt_money_short(raw_score),
                 tone="info",
             )
         )
+    out.sort(key=lambda x: float(x.get("priorityScore") or 0), reverse=True)
     return out
 
 
@@ -475,29 +668,18 @@ def greeting_lines(
     purchase: str,
     purchase_share: str,
     purchased_players: int,
-    total_players: int,
     player_share: str,
 ) -> list[str]:
-    """Three-line morning greeting for a per-AM tab intro.
+    """Two-line morning intro for a per-AM Morning Brief.
 
-    Uses **amount** markers so the canvas/HTML can bold the key numbers.
+    Uses **amount** markers so the HTML can bold the key numbers.
     """
-    if total_players > 0:
-        book_bit = (
-            f"**{purchased_players}** of your **{total_players}** Elite players purchased"
-        )
-    else:
-        book_bit = f"**{purchased_players}** purchased players"
     return [
         f"Good morning, {agent_name}.",
         (
-            f"Your {weekday} brief is ready, and the Elite book feels your hand on it. "
-            f"You drove **{purchase}** ({purchase_share} of Elite purchase) with "
-            f"**{purchased_players}** purchased players ({player_share} of Elite)."
-        ),
-        (
-            f"That's {book_bit}. Shoulder tap: they lean on you for a reason. "
-            f"Own the gaps, clear the blockers, and make {weekday} count 🚀"
+            f"Your portfolio generated **{purchase}** on {weekday} ({purchase_share} of Elite purchase) · "
+            f"**{purchased_players:,}** purchased players ({player_share} of Elite). "
+            f"Own the gaps, clear blockers, and make {weekday} count 🚀"
         ),
     ]
 
@@ -513,6 +695,8 @@ def focus_for_agent(
     birthdays: list[dict],
     zd: list[dict],
     locks: list[dict],
+    big_winners: list[dict],
+    big_losers: list[dict],
     purchase: dict | None,
     total_players: int,
     elite_rev: float,
@@ -524,8 +708,15 @@ def focus_for_agent(
     def filt(rows: list[dict]) -> list[dict]:
         return [r for r in rows if r.get("agentName") == agent_name]
 
+    def filt_bw(rows: list[dict]) -> list[dict]:
+        # Non-Elite rows (isElite=False) appear in every AM's tab.
+        # Elite rows only for their own AM.
+        return [r for r in rows if not r.get("isElite") or r.get("agentName") == agent_name]
+
     zd_a = filt(zd)
     locks_a = filt(locks)
+    bw_a = filt_bw(big_winners)
+    bl_a = filt([r for r in big_losers if r.get("isElite")])
     exclusion = sum(1 for r in locks_a if r.get("bucket") == "Self-exclusion")
     tab = sum(1 for r in locks_a if r.get("bucket") == "Take a break")
     other = sum(1 for r in locks_a if r.get("bucket") == "Other locked")
@@ -544,7 +735,6 @@ def focus_for_agent(
             purchase=purchase_fmt,
             purchase_share=purchase_share,
             purchased_players=purch_ply,
-            total_players=total_players,
             player_share=player_share,
         ),
         "purchase": purchase_fmt,
@@ -564,6 +754,8 @@ def focus_for_agent(
             "rdOver5k": len(filt(rd5k)),
             "birthdays": len(filt(birthdays)),
             "declineCount": len(decline_a),
+            "bigWinners": len(bw_a),
+            "bigLosers": len(bl_a),
         },
         "top10": filt(top10),
         "decline": decline_a,
@@ -572,6 +764,8 @@ def focus_for_agent(
         "birthdays": filt(birthdays),
         "zendesk": zd_a,
         "locks": locks_a,
+        "bigWinners": bw_a,
+        "bigLosers": bl_a,
         "goals": goals,
     }
 

@@ -5,7 +5,7 @@
  * on a losing day rather than a negative win.
  */
 import { esc } from "./../format";
-import { agingHtml, aidHtml, bigWinHtml, docsHtml } from "./../cells";
+import { agingHtml, aidHtml, bigWinHtml, docsHtml, holdHtml, ltpHtml, purchaseMoneyHtml } from "./../cells";
 import { sortByNumKey } from "./../filters";
 import { rowsFor } from "./../selectors";
 import { app } from "./../state";
@@ -30,6 +30,8 @@ export function viewPendingRd(): string {
       `<span class="t-warning w-semibold">${esc(p.amount)}</span>`, esc(p.status),
       agingHtml(p.created, p.daysPending, p.agingFlag),
       bigWinHtml(p), docsHtml(p.docsStatus),
-      esc(p.lifetimePurchase || "—"), esc(p.lifetimeHold || "—"), esc(p.purchase7d || "—")],
+      ltpHtml(p.lifetimePurchase || "—", p.lifetimePurchasedNum),
+      holdHtml(p.lifetimeHold || "—"),
+      purchaseMoneyHtml(p.purchase7d || "—", p.purchase7dNum)],
   });
 }

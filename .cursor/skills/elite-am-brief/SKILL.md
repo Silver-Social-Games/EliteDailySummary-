@@ -116,9 +116,10 @@ Sidebar groups as built: **Command** (manager-only) · **Today** · **Performanc
 | **Elite Goals** (Performance) | `agents[].goals` | `goals_mtd_actuals_sql` | `goals.build_agent_goals_block` | `views/goals.ts` | `sections.py` → `<H2>Elite Goals</H2>` |
 | **Top 10 Purchasers** (Performance) | `top10` | `top10_purchasers_sql` | `build_top10_section` + `build_package_fit` (the `Usual → Ceiling` cell) | `views/top10.ts` | `sections.py` → `title="Top 10 Purchasers"` |
 | **Top 20 · WoW Gaps** (Risk) | `decline` | `wow_drop_analysis.fetch_top_same_day_by_agent` | `soften_decline_rows` (tone only; selection/classify is shared with Elite Daily Decline) | `views/top20.ts` | `tables.py` → `Top20DeclineTable` |
+| **Big Winners · ≥$20K** (Risk) | `bigWinners` | `big_winners_sql` (GGR ≤ −20K on report_date; all accounts, LEFT JOIN `elite_am`) | `build_big_winners_section`; non-Elite rows (`isElite=False`) shown in every AM's tab via `filt_bw` in `focus_for_agent` — **only section outside the Elite book** | `views/bigWinners.ts` | `sections.py` → `title="Big Winners · ≥$20K"` |
 | **Pending Redemptions** (Operations) | `rdOver5k` | `locked_rd_over_5k_sql` (GGR + Won Yesterday join inside) | `build_rd_section` | `views/pendingRd.ts` | `sections.py` → `title="Pending Redemptions"` |
 | **First-Time Locked RD** (Operations) | `rdFirstTime` | `first_time_locked_rd_sql` | `build_rd_section` again — same function, no ageing threshold, `ticket_enrich=` instead of `metrics_enrich=`, so a change here hits Pending RD too | `views/firstRd.ts` | `sections.py` → `title="First-Time Locked RD"` |
-| **Open Tickets** (Operations) | `zendesk` | `open_zendesk_sql` + `enrich_aids_sql` (LTP / Hold / 7D batch) | `build_zd_section` | `views/tickets.ts` | `sections.py` → `title="Open Tickets"` |
+| **Open Tickets** (Operations) | `zendesk` | `open_zendesk_sql` (+ `subjects` array per player) + `enrich_aids_sql` (LTP / Hold / 7D / `lifetime_ngr` / `purchased_30d` batch) | `build_zd_section` → `_ticket_topic()` regex tier → `priorityScore` sort desc | `views/tickets.ts` | `sections.py` → `title="Open Tickets"` |
 | **Locked & Take A Break** (Operations) | `locks` | `locked_players_sql` | `build_lock_section` (buckets: Self-exclusion / Take a break / Other locked) | `views/locks.ts` | `sections.py` → `title="Locked And Take A Break"` |
 | **Birthdays · Last 3 Days** | `birthdays` | `birthdays_last_3d_sql` | `build_birthday_section` | `views/birthdays.ts` | `sections.py` → `title="Birthdays · Last 3 Days"` |
 
@@ -134,7 +135,7 @@ sources and output drift apart.** Canvas = `canvas_parts/`.
 
 | If the ask is about… | Go to (`web/src/` unless noted) |
 |---|---|
-| A threshold ($5k RD, lookback days, big-winner floor, gate) | `config.py` — never inline |
+| A threshold ($5k RD, lookback days, big-winner floor/section, gate) | `config.py` — never inline (`BIG_WINNER_MIN_PLAYER_WIN` for RD flag; `BIG_WINNER_SECTION_MIN` for the Big Winners section) |
 | AID → Looker link | `cells.ts::aidHtml()` · `AidLink` in `canvas_parts/cells.py` |
 | TID → Zendesk link | `cells.ts::ticketHtml()` / `ticketIdsHtml()` · `canvas_parts/cells.py` |
 | WoW arrow, money, Hold, unlock, ageing, Big Winner, Docs, 7D, urgency cells | `cells.ts` (`wowHtml` / `moneyHtml` / `holdHtml` / `unlockHtml` / `agingHtml` / `bigWinHtml` / `docsHtml` / `p7dHtml` / `urgencyHtml`) · `canvas_parts/cells.py` |
@@ -418,10 +419,13 @@ fixed via `absWorkingDir` in `build.mjs` once `pretest` started invoking it
 from a different directory) are under *Phase 2 progress* in
 [`AM_DAILY_DASHBOARD.md`](../../../am_daily_dashboard/AM_DAILY_DASHBOARD.md).
 
-Next: Phase 3 (extract payload builders out of
-`generate_am_daily_dashboard.py` into testable functions — needs a
-stronger/thinking model, same reasoning as Phase 2, since it touches the
-god-module), then resume **Batch 8 item 3, Big Winners ≥ $20K**.
+Phase 3 done (2026-08-19, commit 21cf91e). Batch 8 items 1–3 and 5 done
+(2026-08-19). **Batch 8 item 4 parked** — design locked, build pending:
+14 days, Elite only, search-to-reveal (AID lookup), no AM column, one row
+per player (most recent SC win ≥ 1K unredeemed), "Redeemed?" = any request
+after win date. **Batch 8 item 5** (Open Tickets weighted priority score)
+done 2026-08-19: topic tiers × 4 financial signals, all three implementations
+updated, 190 tests pass.
 
 **Batch 11 (manager-only team-total Goals view) is done and verified** — see the
 Team Goals bullet above.
@@ -447,17 +451,39 @@ Backlog with full intent and open questions: *Roadmap / Backlog* in
   `sessionStorage` — and test day-click navigation **last**, because jsdom cannot
   navigate and the attempt leaves the window inert, making later checks pass
   vacuously.
-- **Batch 8, worked one at a time. Items 1 (Top Purchasers price ladder) and 2
-  (Pending RD big winner + docs) shipped 2026-08-18** — see the bullets above.
-  Remaining: a new Big Winners ≥ $20K section; last win above 1K SC; Open Tickets
-  weighted prioritisation (weights settled, topic set still to define). Two scope
-  questions already settled:
-  **Big Winners includes non-Elite players in every AM's own view** (the only section
-  that reaches outside the Elite book — label those rows, and do not copy the wider
-  filter elsewhere); **ticket weights normalise to 100%** (LT hold 25, LT NGR 20, LT
-  purchase 20, 30D purchase 25 → 27.8/22.2/22.2/27.8).
-- **Then — Batch 9:** trending games board, dormant favourite game flag (flag only
-  when the player had a **net loss** on that game).
+- **Batch 8 — done except item 4.** Items 1 (Top Purchasers price ladder), 2
+  (Pending RD big winner + docs), 3 (Big Winners ≥ $20K section), 5 (Open Tickets
+  weighted priority score) all shipped. Item 4 parked — design locked (see above).
+  **Item 5 detail:** `open_zendesk_sql` now pulls ticket `subjects`; `enrich_aids_sql`
+  adds `lifetime_ngr` and `purchased_30d`; `_ticket_topic()` classifies by regex tier;
+  `build_zd_section` scores and sorts descending; Topic column + Priority sort in all
+  three implementations. Tier table: 2.0× (withdrawal/security/self-exclusion) ·
+  1.5× (account/KYC/promo not credited) · 1.2× (service issue) · 1.0× (general).
+  Config keys: `TICKET_TOPIC_TIERS`, `TICKET_WEIGHT_*`. 190 tests pass.
+- **Batch 9 — parked, design intent captured.** Two parts: (A) Trending games board
+  (book-wide game WoW momentum — per-AM vs manager-only still open); (B) Dormant
+  favourite game flag on Top 20 WoW Gaps (player's all-time favourite game, not
+  played in 7 days, net loss on that game). **Explain plan before building both.**
+- **UI pass (Aug 2026) — in progress, uncommitted.** Edit `web/src/` only;
+  never hand-edit `handoffs/elite_am_brief_web.html`. Mock layout in chat before
+  coding. After each slice: `node am_daily_dashboard/web/build.mjs` → full regen
+  or `--html-only --date YYYY-MM-DD` (on Windows set
+  `$env:PYTHONIOENCODING='utf-8'` if console Unicode fails) →
+  `verify_brief.py --date YYYY-MM-DD --render-check` → Elite_Cursor path in chat.
+  **Done (uncommitted, 2026-08-23):** segment hero + KPI share under Elite/Jackpota;
+  manager **Elite Snapshot** + **Daily Triggers** band (replaces Team snapshot);
+  appreciation meter removed; state distribution = horizontal bar chart from
+  `data/elite_players_by_state.json` (UNKNOWN merged into Other, not "No state on
+  file"); Top 10 **Frequent 30d** / **Max 30d** columns + fixed `top10-grid` CSS
+  (overlap was stale `nth-child` after column add); Open Tickets **Created / Updated**
+  + topic badge tiers; Big Winners/Losers nav + views; **Big Losers** =
+  `BIG_LOSER_SECTION_MIN` (= `BIG_WINNER_MIN_PLAYER_WIN`, **$5K** house GGR, not
+  $20K); mock row in `bigWinners.ts` / `bigLosers.ts` when AM has zero rows;
+  Report date label on topbar calendar; NAV reorder (Open Tickets first). **After
+  any table column add:** grep `app.css` for that table's `nth-child` rules before
+  shipping. **Not mirrored:** `canvas_parts/` and Streamlit — HTML is canonical until asked.
+  **Parked:** Games / Anniversary still `comingSoon`; CRM calendar shell only;
+  Top 20 column trims from original slice plan; user fix list in next chat.
 - **Batch 7 UI/UX overhaul — done, close it, do not build it.** All four asks exist
   in the standalone HTML: left sidebar nav, manager-only gated dashboard, inline SVG
   icons, and table pagination (`paginate()`, wired generically through `tableCard` /

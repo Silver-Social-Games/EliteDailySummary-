@@ -66,12 +66,20 @@ def _source_files() -> list[tuple[str, Path]]:
     return files
 
 
+def _file_hash_bytes(full: Path) -> bytes:
+    if full.suffix.lower() in {".png", ".jpg", ".jpeg", ".webp"}:
+        return full.read_bytes()
+    # Match build.mjs: decode raw bytes, then LF-normalise. read_text() applies
+    # universal newlines first and would turn a stray CR+CRLF into two LFs.
+    return _lf(full.read_bytes().decode("utf-8")).encode("utf-8")
+
+
 def compute_sources_hash() -> str:
     h = hashlib.sha256()
     for name, full in _source_files():
         h.update(name.encode("utf-8"))
         h.update(b"\0")
-        h.update(_lf(full.read_text(encoding="utf-8")).encode("utf-8"))
+        h.update(_file_hash_bytes(full))
         h.update(b"\0")
     return h.hexdigest()
 

@@ -184,6 +184,32 @@ function AgentPanel({{
       </div>
 
       <SearchableTable
+        title="Big Winners · ≥$20K"
+        rows={{block.bigWinners}}
+        stateKey={{`bw_${{block.agentName}}`}}
+        sectionId={{`${{prefix}}-big-winners`}}
+        keepWhenEmpty
+        showSearch={{false}}
+        sortFn={{(rows) => sortByNumKey(rows, "winGgrNum", true)}}
+        headers={{["AID", "Name", "Elite / AM", "Win (GGR)", "SC Turnover", "SC Won", "Game", "Pending RD"]}}
+        columnAlign={{["left", "left", "left", "right", "right", "right", "left", "right"]}}
+        renderRow={{(p) => [
+          <AidLink row={{p}} />,
+          p.name,
+          p.isElite
+            ? <Text size="small" tone="tertiary">{{(p.agentName as string) || "Elite"}}</Text>
+            : <Badge tone="warning">Non-Elite</Badge>,
+          <Text tone="success">{{p.winGgr as string}}</Text>,
+          <Text size="small">{{p.scTurnover as string}}</Text>,
+          <Text size="small">{{p.scWon as string}}</Text>,
+          <Text size="small" tone="tertiary">{{(p.game as string) || "—"}}</Text>,
+          p.pendingRdNum
+            ? <Text tone="warning">{{p.pendingRd as string}}</Text>
+            : "—",
+        ]}}
+      />
+
+      <SearchableTable
         title="Pending Redemptions"
         rows={{block.rdOver5k}}
         stateKey={{`rd5_${{block.agentName}}`}}
@@ -264,29 +290,44 @@ function AgentPanel({{
         sectionId={{`${{prefix}}-zendesk`}}
         extraSearchKeys={{["ticketIds"]}}
         sortOptions={{[
-          {{ value: "ltp", label: "Sort: LTP ↓" }},
-          {{ value: "tickets", label: "Sort: Open Tickets ↓" }},
+          {{ value: "score",      label: "Sort: Priority ↓" }},
+          {{ value: "ltp",        label: "Sort: LTP ↓" }},
+          {{ value: "tickets",    label: "Sort: Open Tickets ↓" }},
           {{ value: "purchase7d", label: "Sort: 7D Purchase ↓" }},
         ]}}
-        defaultSort="ltp"
+        defaultSort="score"
         sortFn={{(rows, sortBy) =>
           sortBy === "tickets"
             ? sortByNumKey(rows, "openTickets", true)
+            : sortBy === "ltp"
+            ? sortByNumKey(rows, "lifetimePurchasedNum", true)
             : sortBy === "purchase7d"
             ? sortByNumKey(rows, "purchase7dNum", true)
-            : sortByNumKey(rows, "lifetimePurchasedNum", true)
+            : sortByNumKey(rows, "priorityScore", true)
         }}
-        headers={{["AID", "Name", "LTP", "Hold", "7D Purchase", "Open Tickets", "Ticket"]}}
-        columnAlign={{["left", "left", "right", "right", "right", "right", "left"]}}
-        renderRow={{(p) => [
-          <AidLink row={{p}} />,
-          p.name,
-          <MoneyCell value={{(p.lifetimePurchase as string) || "$0"}} emphasize={{Number(p.lifetimePurchasedNum || 0) >= 50000}} />,
-          <HoldCell value={{(p.lifetimeHold as string) || "n/a"}} />,
-          <MoneyCell value={{(p.purchase7d as string) || "$0"}} />,
-          p.openTickets,
-          <TicketIdsCell tickets={{p.tickets as {{ id: string; url: string }}[] | undefined}} fallback={{(p.ticketIds as string) || "—"}} />,
-        ]}}
+        headers={{["AID", "Name", "Topic", "LTP", "Hold", "7D", "Open Tickets", "Ticket"]}}
+        columnAlign={{["left", "left", "left", "right", "right", "right", "right", "left"]}}
+        renderRow={{(p) => {{
+          const mult = Number(p.topicMult ?? 1.0);
+          const label = String(p.topicLabel ?? "General");
+          const topicCell = mult >= 2.0
+            ? <Text tone="danger">{{label}}</Text>
+            : mult >= 1.5
+            ? <Text tone="warning">{{label}}</Text>
+            : mult >= 1.2
+            ? <Text tone="info">{{label}}</Text>
+            : <Text tone="secondary">{{label}}</Text>;
+          return [
+            <AidLink row={{p}} />,
+            p.name,
+            topicCell,
+            <MoneyCell value={{(p.lifetimePurchase as string) || "$0"}} emphasize={{Number(p.lifetimePurchasedNum || 0) >= 50000}} />,
+            <HoldCell value={{(p.lifetimeHold as string) || "n/a"}} />,
+            <MoneyCell value={{(p.purchase7d as string) || "$0"}} />,
+            p.openTickets,
+            <TicketIdsCell tickets={{p.tickets as {{ id: string; url: string }}[] | undefined}} fallback={{(p.ticketIds as string) || "—"}} />,
+          ];
+        }}}}
       />
 
       <SearchableTable

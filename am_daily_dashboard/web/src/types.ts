@@ -24,6 +24,22 @@ export interface ViewDef {
   managerOnly?: boolean;
   /** Needs the manager passcode before it renders. */
   gated?: boolean;
+  /** Placeholder nav item — no CSV export, shows coming-soon view. */
+  comingSoon?: boolean;
+}
+
+/** One row in the sidebar: either a section label or a view link. */
+export type NavEntry =
+  | { kind: "section"; label: string }
+  | { kind: "view"; id: string };
+
+export interface NavGroup {
+  id: string;
+  /** Omit for pinned Morning Brief (no group header). */
+  label?: string;
+  accent?: "manager" | "performance" | "operations" | "gaps" | "brand" | "outreach";
+  pinned?: boolean;
+  entries: NavEntry[];
 }
 
 export interface AppState {
@@ -72,6 +88,8 @@ export interface TableCardOpts {
   tableClass?: string;
   /** Size the table to its content instead of the panel width. */
   compact?: boolean;
+  /** Optional class on the outer card wrapper. */
+  cardClass?: string;
   /** Default true; off for sections where a search box is noise. */
   showSearch?: boolean;
   /** Extra row fields the search box should match on. */

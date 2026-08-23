@@ -27,9 +27,9 @@ export const day: string = REPORT.weekday || "";
 export const dayShort: string = REPORT.dayShort || day.slice(0, 3);
 
 export const TITLES = {
-  thisPurchase: `This ${day} Purchase`,
-  priorPurchase: `Prior ${day} Purchase`,
-  purchase7d: "7D Purchase",
+  thisPurchase: dayShort,
+  priorPurchase: `Last ${dayShort}`,
+  purchase7d: "7D PURCHASE",
   lifetimePurchase: "LT Purchase",
   lifetimeHold: "Lifetime Hold",
   favouriteGame7d: "Favourite Game (7D)",

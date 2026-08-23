@@ -50,6 +50,14 @@ function sourceFiles() {
   return files.sort((a, b) => (a[0] < b[0] ? -1 : 1));
 }
 
+function fileHashBytes(full) {
+  const ext = path.extname(full).toLowerCase();
+  if (ext === ".png" || ext === ".jpg" || ext === ".jpeg" || ext === ".webp") {
+    return readFileSync(full);
+  }
+  return Buffer.from(lf(readFileSync(full, "utf-8")), "utf-8");
+}
+
 // One hash over every input to the build, so "edited the TS and forgot to
 // rebuild" is a loud test failure rather than a board that silently ignores
 // the change.
@@ -58,7 +66,7 @@ export function sourcesHash() {
   for (const [name, full] of sourceFiles()) {
     h.update(name);
     h.update("\0");
-    h.update(lf(readFileSync(full, "utf-8")));
+    h.update(fileHashBytes(full));
     h.update("\0");
   }
   return h.digest("hex");
@@ -81,6 +89,7 @@ async function bundle() {
     minify: false,
     write: false,
     logLevel: "warning",
+    loader: { ".png": "dataurl" },
     // Unminified output gets a "// src/foo.ts" comment before each module,
     // relative to absWorkingDir (default: process.cwd()). Pin it to this
     // directory so the build is byte-identical regardless of the caller's

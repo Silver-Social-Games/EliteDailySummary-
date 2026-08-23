@@ -9,7 +9,7 @@
  */
 import { TITLES } from "./../payload";
 import { esc, icon, money } from "./../format";
-import { aidHtml, holdHtml, moneyHtml, p7dHtml, ticketHtml, urgencyHtml } from "./../cells";
+import { aidHtml, holdHtml, ltpHtml, moneyHtml, p7dHtml, ticketHtml, urgencyHtml } from "./../cells";
 import { renderAction, renderReason } from "./../reason";
 import { matchesDecline, sortPlayers } from "./../filters";
 import { rowsFor } from "./../selectors";
@@ -25,28 +25,28 @@ export function viewTop20(): string {
   const reasons = [...new Set(players.map((p) => p.reason).filter(Boolean))].sort();
   const ordered = sortPlayers(players.filter((row) =>
     (reason === "all" || row.reason === reason) && matchesDecline(row, search)), sortBy);
-  const { slice, pager, total } = paginate(ordered, stateKey);
+  const { slice, pager, total } = paginate(ordered, stateKey, { forceOn: true, defaultSize: 10 });
   const priorTotal = ordered.reduce((sum, p) => sum + (p.priorPriorNum || 0), 0);
   const active = search.trim() !== "" || reason !== "all";
 
-  const headers = ["#", "Agent Name", "AID", "Name", TITLES.lifetimePurchase, TITLES.lifetimeHold,
-    TITLES.thisPurchase, TITLES.priorPurchase, TITLES.purchase7d, TITLES.favouriteGame7d,
+  const headers = ["#", "AID", "Name", TITLES.lifetimePurchase, TITLES.lifetimeHold,
+    TITLES.thisPurchase, TITLES.priorPurchase, TITLES.purchase7d,
     "Urgency", "Reason", "Recommendation", "Ticket"];
   const rows = slice.map((p) => [
     String(ordered.indexOf(p) + 1),
-    esc(p.agentName), aidHtml(p), esc(p.name),
-    moneyHtml(p.lifetimePurchase, (p.lifetimePurchasedNum || 0) >= 50000),
+    aidHtml(p), esc(p.name),
+    ltpHtml(p.lifetimePurchase, p.lifetimePurchasedNum),
     holdHtml(p.lifetimeHold),
-    moneyHtml(p.thisDay, p.zeroDay),
-    moneyHtml(p.priorDay, (p.sortGap || 0) >= 2000),
-    p7dHtml(p.purchase7d), esc(p.favouriteGame7d), urgencyHtml(p.urgency),
+    moneyHtml(p.thisDay, p.zeroDay ? "low" : "neutral"),
+    moneyHtml(p.priorDay, (p.sortGap || 0) >= 2000 ? "high" : "neutral"),
+    p7dHtml(p.purchase7d, p.purchase7dNum), urgencyHtml(p.urgency),
     `<div class="reason-cell">${renderReason(p.reasonParts, p.reasonTable || p.reason)}</div>`,
     `<div class="action-cell">${renderAction(p.recommendation)}</div>`,
     ticketHtml(p),
   ]);
   const tones = slice.map((p) => p.tone || "neutral");
   if (rows.length) {
-    rows.push(["", "", "", "Total (all filtered)", "", "", "", money(priorTotal), "", "", "", "", "", ""]);
+    rows.push(["", "", "Total (all filtered)", "", "", "", money(priorTotal), "", "", "", "", ""]);
     tones.push("neutral");
   }
   return `<div class="card">
@@ -68,7 +68,7 @@ export function viewTop20(): string {
           ${reasons.map((r) => `<button type="button" class="chip ${reason === r ? "active" : ""}" data-reason-state="${esc(stateKey + "_reason")}" data-reason="${esc(r)}">${esc(r)}</button>`).join("")}
         </div>` : ""}
         ${tableHtml(headers, rows,
-          ["center", "left", "left", "left", "right", "right", "right", "right", "left", "left", "center", "left", "left", "center"],
+          ["center", "left", "left", "right", "right", "right", "right", "left", "center", "left", "left", "center"],
           tones,
           { tableClass: "players-table", totalRowIndex: rows.length - 1,
             empty: "No players match the current filters." })}

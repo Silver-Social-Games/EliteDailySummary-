@@ -19,7 +19,7 @@ export function goalsSummaryCard(goals: Dict | undefined): string {
   const onTrack = kpis.filter((k) => k.statusTone === "success").length;
   const behind = kpis.filter((k) => k.statusTone === "danger" || k.statusTone === "warning").length;
   const meterTone = pct >= 90 ? "success" : pct >= 70 ? "warning" : "danger";
-  return `<div class="card">
+  return `<div class="card gold-top">
         <div class="card-head">
           <span class="card-icon ${meterTone}">${icon("target", "ic-sm")}</span>
           <div><div class="card-title">Elite Goals</div>
@@ -29,8 +29,8 @@ export function goalsSummaryCard(goals: Dict | undefined): string {
         </div>
         <div class="card-body stack-10">
           <div class="goal-score">
-            <span class="goal-pct t-${meterTone}">${esc(score.totalPoints ?? "—")}</span>
-            <span class="t-tertiary">of ${esc(score.totalPointsMax ?? 80)} · ${esc(score.scoreSubline || "")}</span>
+            <span class="goal-pct t-${meterTone}">${esc(score.kpiPointsDisplay ?? score.kpiPoints ?? "—")}</span>
+            <span class="t-tertiary">Personal goals progress</span>
           </div>
           ${scoreMeterHtml(score, meterTone)}
           ${scoreLegendHtml(score, meterTone)}
@@ -70,8 +70,8 @@ export function viewGoals(): string {
           <div class="card-body stack-10">
             <div class="row">
               <div class="goal-score">
-                <span class="goal-pct t-${meterTone}">${esc(score.totalDisplay || "—")}</span>
-                <span class="t-tertiary">${esc(score.scoreSubline || "")}</span>
+                <span class="goal-pct t-${meterTone}">${esc(score.kpiPointsDisplay || "—")}</span>
+                <span class="t-tertiary">Personal goals progress</span>
               </div>
               <div class="spacer"></div>
               <span class="badge">${esc(subtitle)}</span>
@@ -87,6 +87,5 @@ export function viewGoals(): string {
         </div>
         <div class="note">${esc(goals.definitionsNote || "")}</div>
         <div class="note">${esc(goals.achievementCapNote || "")}</div>
-        <div class="note">${esc(score.scoreNote || "")}</div>
       </div>`;
 }

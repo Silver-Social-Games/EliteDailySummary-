@@ -50,13 +50,18 @@ export function tableHtml(
 }
 
 /** Returns the visible slice plus the pager markup for it. */
-export function paginate(rows: Dict[], stateKey: string, forceOn?: boolean): PaginateResult {
+export function paginate(
+  rows: Dict[],
+  stateKey: string,
+  opts?: { forceOn?: boolean; defaultSize?: number }
+): PaginateResult {
   const total = rows.length;
-  const on = forceOn || total > PAGINATE_ABOVE;
-  if (!on) return { slice: rows, pager: "", from: total ? 1 : 0, to: total, total };
+  const defaultSize = opts?.defaultSize ?? PAGE_SIZES[0];
+  const on = opts?.forceOn || total > PAGINATE_ABOVE;
+  if (!on && !opts?.forceOn) return { slice: rows, pager: "", from: total ? 1 : 0, to: total, total };
   const sizeKey = stateKey + "_size";
   const pageKey = stateKey + "_page";
-  const raw = getState(sizeKey, String(PAGE_SIZES[0]));
+  const raw = getState(sizeKey, String(defaultSize));
   const size = raw === "all" ? total : Number(raw) || PAGE_SIZES[0];
   const pages = Math.max(1, Math.ceil(total / size));
   const page = Math.min(Math.max(1, Number(getState(pageKey, 1)) || 1), pages);
@@ -153,7 +158,7 @@ export function tableCard(opts: TableCardOpts): string {
       </div>`
       : "";
 
-  return `<div class="card">
+  return `<div class="card${opts.cardClass ? ` ${opts.cardClass}` : ""}${opts.compact ? " fit-content" : ""}">
         ${toolbar}
         ${tableHtml(opts.headers, slice.map(opts.renderRow), opts.align, slice.map((r) => r.tone || "neutral"), {
           markerCol: opts.markerCol,

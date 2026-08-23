@@ -65,6 +65,8 @@ from wow_drop_analysis.wow_drop_reason import (  # noqa: E402
 from payload_builders import (  # noqa: E402
     agent_display,
     build_am_shares_and_overview,
+    build_big_winners_section,
+    build_big_losers_section,
     build_birthday_section,
     build_lock_section,
     build_rd_section,
@@ -175,6 +177,19 @@ def build_goals_blocks(
     return goals_by_display, team_block
 
 
+GEO_STATE_PATH = PACKAGE_DIR / "data" / "elite_players_by_state.json"
+
+
+def load_geo_chart() -> dict | None:
+    """Book-wide Elite player state mix — bundled JSON, refreshed from export."""
+    if not GEO_STATE_PATH.is_file():
+        return None
+    try:
+        return json.loads(GEO_STATE_PATH.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return None
+
+
 def build_payload(report_date: date, client) -> dict:
     print(f"Fetching AM Brief data for {report_date}...")
     top10_raw = run_query(client, am_queries.top10_purchasers_sql(report_date))
@@ -187,9 +202,14 @@ def build_payload(report_date: date, client) -> dict:
     print(f"  Birthdays (3d): {len(bday_raw)}")
     zd_raw = run_query(client, am_queries.open_zendesk_sql())
     print(f"  Open ZD players: {len(zd_raw)}")
+    bw_raw = run_query(client, am_queries.big_winners_sql(report_date))
+    print(f"  Big Winners (≥$20K GGR win): {len(bw_raw)}")
+    bl_raw = run_query(client, am_queries.big_losers_sql(report_date))
+    print(f"  Big Losers (≥$5K GGR loss): {len(bl_raw)}")
     # One shared enrich fetch (lifetime purchase/hold for Open Tickets, plus
     # zendesk_user_id so First-Time Locked RD / Birthdays tickets can
     # pre-select the requester) covering every AID that needs it.
+    # Big Winner AIDs are included here at no extra query cost.
     ticket_aids: set[int] = set()
     for r in zd_raw:
         try:
@@ -198,19 +218,21 @@ def build_payload(report_date: date, client) -> dict:
             continue
     # rd5k_raw is in here for its missing-document status and account context,
     # not for a ticket draft — Pending RD stays view-only.
-    for r in (*rd5k_raw, *rd_first_raw, *bday_raw):
+    for r in (*rd5k_raw, *rd_first_raw, *bday_raw, *bw_raw, *bl_raw):
         try:
             ticket_aids.add(int(r["AID"]))
         except (TypeError, ValueError, KeyError):
             continue
     shared_enrich: dict[int, dict] = {}
     if ticket_aids:
-        print(f"  Enriching metrics for {len(ticket_aids)} AIDs (Open Tickets, RD, Birthdays)...")
+        print(f"  Enriching metrics for {len(ticket_aids)} AIDs (Open Tickets, RD, Birthdays, Big Winners)...")
         shared_enrich = {
             int(e["AID"]): e
             for e in run_query(client, enrich_aids_sql(sorted(ticket_aids), report_date))
         }
-    zd = build_zd_section(zd_raw, shared_enrich)
+    zd = build_zd_section(zd_raw, shared_enrich, report_date=report_date)
+    big_winners = build_big_winners_section(bw_raw, shared_enrich)
+    big_losers = build_big_losers_section(bl_raw, shared_enrich)
     locks_raw = run_query(client, am_queries.locked_players_sql())
     print(f"  Locked players (raw): {len(locks_raw)}")
     purchase_raw = run_query(client, am_queries.agent_day_purchase_sql(report_date))
@@ -289,6 +311,8 @@ def build_payload(report_date: date, client) -> dict:
                 birthdays=birthdays,
                 zd=zd,
                 locks=locks,
+                big_winners=big_winners,
+                big_losers=big_losers,
                 purchase=purchase,
                 total_players=total_players,
                 elite_rev=elite_rev,
@@ -307,7 +331,8 @@ def build_payload(report_date: date, client) -> dict:
             "subtitle": subtitle,
             "title": "Elite AM Brief",
             "headline": decline_report.get("headline") or "",
-            "segmentTitle": f"{weekday} vs last {weekday} · Elite & Jackpota",
+            "segmentTitle": "WoW Purchase",
+            "geoChart": load_geo_chart(),
             "overviewGreetingLines": [
                 "Good morning.",
                 f"Here is your {weekday} summary.",
@@ -398,6 +423,11 @@ def rebuild_html_from_json(report_date: date, *, publish: bool = False) -> Path:
             "Run without --html-only once to fetch the data."
         )
     payload = json.loads(json_path.read_text(encoding="utf-8"))
+    report = payload.setdefault("report", {})
+    report["segmentTitle"] = "WoW Purchase"
+    geo = load_geo_chart()
+    if geo:
+        report["geoChart"] = geo
     written: list[Path] = []
     manager_dated = OUTPUT_DIR / f"{d}_elite_am_brief.html"
     for path in (manager_dated, OUTPUT_DIR / "elite_am_brief.html"):

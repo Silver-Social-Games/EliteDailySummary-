@@ -3,11 +3,12 @@ import { AM_ORDER, REPORT, SINGLE_AM } from "./payload";
 import { esc, icon } from "./format";
 import { rowsFor } from "./selectors";
 import { app } from "./state";
-import { GROUP_ORDER, NAV_ORDER, VIEWS } from "./registry";
+import { NAV_GROUPS, VIEWS } from "./registry";
+import { logoImg } from "./logos";
 
 function navCount(viewId: string): number | null {
   const v = VIEWS[viewId];
-  if (!v || !v.key) return null;
+  if (!v || !v.key || v.comingSoon) return null;
   return rowsFor(v.key).length;
 }
 
@@ -18,23 +19,35 @@ function countTone(viewId: string, n: number): string {
   return "";
 }
 
+function navItem(id: string): string {
+  const v = VIEWS[id];
+  const n = navCount(id);
+  const soon = v.comingSoon ? `<span class="nav-soon">Soon</span>` : "";
+  return `<button type="button" class="nav-item ${app.view === id ? "active" : ""}${v.comingSoon ? " soon" : ""}" data-go="${esc(id)}">
+        ${icon(v.icon)}
+        <span class="side-label">${esc(v.short || v.label)}</span>
+        ${v.gated && !app.unlocked ? icon("lock", "ic-xs")
+          : soon || (n !== null ? `<span class="nav-count ${countTone(id, n)}">${n}</span>` : "")}
+      </button>`;
+}
+
 export function sidebar(): string {
-  const visible = NAV_ORDER.filter((id) => !(VIEWS[id].managerOnly && SINGLE_AM));
   let nav = "";
-  for (const group of GROUP_ORDER) {
-    const items = visible.filter((id) => VIEWS[id].group === group);
-    if (!items.length) continue;
-    nav += `<div class="side-group-title">${esc(group)}</div>`;
-    nav += items.map((id) => {
-      const v = VIEWS[id];
-      const n = navCount(id);
-      return `<button type="button" class="nav-item ${app.view === id ? "active" : ""}" data-go="${esc(id)}">
-            ${icon(v.icon)}
-            <span class="side-label">${esc(v.short || v.label)}</span>
-            ${v.gated && !app.unlocked ? icon("lock", "ic-xs")
-              : (n !== null ? `<span class="nav-count ${countTone(id, n)}">${n}</span>` : "")}
-          </button>`;
-    }).join("");
+  for (const group of NAV_GROUPS) {
+    const entries = group.entries.filter(
+      (e) => e.kind !== "view" || !(VIEWS[e.id].managerOnly && SINGLE_AM)
+    );
+    if (!entries.length) continue;
+    if (group.label) {
+      nav += `<div class="side-group-title g-${group.accent || "neutral"}">${esc(group.label)}</div>`;
+    }
+    for (const entry of entries) {
+      if (entry.kind === "section") {
+        nav += `<div class="side-section-title">${esc(entry.label)}</div>`;
+      } else {
+        nav += navItem(entry.id);
+      }
+    }
   }
   const amSwitch = (!SINGLE_AM && AM_ORDER.length > 1) ? `<div class="am-switch">
         <div class="am-switch-title">Account Manager</div>
@@ -45,12 +58,13 @@ export function sidebar(): string {
 
   return `<aside class="sidebar">
         <div class="brand">
-          <span class="brand-mark">${icon("spark", "ic-lg")}</span>
+          <span class="brand-mark">${logoImg("elite", 32, "Elite Club")}</span>
           <div class="brand-text">
             <div class="brand-title">${esc(REPORT.title || "Elite AM Brief")}</div>
             <div class="brand-sub">${esc(REPORT.subtitle || "")}</div>
           </div>
         </div>
+        <div class="brand-rule"></div>
         ${amSwitch}
         <nav class="side-nav">${nav}</nav>
         <div class="side-foot">

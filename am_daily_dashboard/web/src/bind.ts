@@ -5,8 +5,10 @@
  * module to bind the page it just drew.
  */
 import { GATE_TOKEN, REPORT } from "./payload";
+import { CRM_BANDS, CRM_DAY_ORDER } from "./data/crmOffers";
+import { exportCurrentViewCsv } from "./exportCsv";
 import { agentBlock } from "./selectors";
-import { app, gateToken, go, rememberGate, rerender, setPage, setState,
+import { app, gateToken, getState, go, rememberGate, rerender, setPage, setState,
   takeFocusKey } from "./state";
 
 export function bind(): void {
@@ -72,8 +74,36 @@ export function bind(): void {
     else app.collapsed = !app.collapsed;
     rerender();
   };
-  const printBtn = document.getElementById("printBtn");
-  if (printBtn) printBtn.onclick = () => window.print();
+  const exportBtn = document.getElementById("exportCsv");
+  if (exportBtn) exportBtn.onclick = () => exportCurrentViewCsv();
+
+  document.querySelectorAll("[data-crm-toggle]").forEach((el) => {
+    (el as HTMLElement).onclick = () => {
+      const kind = el.getAttribute("data-crm-toggle");
+      const value = el.getAttribute("data-crm-value") || "";
+      const allDays = [...CRM_DAY_ORDER];
+      const allBands = CRM_BANDS.map((b) => b.id);
+      if (kind === "day") {
+        let days: string[] = getState("crm_days", allDays);
+        days = days.includes(value) ? days.filter((d) => d !== value) : days.concat(value);
+        if (!days.length) days = allDays.slice();
+        setState("crm_days", days);
+      } else if (kind === "band") {
+        let bands: string[] = getState("crm_bands", allBands);
+        bands = bands.includes(value) ? bands.filter((b) => b !== value) : bands.concat(value);
+        if (!bands.length) bands = allBands.slice();
+        setState("crm_bands", bands);
+      }
+    };
+  });
+  document.querySelectorAll("[data-crm-quick]").forEach((el) => {
+    (el as HTMLElement).onclick = () => {
+      const quick = el.getAttribute("data-crm-quick");
+      if (quick === "all") setState("crm_days", [...CRM_DAY_ORDER]);
+      else if (quick === "weekend") setState("crm_days", ["Friday", "Saturday"]);
+      else if (quick === "all-bands") setState("crm_bands", CRM_BANDS.map((b) => b.id));
+    };
+  });
 
   const gateInput = document.getElementById("gateInput") as HTMLInputElement | null;
   if (gateInput) {

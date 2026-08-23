@@ -29,6 +29,7 @@ from payload_builders import (  # noqa: E402
     agent_display,
     aid_row,
     build_am_shares_and_overview,
+    build_big_winners_section,
     build_birthday_section,
     build_lock_section,
     build_package_fit,
@@ -375,6 +376,99 @@ class BuildRdSectionTests(unittest.TestCase):
         self.assertEqual(build_rd_section([]), [])
 
 
+# ---------------------------------------------------------------------------
+# build_big_winners_section
+# ---------------------------------------------------------------------------
+
+def _bw_row(
+    aid: int = 800,
+    *,
+    agent: str | None = "coral_s",
+    is_elite: bool = True,
+    win_ggr: float = 25_000.0,
+    sc_turnover: float = 10_000.0,
+    game: str = "Jackpota Jr",
+    pending_rd_amount: float = 0.0,
+) -> dict:
+    return {
+        "AID": aid, "name": "Big Winner Player", "agent": agent,
+        "is_elite": is_elite,
+        "win_ggr": win_ggr, "sc_turnover": sc_turnover,
+        "sc_won": win_ggr + sc_turnover, "game": game,
+        "pending_rd_amount": pending_rd_amount,
+    }
+
+
+class BuildBigWinnersSectionTests(unittest.TestCase):
+    def test_happy_path_elite(self) -> None:
+        out = build_big_winners_section([_bw_row()])
+        self.assertEqual(len(out), 1)
+        row = out[0]
+        self.assertIn("aid", row)
+        self.assertIn("winGgr", row)
+        self.assertIn("scTurnover", row)
+        self.assertIn("scWon", row)
+        self.assertIn("game", row)
+        self.assertIn("pendingRd", row)
+        self.assertTrue(row["isElite"])
+
+    def test_non_elite_row(self) -> None:
+        out = build_big_winners_section([_bw_row(agent=None, is_elite=False)])
+        self.assertFalse(out[0]["isElite"])
+        self.assertEqual(out[0]["tone"], "warning")
+
+    def test_elite_row_tone_neutral(self) -> None:
+        out = build_big_winners_section([_bw_row(is_elite=True)])
+        self.assertEqual(out[0]["tone"], "neutral")
+
+    def test_win_ggr_formatted(self) -> None:
+        out = build_big_winners_section([_bw_row(win_ggr=25_000.0)])
+        self.assertIn("$", out[0]["winGgr"])
+        self.assertEqual(out[0]["winGgrNum"], 25_000.0)
+
+    def test_sc_won_equals_win_plus_turnover(self) -> None:
+        out = build_big_winners_section([_bw_row(win_ggr=25_000.0, sc_turnover=10_000.0)])
+        self.assertIn("$", out[0]["scWon"])
+        self.assertIn("$", out[0]["scTurnover"])
+
+    def test_pending_rd_formatted_when_nonzero(self) -> None:
+        out = build_big_winners_section([_bw_row(pending_rd_amount=30_000.0)])
+        self.assertNotEqual(out[0]["pendingRd"], "—")
+        self.assertEqual(out[0]["pendingRdNum"], 30_000.0)
+
+    def test_pending_rd_dash_when_zero(self) -> None:
+        out = build_big_winners_section([_bw_row(pending_rd_amount=0.0)])
+        self.assertEqual(out[0]["pendingRd"], "—")
+
+    def test_game_passthrough(self) -> None:
+        out = build_big_winners_section([_bw_row(game="Fortune Tiger")])
+        self.assertEqual(out[0]["game"], "Fortune Tiger")
+
+    def test_no_game_defaults_to_dash(self) -> None:
+        row = _bw_row()
+        row["game"] = None
+        out = build_big_winners_section([row])
+        self.assertEqual(out[0]["game"], "—")
+
+    def test_enrich_map_adds_ltp_and_7d(self) -> None:
+        enrich = {800: {"lifetime_purchased": 15_000, "purchased_7d": 2_000}}
+        out = build_big_winners_section([_bw_row()], enrich_map=enrich)
+        self.assertIn("lifetimePurchase", out[0])
+        self.assertIn("purchase7d", out[0])
+
+    def test_no_enrich_map_skips_ltp(self) -> None:
+        out = build_big_winners_section([_bw_row()])
+        self.assertNotIn("lifetimePurchase", out[0])
+
+    def test_empty_rows(self) -> None:
+        self.assertEqual(build_big_winners_section([]), [])
+
+    def test_aid_has_looker_url(self) -> None:
+        out = build_big_winners_section([_bw_row(aid=123456)])
+        self.assertIn("aidUrl", out[0])
+        self.assertIn("123456", out[0]["aidUrl"])
+
+
 def _birthday_row(
     aid: int = 301,
     agent: str = "coral_s",
@@ -431,11 +525,24 @@ def _zd_row(
     *,
     open_tickets: int = 2,
     ticket_ids: str = "100001,100002",
+    subjects: list[str] | None = None,
 ) -> dict:
     return {
         "AID": aid, "name": "ZD Player", "agent": agent,
         "open_tickets": open_tickets, "ticket_ids": ticket_ids,
+        "subjects": subjects or [],
     }
+
+
+_ENRICH_FULL = {
+    401: {
+        "lifetime_purchased": 50_000.0,
+        "lifetime_net_purchase": 40_000.0,
+        "lifetime_ngr": 35_000.0,
+        "purchased_30d": 5_000.0,
+        "purchased_7d": 1_000.0,
+    }
+}
 
 
 class BuildZdSectionTests(unittest.TestCase):
@@ -455,8 +562,7 @@ class BuildZdSectionTests(unittest.TestCase):
         self.assertIn("999999", out[0]["tickets"][0]["url"])
 
     def test_enrich_map_adds_ltp(self) -> None:
-        enrich = {401: {"lifetime_purchased": 50000, "purchased_7d": 1000}}
-        out = build_zd_section([_zd_row()], enrich_map=enrich)
+        out = build_zd_section([_zd_row()], enrich_map=_ENRICH_FULL)
         self.assertGreater(out[0]["lifetimePurchasedNum"], 0)
 
     def test_no_enrich_map_defaults_zero(self) -> None:
@@ -469,6 +575,115 @@ class BuildZdSectionTests(unittest.TestCase):
 
     def test_empty_rows(self) -> None:
         self.assertEqual(build_zd_section([]), [])
+
+    # --- topic classification ---
+
+    def test_topic_tier1_withdrawal(self) -> None:
+        out = build_zd_section([_zd_row(subjects=["withdrawal issue"])])
+        self.assertAlmostEqual(out[0]["topicMult"], 2.0)
+        self.assertEqual(out[0]["topicLabel"], "Withdrawal / Security")
+
+    def test_topic_tier1_self_exclusion(self) -> None:
+        out = build_zd_section([_zd_row(subjects=["i want to self-exclude"])])
+        self.assertAlmostEqual(out[0]["topicMult"], 2.0)
+
+    def test_topic_tier1_chargeback(self) -> None:
+        out = build_zd_section([_zd_row(subjects=["chargeback on my card"])])
+        self.assertAlmostEqual(out[0]["topicMult"], 2.0)
+
+    def test_topic_tier2_account_locked(self) -> None:
+        out = build_zd_section([_zd_row(subjects=["my account is locked"])])
+        self.assertAlmostEqual(out[0]["topicMult"], 1.5)
+        self.assertEqual(out[0]["topicLabel"], "Account / KYC / Promo")
+
+    def test_topic_tier2_promo_not_credited(self) -> None:
+        out = build_zd_section([_zd_row(subjects=["bonus not credited to my account"])])
+        self.assertAlmostEqual(out[0]["topicMult"], 1.5)
+
+    def test_topic_tier2_missing_offer(self) -> None:
+        out = build_zd_section([_zd_row(subjects=["missing offer from last week"])])
+        self.assertAlmostEqual(out[0]["topicMult"], 1.5)
+
+    def test_topic_tier3_service(self) -> None:
+        out = build_zd_section([_zd_row(subjects=["deposit not working"])])
+        self.assertAlmostEqual(out[0]["topicMult"], 1.2)
+        self.assertEqual(out[0]["topicLabel"], "Service Issue")
+
+    def test_topic_tier4_general(self) -> None:
+        out = build_zd_section([_zd_row(subjects=["hello i have a question"])])
+        self.assertAlmostEqual(out[0]["topicMult"], 1.0)
+        self.assertEqual(out[0]["topicLabel"], "General")
+
+    def test_topic_no_subjects_defaults_general(self) -> None:
+        out = build_zd_section([_zd_row(subjects=[])])
+        self.assertAlmostEqual(out[0]["topicMult"], 1.0)
+
+    def test_topic_highest_tier_wins(self) -> None:
+        # Multiple subjects: one tier-3, one tier-1 → tier-1 wins
+        out = build_zd_section([_zd_row(subjects=["game crash", "withdrawal blocked"])])
+        self.assertAlmostEqual(out[0]["topicMult"], 2.0)
+        self.assertEqual(out[0]["topicLabels"][:2], ["Withdrawal / Security", "Service Issue"])
+
+    def test_topic_dedupes_duplicate_subjects(self) -> None:
+        out = build_zd_section([_zd_row(subjects=["withdrawal blocked"] * 3)])
+        self.assertEqual(out[0]["topicLabels"], ["Withdrawal / Security"])
+
+    def test_topic_caps_at_two_labels(self) -> None:
+        out = build_zd_section([
+            _zd_row(subjects=["withdrawal blocked", "deposit not working", "hello there"])
+        ])
+        self.assertLessEqual(len(out[0]["topicLabels"]), 2)
+
+    # --- priority score ---
+
+    def test_priority_score_present(self) -> None:
+        out = build_zd_section([_zd_row()], enrich_map=_ENRICH_FULL)
+        self.assertIn("priorityScore", out[0])
+        self.assertGreater(out[0]["priorityScore"], 0)
+
+    def test_priority_score_zero_without_enrich(self) -> None:
+        out = build_zd_section([_zd_row()])
+        self.assertEqual(out[0]["priorityScore"], 0.0)
+
+    def test_priority_score_uses_all_four_signals(self) -> None:
+        from config import (
+            TICKET_WEIGHT_30D_PURCHASE, TICKET_WEIGHT_LT_HOLD,
+            TICKET_WEIGHT_LT_NGR, TICKET_WEIGHT_LT_PURCHASE,
+        )
+        e = {401: {"lifetime_purchased": 10_000.0, "lifetime_net_purchase": 8_000.0,
+                   "lifetime_ngr": 6_000.0, "purchased_30d": 2_000.0, "purchased_7d": 500.0}}
+        out = build_zd_section([_zd_row()], enrich_map=e)
+        expected = round(
+            (8_000 * TICKET_WEIGHT_LT_HOLD + 6_000 * TICKET_WEIGHT_LT_NGR
+             + 10_000 * TICKET_WEIGHT_LT_PURCHASE + 2_000 * TICKET_WEIGHT_30D_PURCHASE)
+            * 1.0,  # General topic
+            2,
+        )
+        self.assertAlmostEqual(out[0]["priorityScore"], expected, places=1)
+
+    def test_priority_score_multiplied_by_topic(self) -> None:
+        base_out = build_zd_section([_zd_row(subjects=[])], enrich_map=_ENRICH_FULL)
+        tier1_out = build_zd_section(
+            [_zd_row(subjects=["withdrawal blocked"])], enrich_map=_ENRICH_FULL
+        )
+        self.assertAlmostEqual(
+            tier1_out[0]["priorityScore"] / base_out[0]["priorityScore"], 2.0, places=5
+        )
+
+    # --- sort order ---
+
+    def test_sorted_descending_by_priority_score(self) -> None:
+        high_enrich = {401: {"lifetime_purchased": 100_000.0,
+                             "lifetime_net_purchase": 80_000.0,
+                             "lifetime_ngr": 70_000.0, "purchased_30d": 10_000.0,
+                             "purchased_7d": 5_000.0}}
+        low_enrich  = {402: {"lifetime_purchased": 1_000.0,
+                             "lifetime_net_purchase": 800.0,
+                             "lifetime_ngr": 600.0, "purchased_30d": 100.0,
+                             "purchased_7d": 50.0}}
+        rows = [_zd_row(aid=402), _zd_row(aid=401)]  # low first in input
+        out = build_zd_section(rows, enrich_map={**low_enrich, **high_enrich})
+        self.assertEqual(int(out[0]["aid"]), 401)  # high scorer moves to top
 
 
 def _lock_row(
@@ -575,40 +790,32 @@ class SoftenDeclineRowsTests(unittest.TestCase):
 
 
 class GreetingLinesTests(unittest.TestCase):
-    def test_returns_three_lines(self) -> None:
+    def test_returns_two_lines(self) -> None:
         lines = greeting_lines(
             "Coral", "Monday",
             purchase="$12,000", purchase_share="30.0%",
-            purchased_players=40, total_players=560, player_share="10.5%",
+            purchased_players=40, player_share="10.5%",
         )
-        self.assertEqual(len(lines), 3)
+        self.assertEqual(len(lines), 2)
 
     def test_first_line_is_greeting(self) -> None:
         lines = greeting_lines(
             "Lee", "Wednesday",
             purchase="$8,000", purchase_share="20.0%",
-            purchased_players=35, total_players=620, player_share="9.0%",
+            purchased_players=35, player_share="9.0%",
         )
         self.assertEqual(lines[0], "Good morning, Lee.")
 
-    def test_bold_markers_in_body(self) -> None:
+    def test_bold_markers_and_commas_in_body(self) -> None:
         lines = greeting_lines(
             "Rachel", "Thursday",
             purchase="$9,500", purchase_share="25.0%",
-            purchased_players=38, total_players=570, player_share="9.5%",
+            purchased_players=1038, player_share="9.5%",
         )
-        full = " ".join(lines)
-        self.assertIn("**$9,500**", full)
-        self.assertIn("**38**", full)
-
-    def test_no_book_size_uses_fallback(self) -> None:
-        lines = greeting_lines(
-            "Alon", "Sunday",
-            purchase="$1,000", purchase_share="5.0%",
-            purchased_players=5, total_players=0, player_share="—",
-        )
-        full = " ".join(lines)
-        self.assertNotIn("of your **0**", full)
+        self.assertIn("Your portfolio generated", lines[1])
+        self.assertIn("**$9,500**", lines[1])
+        self.assertIn("**1,038**", lines[1])
+        self.assertIn("Own the gaps", lines[1])
 
 
 class FocusForAgentTests(unittest.TestCase):
@@ -618,7 +825,7 @@ class FocusForAgentTests(unittest.TestCase):
         return focus_for_agent(
             agent_name, "Monday",
             top10=[], decline=[], rd5k=[], rd_first=[], birthdays=[],
-            zd=[], locks=[],
+            zd=[], locks=[], big_winners=[], big_losers=[],
             purchase={"purchased": 12000.0, "purchased_players": 40},
             total_players=560,
             elite_rev=40000.0, elite_ply=130,
@@ -628,7 +835,7 @@ class FocusForAgentTests(unittest.TestCase):
         result = self._minimal_focus()
         for key in ("agentName", "greetingLines", "purchase", "purchasedPlayers",
                     "totalPlayers", "focus", "top10", "decline", "rdOver5k",
-                    "rdFirstTime", "birthdays", "zendesk", "locks", "goals"):
+                    "rdFirstTime", "birthdays", "zendesk", "locks", "bigWinners", "bigLosers", "goals"):
             self.assertIn(key, result)
 
     def test_agent_name_matches(self) -> None:
@@ -650,7 +857,7 @@ class FocusForAgentTests(unittest.TestCase):
         result = focus_for_agent(
             "Alon", "Monday",
             top10=[], decline=[], rd5k=[], rd_first=[], birthdays=[],
-            zd=[], locks=[], purchase=None, total_players=0,
+            zd=[], locks=[], big_winners=[], big_losers=[], purchase=None, total_players=0,
             elite_rev=40000.0, elite_ply=130,
         )
         self.assertEqual(result["purchasedPlayers"], 0)
@@ -670,12 +877,33 @@ class FocusForAgentTests(unittest.TestCase):
         result = focus_for_agent(
             "Coral", "Monday",
             top10=[], decline=[], rd5k=[], rd_first=[], birthdays=[],
-            zd=[coral_row, gabriel_row], locks=[],
+            zd=[coral_row, gabriel_row], locks=[], big_winners=[], big_losers=[],
             purchase={"purchased": 0, "purchased_players": 0},
             total_players=0, elite_rev=0, elite_ply=0,
         )
         self.assertEqual(len(result["zendesk"]), 1)
         self.assertEqual(result["zendesk"][0]["agentName"], "Coral")
+
+    def test_big_losers_elite_only_per_am(self) -> None:
+        """Non-Elite big losers stay on Big Winners only, not Big Losers."""
+        elite_coral = {
+            "aid": "301", "agentName": "Coral", "name": "Elite Loser", "isElite": True,
+            "lossGgrNum": 6000, "tone": "neutral",
+        }
+        non_elite = {
+            "aid": "302", "agentName": "", "name": "House Win", "isElite": False,
+            "lossGgrNum": 7000, "tone": "warning",
+        }
+        result = focus_for_agent(
+            "Coral", "Monday",
+            top10=[], decline=[], rd5k=[], rd_first=[], birthdays=[],
+            zd=[], locks=[], big_winners=[], big_losers=[elite_coral, non_elite],
+            purchase={"purchased": 0, "purchased_players": 0},
+            total_players=0, elite_rev=0, elite_ply=0,
+        )
+        self.assertEqual(len(result["bigLosers"]), 1)
+        self.assertEqual(result["bigLosers"][0]["aid"], "301")
+        self.assertEqual(result["focus"]["bigLosers"], 1)
 
 
 class BuildAmSharesAndOverviewTests(unittest.TestCase):

@@ -8,7 +8,9 @@ from datetime import date, timedelta
 from elite_lib.bigquery import PROJECT_ID, dashboard_elite_ctes
 from goals import TEAM_AGENT_TAG
 from config import (
+    BIG_LOSER_SECTION_MIN,
     BIG_WINNER_MIN_PLAYER_WIN,
+    BIG_WINNER_SECTION_MIN,
     BIRTHDAYS_LOOKBACK_DAYS,
     GOALS_ACTIVE_LOOKBACK_DAYS,
     GOALS_REACTIVATION_GAP_DAYS,
@@ -189,6 +191,11 @@ ceiling_price AS (
   FROM price_counts
   WHERE orders_at_price >= 2
   GROUP BY account_id
+),
+max_purchase_30d AS (
+  SELECT account_id, MAX(amount) AS max_purchase_30d
+  FROM ladder_orders
+  GROUP BY account_id
 )
 SELECT
   t.agent,
@@ -211,11 +218,13 @@ SELECT
   o.offer_unit_max,
   u.usual_price,
   u.usual_price_orders,
-  cp.ceiling_price
+  cp.ceiling_price,
+  mp.max_purchase_30d
 FROM top10 t
 LEFT JOIN top_offer o ON o.account_id = t.account_id AND o.orn = 1
 LEFT JOIN usual_price u ON u.account_id = t.account_id AND u.prn = 1
 LEFT JOIN ceiling_price cp ON cp.account_id = t.account_id
+LEFT JOIN max_purchase_30d mp ON mp.account_id = t.account_id
 LEFT JOIN `{PROJECT_ID}.transactional_data.uam_accounts` ua ON ua.id = t.account_id
 LEFT JOIN `{PROJECT_ID}.transactional_data.uam_persons` per ON per.id = ua.person_id
 ORDER BY t.agent, t.rn
@@ -389,7 +398,10 @@ ticket_aid AS (
     e.agent,
     e.account_id,
     t.id AS ticket_id,
-    LOWER(CAST(t.status AS STRING)) AS status
+    t.created_at AS ticket_created_at,
+    t.updated_at AS ticket_updated_at,
+    LOWER(CAST(t.status AS STRING)) AS status,
+    LOWER(COALESCE(CAST(t.subject AS STRING), '')) AS subject
   FROM `{PROJECT_ID}.zendesk.ticket` t
   LEFT JOIN `{PROJECT_ID}.zendesk.user` r ON t.requester_id = r.id
   INNER JOIN `{PROJECT_ID}.transactional_data.uam_accounts` ua
@@ -408,7 +420,10 @@ SELECT
     CAST(account_id AS STRING)
   ) AS name,
   COUNT(DISTINCT ticket_id) AS open_tickets,
-  ARRAY_AGG(DISTINCT CAST(ticket_id AS STRING) ORDER BY CAST(ticket_id AS STRING) LIMIT 8) AS ticket_ids
+  MIN(ticket_created_at) AS oldest_ticket_at,
+  MAX(ticket_updated_at) AS latest_ticket_at,
+  ARRAY_AGG(DISTINCT CAST(ticket_id AS STRING) ORDER BY CAST(ticket_id AS STRING) LIMIT 8) AS ticket_ids,
+  ARRAY_AGG(DISTINCT subject ORDER BY subject LIMIT 8) AS subjects
 FROM ticket_aid ta
 LEFT JOIN `{PROJECT_ID}.transactional_data.uam_accounts` ua ON ua.id = ta.account_id
 LEFT JOIN `{PROJECT_ID}.transactional_data.uam_persons` per ON per.id = ua.person_id
@@ -440,6 +455,158 @@ INNER JOIN `{PROJECT_ID}.transactional_data.uam_accounts` ua ON ua.id = e.accoun
 LEFT JOIN `{PROJECT_ID}.transactional_data.uam_persons` per ON per.id = ua.person_id
 WHERE COALESCE(ua.locked, FALSE) = TRUE
 ORDER BY e.agent, name
+""".strip()
+
+
+def big_winners_sql(report_date: date) -> str:
+    """Players whose net GGR was ≤ −BIG_WINNER_SECTION_MIN on report_date.
+
+    GGR is house-side (`profit − loss`), so a player win is a *negative* GGR
+    day — `SUM(profit - loss) <= -BIG_WINNER_SECTION_MIN` catches the big
+    winners. Read the sign backwards and this selects the biggest losers.
+
+    Includes **all** accounts on that day (not just Elite), because the Big
+    Winners section deliberately reaches outside the Elite book. Elite rows
+    carry their AM's agent tag; non-Elite rows have agent = NULL and
+    is_elite = FALSE — every AM sees those rows in their own tab.
+
+    Columns returned:
+      agent, is_elite, AID, name, win_ggr, sc_turnover, sc_won, game,
+      pending_rd_amount
+    """
+    d = _iso(report_date)
+    return f"""
+WITH
+{_elite_am_book_ctes()},
+day_ggr AS (
+  SELECT
+    k.account_id,
+    SUM(CAST(k.profit AS FLOAT64)) AS sc_turnover,
+    SUM(CAST(k.loss AS FLOAT64)) AS sc_won,
+    SUM(CAST(k.profit AS FLOAT64) - CAST(k.loss AS FLOAT64)) AS ggr_day
+  FROM `{PROJECT_ID}.jackpota_agg.daily_player_revenue_kpis` k
+  WHERE k.date = DATE '{d}'
+  GROUP BY k.account_id
+  HAVING SUM(CAST(k.profit AS FLOAT64) - CAST(k.loss AS FLOAT64)) <= -{BIG_WINNER_SECTION_MIN}
+),
+top_game AS (
+  SELECT account_id, product_title AS game
+  FROM (
+    SELECT g.account_id, g.product_title,
+      ROW_NUMBER() OVER (
+        PARTITION BY g.account_id
+        ORDER BY SUM(g.nrows) DESC, g.product_title
+      ) AS rn
+    FROM `{PROJECT_ID}.jackpota_agg.fact_gameplay_daily` g
+    INNER JOIN day_ggr dg ON dg.account_id = g.account_id
+    WHERE DATE(g.at) = DATE '{d}'
+      AND g.product_title IS NOT NULL AND g.product_title != 'Jackpot'
+    GROUP BY g.account_id, g.product_title
+  )
+  WHERE rn = 1
+),
+pending_rd AS (
+  SELECT
+    account_id,
+    SUM(CAST(amount AS FLOAT64)) AS pending_rd_amount
+  FROM `{PROJECT_ID}.transactional_data.payment_withdraw_money_requests`
+  WHERE status = 'locked'
+    AND account_id IN (SELECT account_id FROM day_ggr)
+  GROUP BY account_id
+)
+SELECT
+  e.agent,
+  (e.account_id IS NOT NULL) AS is_elite,
+  g.account_id AS AID,
+  COALESCE(
+    NULLIF(TRIM(CONCAT(IFNULL(per.first_name, ''), ' ', IFNULL(per.last_name, ''))), ''),
+    ua.name,
+    ua.email,
+    CAST(g.account_id AS STRING)
+  ) AS name,
+  ROUND(-g.ggr_day, 2) AS win_ggr,
+  ROUND(g.sc_turnover, 2) AS sc_turnover,
+  ROUND(g.sc_won, 2) AS sc_won,
+  tg.game,
+  ROUND(COALESCE(rd.pending_rd_amount, 0), 2) AS pending_rd_amount
+FROM day_ggr g
+LEFT JOIN elite_am e ON e.account_id = g.account_id
+LEFT JOIN `{PROJECT_ID}.transactional_data.uam_accounts` ua ON ua.id = g.account_id
+LEFT JOIN `{PROJECT_ID}.transactional_data.uam_persons` per ON per.id = ua.person_id
+LEFT JOIN top_game tg ON tg.account_id = g.account_id
+LEFT JOIN pending_rd rd ON rd.account_id = g.account_id
+ORDER BY g.ggr_day ASC
+""".strip()
+
+
+def big_losers_sql(report_date: date) -> str:
+    """Players whose net GGR was ≥ BIG_LOSER_SECTION_MIN on report_date (house win).
+
+    Positive GGR is a player loss day. Default floor is $5,000, same as the
+    Pending RD Big Winner flag threshold.
+    """
+    d = _iso(report_date)
+    return f"""
+WITH
+{_elite_am_book_ctes()},
+day_ggr AS (
+  SELECT
+    k.account_id,
+    SUM(CAST(k.profit AS FLOAT64)) AS sc_turnover,
+    SUM(CAST(k.loss AS FLOAT64)) AS sc_won,
+    SUM(CAST(k.profit AS FLOAT64) - CAST(k.loss AS FLOAT64)) AS ggr_day
+  FROM `{PROJECT_ID}.jackpota_agg.daily_player_revenue_kpis` k
+  WHERE k.date = DATE '{d}'
+  GROUP BY k.account_id
+  HAVING SUM(CAST(k.profit AS FLOAT64) - CAST(k.loss AS FLOAT64)) >= {BIG_LOSER_SECTION_MIN}
+),
+top_game AS (
+  SELECT account_id, product_title AS game
+  FROM (
+    SELECT g.account_id, g.product_title,
+      ROW_NUMBER() OVER (
+        PARTITION BY g.account_id
+        ORDER BY SUM(g.nrows) DESC, g.product_title
+      ) AS rn
+    FROM `{PROJECT_ID}.jackpota_agg.fact_gameplay_daily` g
+    INNER JOIN day_ggr dg ON dg.account_id = g.account_id
+    WHERE DATE(g.at) = DATE '{d}'
+      AND g.product_title IS NOT NULL AND g.product_title != 'Jackpot'
+    GROUP BY g.account_id, g.product_title
+  )
+  WHERE rn = 1
+),
+pending_rd AS (
+  SELECT
+    account_id,
+    SUM(CAST(amount AS FLOAT64)) AS pending_rd_amount
+  FROM `{PROJECT_ID}.transactional_data.payment_withdraw_money_requests`
+  WHERE status = 'locked'
+    AND account_id IN (SELECT account_id FROM day_ggr)
+  GROUP BY account_id
+)
+SELECT
+  e.agent,
+  (e.account_id IS NOT NULL) AS is_elite,
+  g.account_id AS AID,
+  COALESCE(
+    NULLIF(TRIM(CONCAT(IFNULL(per.first_name, ''), ' ', IFNULL(per.last_name, ''))), ''),
+    ua.name,
+    ua.email,
+    CAST(g.account_id AS STRING)
+  ) AS name,
+  ROUND(g.ggr_day, 2) AS loss_ggr,
+  ROUND(g.sc_turnover, 2) AS sc_turnover,
+  ROUND(g.sc_won, 2) AS sc_won,
+  tg.game,
+  ROUND(COALESCE(rd.pending_rd_amount, 0), 2) AS pending_rd_amount
+FROM day_ggr g
+LEFT JOIN elite_am e ON e.account_id = g.account_id
+LEFT JOIN `{PROJECT_ID}.transactional_data.uam_accounts` ua ON ua.id = g.account_id
+LEFT JOIN `{PROJECT_ID}.transactional_data.uam_persons` per ON per.id = ua.person_id
+LEFT JOIN top_game tg ON tg.account_id = g.account_id
+LEFT JOIN pending_rd rd ON rd.account_id = g.account_id
+ORDER BY g.ggr_day DESC
 """.strip()
 
 
