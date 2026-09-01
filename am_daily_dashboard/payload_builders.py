@@ -44,6 +44,7 @@ from wow_drop_analysis.wow_drop_reason import (  # noqa: E402
 )
 from am_brief_ticket_drafts import (  # noqa: E402
     build_anniversary_ticket_draft,
+    build_birthday_gift_ticket_draft,
     build_birthday_ticket_draft,
     build_first_time_rd_ticket_draft,
     outreach_lock_gate,
@@ -482,6 +483,68 @@ def build_anniversary_section(
     return out
 
 
+def build_birthday_gift_section(
+    rows: list[dict], enrich_map: dict[int, dict] | None = None
+) -> list[dict]:
+    """Format raw Birthday Gift eligibility rows into payload dicts.
+
+    Eligibility (lifetime Hold % + trailing-30-day purchase) is decided in
+    birthday_gift_sql; this only formats and gates. Same outreach gate as
+    Birthdays: locked, self-excluded, and TAB players are dropped entirely
+    (elite-core). Hold %, LTP and 30-day purchase come straight off the row
+    (the query already computed them over the whole book). enrich_map only
+    supplies zendesk_user_id so the gift draft can pre-select the requester.
+    """
+    out = []
+    for r in rows:
+        if _birthday_row_excluded(
+            bool(r.get("locked")),
+            r.get("lock_reason") or "",
+            r.get("lock_reason_comment") or "",
+        ):
+            continue
+        age = r.get("age")
+        try:
+            age_i = int(age) if age is not None else None
+        except (TypeError, ValueError):
+            age_i = None
+        dob_d = parse_date_val(r.get("dob"))
+        dob_fmt = f"{dob_d.day}/{dob_d.month}/{dob_d.year}" if dob_d else ""
+        gross = float(r.get("lifetime_purchased") or 0)
+        net = float(r.get("lifetime_net_purchase") or 0)
+        p30 = float(r.get("purchased_30d") or 0)
+        row = aid_row(
+            r.get("AID"),
+            r.get("name") or "n/a",
+            agent=r.get("agent") or "",
+            agentName=agent_display(r.get("agent") or ""),
+            firstName=r.get("first_name") or "",
+            lastName=r.get("last_name") or "",
+            email=r.get("email") or "",
+            birthday=dob_fmt,
+            age=age_i,
+            holdPct=format_lifetime_hold(r),
+            holdPctNum=(100 * net / gross) if gross > 0 else 0.0,
+            lifetimePurchase=format_lifetime_purchased(r),
+            lifetimePurchasedNum=gross,
+            purchase30d=fmt_money_short(p30),
+            purchase30dNum=p30,
+            tone="success",
+        )
+        enrich = (enrich_map or {}).get(_safe_int(r.get("AID")), {})
+        row.update(
+            build_birthday_gift_ticket_draft(
+                r,
+                locked=bool(r.get("locked")),
+                lock_reason=r.get("lock_reason") or "",
+                lock_reason_comment=r.get("lock_reason_comment") or "",
+                zendesk_user_id=enrich.get("zendesk_user_id"),
+            )
+        )
+        out.append(row)
+    return out
+
+
 def build_big_winners_section(
     rows: list[dict],
     enrich_map: dict[int, dict] | None = None,
@@ -839,6 +902,7 @@ def focus_for_agent(
     rd_first: list[dict],
     birthdays: list[dict],
     anniversary: list[dict],
+    birthday_gift: list[dict],
     zd: list[dict],
     locks: list[dict],
     big_winners: list[dict],
@@ -902,6 +966,7 @@ def focus_for_agent(
             "rdOver5k": len(rd_a),
             "birthdays": len(filt(birthdays)),
             "anniversary": len(filt(anniversary)),
+            "birthdayGift": len(filt(birthday_gift)),
             "declineCount": len(decline_a),
             "bigWinners": len(bw_a),
             "bigLosers": len(bl_a),
@@ -912,6 +977,7 @@ def focus_for_agent(
         "rdFirstTime": filt(rd_first),
         "birthdays": filt(birthdays),
         "anniversary": filt(anniversary),
+        "birthdayGift": filt(birthday_gift),
         "zendesk": zd_a,
         "locks": locks_a,
         "bigWinners": bw_a,

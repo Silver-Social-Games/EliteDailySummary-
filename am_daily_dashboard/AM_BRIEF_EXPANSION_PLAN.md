@@ -6,7 +6,8 @@ may not resolve in new chats).
 **Handoff:** paste block at end of this file. **Rollback:** section below.
 
 **Status todos:** Phase 0 ✅ → B ✅ (Goals history, 2026-09-01) → C ✅ (Anniversary,
-2026-09-01, trailing window) → D/E → F → G → H (check off in chat as you go).
+2026-09-01, trailing window) → D ✅ (Birthday Gift, this-month birthdays +
+criteria, 2026-09-01) → E → F → G → H (check off in chat as you go).
 
 ---
 

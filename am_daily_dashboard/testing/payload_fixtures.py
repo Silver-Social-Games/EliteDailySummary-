@@ -40,6 +40,7 @@ from payload_builders import (  # noqa: E402
     build_am_shares_and_overview,
     build_anniversary_section,
     build_big_winners_section,
+    build_birthday_gift_section,
     build_birthday_section,
     build_lock_section,
     build_rd_section,
@@ -164,6 +165,20 @@ def _anniversary_row(agent_tag: str, aid: int, name: str, **extra: Any) -> dict:
     return row
 
 
+def _birthday_gift_row(agent_tag: str, aid: int, name: str, **extra: Any) -> dict:
+    parts = name.split()
+    row = {
+        "AID": aid, "name": name, "agent": agent_tag, "email": f"{name.lower()}@example.com",
+        "first_name": parts[0], "last_name": parts[-1] if len(parts) > 1 else "",
+        "dob": "1990-08-15", "age": 36,
+        "lifetime_purchased": 82_000.0, "lifetime_net_purchase": 49_200.0,
+        "purchased_30d": 6_500.0, "gift_month": REPORT_DATE.strftime("%B"),
+        "locked": False, "lock_reason": "", "lock_reason_comment": "",
+    }
+    row.update(extra)
+    return row
+
+
 def _zd_row(agent_tag: str, aid: int, name: str, *, open_tickets: int = 1, **extra: Any) -> dict:
     row = {
         "AID": aid, "name": name, "agent": agent_tag, "open_tickets": open_tickets,
@@ -272,6 +287,10 @@ def build_manager_payload(*, ticket_count_for_coral: int = 1) -> dict:
         _birthday_row("coral_s", 504, "Coral Birthday Player"),
         _birthday_row("gabriel_e", 604, "Gabriel Birthday Player"),
     ]
+    birthday_gift_raw = [
+        _birthday_gift_row("coral_s", 512, "Coral Gift Player"),
+        _birthday_gift_row("lee_t", 712, "Lee Gift Player", purchased_30d=4_200.0),
+    ]
     anniversary_raw = [
         _anniversary_row("coral_s", 505, "Coral Anniversary Player"),
         _anniversary_row("lee_t", 705, "Lee Anniversary Player"),
@@ -304,6 +323,7 @@ def build_manager_payload(*, ticket_count_for_coral: int = 1) -> dict:
     rd_first = build_rd_section(rd_first_raw, ticket_enrich={})
     birthdays = build_birthday_section(birthday_raw, ticket_enrich={})
     anniversary = build_anniversary_section(anniversary_raw, enrich_map={})
+    birthday_gift = build_birthday_gift_section(birthday_gift_raw, enrich_map={})
     zd = build_zd_section(zd_raw, enrich_map={})
     locks = build_lock_section(lock_raw, REPORT_DATE)
     big_winners = build_big_winners_section(bw_raw, enrich_map={})
@@ -337,7 +357,8 @@ def build_manager_payload(*, ticket_count_for_coral: int = 1) -> dict:
         focus_for_agent(
             name, WEEKDAY,
             top10=top10, decline=decline_by_am.get(name, []), rd5k=rd5k,
-            rd_first=rd_first, birthdays=birthdays, anniversary=anniversary, zd=zd, locks=locks,
+            rd_first=rd_first, birthdays=birthdays, anniversary=anniversary,
+            birthday_gift=birthday_gift, zd=zd, locks=locks,
             big_winners=big_winners, big_losers=[],
             purchase=purchase_by_agent[name], total_players=total_players_by_agent[name],
             elite_rev=elite_rev, elite_ply=elite_ply, goals=goals_blocks.get(name),

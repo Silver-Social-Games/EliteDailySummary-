@@ -90,6 +90,10 @@ export interface TableCardOpts {
   compact?: boolean;
   /** Optional class on the outer card wrapper. */
   cardClass?: string;
+  /** Short explanation line shown at the top of the card (card-sub style). */
+  note?: string;
+  /** Grey criteria line shown in the pager row, next to "Showing X of Y". */
+  pagerNote?: string;
   /** Default true; off for sections where a search box is noise. */
   showSearch?: boolean;
   /** Extra row fields the search box should match on. */

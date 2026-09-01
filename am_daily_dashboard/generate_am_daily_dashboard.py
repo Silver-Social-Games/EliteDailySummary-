@@ -28,6 +28,7 @@ from elite_lib.export_paths import cursor_export_dir, mirror_to_cursor  # noqa: 
 from elite_lib.console import use_utf8_stdout  # noqa: E402
 
 from config import (  # noqa: E402
+    BIRTHDAY_GIFT_REFRESH_DOW,
     PENDING_RD_LOOKBACK_DAYS,
     PRODUCT_TITLE,
     manager_gate_token,
@@ -80,6 +81,7 @@ from payload_builders import (  # noqa: E402
     build_anniversary_section,
     build_big_winners_section,
     build_big_losers_section,
+    build_birthday_gift_section,
     build_birthday_section,
     build_lock_section,
     build_rd_section,
@@ -94,10 +96,52 @@ OUTPUT_DIR = Path(__file__).resolve().parent / "exports"
 DEFAULT_CANVAS_DIR = Path(
     r"C:\Users\Owner\.cursor\projects\c-Users-Owner-Downloads-Elite\canvases"
 )
+# Weekly (Sunday) snapshot of the Monthly Birthday Gifts list so it does not
+# churn Mon-Thu. Refreshed only on BIRTHDAY_GIFT_REFRESH_DOW, when missing, or
+# when the calendar month rolls over.
+BIRTHDAY_GIFT_CACHE = PACKAGE_DIR / "data" / "birthday_gift_weekly.json"
 
 AM_ORDER = ["Coral", "Gabriel", "Lee", "Rachel", "Alon"]
 # Goals exports (file-level isolation) — Alon omitted.
 GOALS_AM_ORDER = ["Coral", "Gabriel", "Lee", "Rachel"]
+
+
+def load_or_refresh_birthday_gift(client, report_date: date) -> list[dict]:
+    """Monthly Birthday Gifts rows with a weekly (Sunday) refresh.
+
+    The eligibility metrics (hold, 30-day spend) move daily, but the user wants
+    a stable weekly list. So the query runs only on BIRTHDAY_GIFT_REFRESH_DOW
+    (Sunday) and the result is cached; Mon-Thu reuse that snapshot. The cache is
+    also refreshed when it is missing or from a different calendar month, so a
+    new month never shows last month's birthdays.
+    """
+    month_key = report_date.strftime("%Y-%m")
+    cache = None
+    if BIRTHDAY_GIFT_CACHE.exists():
+        try:
+            cache = json.loads(BIRTHDAY_GIFT_CACHE.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            cache = None
+    is_refresh_day = report_date.weekday() == BIRTHDAY_GIFT_REFRESH_DOW
+    stale = not cache or cache.get("month") != month_key
+    if is_refresh_day or stale:
+        rows = run_query(client, am_queries.birthday_gift_sql(report_date))
+        BIRTHDAY_GIFT_CACHE.parent.mkdir(parents=True, exist_ok=True)
+        BIRTHDAY_GIFT_CACHE.write_text(
+            json.dumps(
+                {"refreshed": report_date.isoformat(), "month": month_key, "rows": rows},
+                default=str,
+            ),
+            encoding="utf-8",
+        )
+        why = "refresh day" if is_refresh_day else "cache missing/new month"
+        print(f"  Monthly Birthday Gifts: refreshed ({why}) -> {len(rows)} rows")
+        return rows
+    rows = cache.get("rows") or []
+    print(
+        f"  Monthly Birthday Gifts: reused {cache.get('refreshed')} snapshot -> {len(rows)} rows"
+    )
+    return rows
 CURSOR_AUDIENCE_CHOICES = ("manager", "coral", "gabriel", "lee", "rachel")
 CURSOR_AUDIENCE_NAMES = {
     "coral": "Coral",
@@ -253,6 +297,7 @@ def build_payload(report_date: date, client) -> dict:
     print(f"  Birthdays (3d): {len(bday_raw)}")
     anniv_raw = run_query(client, am_queries.anniversary_sql(report_date))
     print(f"  One-month anniversaries (3d): {len(anniv_raw)}")
+    bgift_raw = load_or_refresh_birthday_gift(client, report_date)
     zd_raw = run_query(client, am_queries.open_zendesk_sql())
     print(f"  Open ZD players: {len(zd_raw)}")
     bw_raw = run_query(client, am_queries.big_winners_sql(report_date))
@@ -271,7 +316,7 @@ def build_payload(report_date: date, client) -> dict:
             continue
     # rd5k_raw is in here for its missing-document status and account context,
     # not for a ticket draft — Pending RD stays view-only.
-    for r in (*top10_raw, *rd5k_raw, *rd_first_raw, *bday_raw, *anniv_raw, *bw_raw, *bl_raw):
+    for r in (*top10_raw, *rd5k_raw, *rd_first_raw, *bday_raw, *anniv_raw, *bgift_raw, *bw_raw, *bl_raw):
         try:
             ticket_aids.add(int(r["AID"]))
         except (TypeError, ValueError, KeyError):
@@ -338,6 +383,7 @@ def build_payload(report_date: date, client) -> dict:
     rd_first = build_rd_section(rd_first_raw, ticket_enrich=shared_enrich)
     birthdays = build_birthday_section(bday_raw, ticket_enrich=shared_enrich)
     anniversary = build_anniversary_section(anniv_raw, enrich_map=shared_enrich)
+    birthday_gift = build_birthday_gift_section(bgift_raw, enrich_map=shared_enrich)
     locks = build_lock_section(locks_raw, report_date)
     print(f"  Locked after past-day window filter: {len(locks)}")
 
@@ -367,6 +413,7 @@ def build_payload(report_date: date, client) -> dict:
                 rd_first=rd_first,
                 birthdays=birthdays,
                 anniversary=anniversary,
+                birthday_gift=birthday_gift,
                 zd=zd,
                 locks=locks,
                 big_winners=big_winners,

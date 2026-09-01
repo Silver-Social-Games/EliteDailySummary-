@@ -1460,7 +1460,7 @@ Full plan and rollback: `am_daily_dashboard/AM_BRIEF_EXPANSION_PLAN.md`.
 
 **Routing table** updated in `SKILL.md` with planned rows for Phases C/D/E/F/G.
 
-**Build order:** Phase 0 (done) - B Goals history (done) - C Anniversary (done) - D Birthday Gift - E Responsiveness - F Peer mode - G Bonus Calculator - H Slack.
+**Build order:** Phase 0 (done) - B Goals history (done) - C Anniversary (done) - D Birthday Gift (done) - E Responsiveness - F Peer mode - G Bonus Calculator - H Slack.
 
 ### Phase B - Goals history (done 2026-09-01)
 
@@ -1499,6 +1499,61 @@ show prior months' results as a trend.
   is the current month, so no prior-month history rendered. `--html-only`
   re-attaches history for the HTML but does **not** re-save the JSON, so verify
   (which reads the JSON) needs a full generate to see a history-shape change.
+
+### Phase D - Birthday Gift eligibility (done 2026-09-01)
+
+Per-AM list of players whose birthday is this calendar month and who have
+earned a gift. Ships as `agents[].birthdayGift`, isolated automatically (rides
+in the agent block).
+
+- **Display name:** "Monthly Birthday Gifts" (nav label; `short` "Monthly
+  Gifts"). Card note under the header shows only the criteria numbers: `Hold >=
+  50% and 30-day purchase >= $4,000`.
+- **Definition (locked with user 2026-09-01):** eligible = **birthday month ==
+  report month** AND lifetime **Hold %** (`lifetime_net_purchase /
+  lifetime_purchased`) >= `BIRTHDAY_GIFT_MIN_HOLD_PCT` (0.50) AND trailing-30-day
+  purchase >= `BIRTHDAY_GIFT_MIN_30D_PURCHASE` ($4,000). The month filter is what
+  makes this the "gift them now" list and keeps it separate from Birthdays (Last
+  3 Days, which is a rolling 3-day window). Birthday/Age columns show the match.
+  The user corrected an earlier build that showed the whole eligible book
+  regardless of birthday month (e.g. a Nov birthday wrongly appeared in
+  September) - the month filter is required.
+- **Weekly (Sunday) refresh:** the eligibility metrics move daily, but the list
+  is meant to be stable for the week. `load_or_refresh_birthday_gift` in the
+  generator runs `birthday_gift_sql` only on `BIRTHDAY_GIFT_REFRESH_DOW`
+  (Sunday = 6, Python weekday), caches the rows to
+  `data/birthday_gift_weekly.json` (gitignored), and Mon-Thu reuse that
+  snapshot so displayed Hold %/30D/LTP stay frozen from Sunday. The cache also
+  refreshes when missing or when the calendar month rolls over, so a new month
+  never shows last month's birthdays. `--html-only` rebuilds HTML from the saved
+  payload and does not touch the cache.
+- **Metrics parity:** the eligibility CTEs in `birthday_gift_sql` use the same
+  KPI columns and the same 30-day window (`report_date - 30 .. report_date`,
+  inclusive) as `enrich_aids_sql`, so the folded enrich display can never
+  disagree with the eligibility filter. Hold %, LTP and 30D purchase are read
+  straight off the query row; enrich only supplies `zendesk_user_id` for the
+  draft requester.
+- **Columns (locked 2026-09-01):** AID · Email · First Name · Last Name ·
+  Birthday · Age · Hold % · 30D Purchase · LTP · Ticket. Search box, sort
+  dropdown (30D Purchase soonest / LTP / Hold / Name A-Z), forced pagination at
+  10/page, and a CSV download button (`exportCsv.ts`).
+- **Draft:** review-only Zendesk gift draft (`build_birthday_gift_ticket_draft`),
+  gated by `outreach_lock_gate` like Birthdays. Copy supplied by the user
+  2026-09-01: subject `A Birthday Treat Just for You 🎁`, body opens `Dear
+  <first name>,` and wishes a wonderful `<report month>` (from `gift_month`),
+  then offers a gift menu (Gourmet Gift Box / Restaurant Voucher / Amazon Gift
+  Card / store card) and asks the player to confirm their mailing address.
+- **Ticket click:** `bind.ts` ticket-resolve pool includes `birthdayGift`.
+- **Verified:** 159 payload tests (10 new `BuildBirthdayGiftSectionTests`),
+  `tsc --noEmit`, web build guard, jsdom blank-board nav coverage (renders the
+  new card from the manager fixture). Two pre-existing jsdom failures (Gabriel
+  score meter, archive-calendar day count) reproduce at the Phase C baseline
+  and are environment/fixture drift, not Phase D.
+- **Files:** `queries.birthday_gift_sql`, `build_birthday_gift_section` +
+  `focus_for_agent` wiring, `build_birthday_gift_ticket_draft`,
+  `views/birthdayGift.ts`, registry/bind/exportCsv, fixtures + tests.
+  `verify_brief.verify_birthday_gift` (Phase 0 stub) now activates on the
+  `birthdayGift` key and asserts `aid` / `holdPct` / `purchase30d`.
 
 ### Phase C - One-month anniversary (done 2026-09-01)
 

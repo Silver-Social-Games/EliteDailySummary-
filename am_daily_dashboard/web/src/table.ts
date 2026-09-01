@@ -53,7 +53,7 @@ export function tableHtml(
 export function paginate(
   rows: Dict[],
   stateKey: string,
-  opts?: { forceOn?: boolean; defaultSize?: number }
+  opts?: { forceOn?: boolean; defaultSize?: number; note?: string }
 ): PaginateResult {
   const total = rows.length;
   const defaultSize = opts?.defaultSize ?? PAGE_SIZES[0];
@@ -98,6 +98,7 @@ export function paginate(
 
   const pager = `<div class="pager">
         <div class="pager-info">Showing <strong>${from.toLocaleString()}–${to.toLocaleString()}</strong> of ${total.toLocaleString()}</div>
+        ${opts?.note ? `<div class="pager-note">${esc(opts.note)}</div>` : ""}
         <div class="spacer"></div>
         ${sizeSel}
         ${pages > 1 ? btn(icon("chevs-left", "ic-xs"), 1, page === 1) : ""}
@@ -127,6 +128,7 @@ export function tableCard(opts: TableCardOpts): string {
   const { slice, pager, total } = paginate(ordered, opts.stateKey, {
     forceOn: opts.forcePaginate,
     defaultSize: opts.pageSize,
+    note: opts.pagerNote,
   });
 
   const filtered = q.trim() !== "";
@@ -161,7 +163,12 @@ export function tableCard(opts: TableCardOpts): string {
       </div>`
       : "";
 
+  const note = opts.note
+    ? `<div class="card-sub" style="margin:2px 0 10px">${esc(opts.note)}</div>`
+    : "";
+
   return `<div class="card${opts.cardClass ? ` ${opts.cardClass}` : ""}${opts.compact ? " fit-content" : ""}">
+        ${note}
         ${toolbar}
         ${tableHtml(opts.headers, slice.map(opts.renderRow), opts.align, slice.map((r) => r.tone || "neutral"), {
           markerCol: opts.markerCol,

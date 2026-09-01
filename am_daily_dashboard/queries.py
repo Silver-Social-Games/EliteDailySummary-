@@ -14,6 +14,8 @@ from config import (
     BIG_WINNER_MIN_PLAYER_WIN,
     BIG_WINNER_SECTION_MIN,
     BIRTHDAYS_LOOKBACK_DAYS,
+    BIRTHDAY_GIFT_MIN_30D_PURCHASE,
+    BIRTHDAY_GIFT_MIN_HOLD_PCT,
     GOALS_ACTIVE_LOOKBACK_DAYS,
     GOALS_REACTIVATION_GAP_DAYS,
     PENDING_RD_LOOKBACK_DAYS,
@@ -475,6 +477,100 @@ LEFT JOIN `{PROJECT_ID}.transactional_data.uam_persons` per ON per.id = ua.perso
 WHERE a.anniversary_date BETWEEN DATE_SUB(p.report_date, INTERVAL {trailing} DAY)
                              AND p.report_date
 ORDER BY e.agent, a.anniversary_date, name
+""".strip()
+
+
+def birthday_gift_sql(report_date: date) -> str:
+    """Elite players whose birthday is this calendar month and who qualify for
+    a gift: high hold and recent spend.
+
+    Eligible = birthday month == report month AND lifetime Hold % (net purchase
+    / gross purchase) >= BIRTHDAY_GIFT_MIN_HOLD_PCT AND trailing-30-day purchase
+    >= BIRTHDAY_GIFT_MIN_30D_PURCHASE. The month filter is what keeps this list
+    to the players an AM should gift now, and is why it is separate from
+    Birthdays (Last 3 Days). Lifetime and 30-day metrics match enrich_aids_sql
+    exactly (same KPI columns, same 30-day window ending on report_date
+    inclusive) so the folded enrich display never disagrees with the filter.
+
+    Locked / self-excluded / TAB players are filtered downstream in
+    build_birthday_gift_section (elite-core outreach rule). All thresholds live
+    in config.py. gift_month carries the report month name for the draft copy.
+    """
+    d = _iso(report_date)
+    return f"""
+WITH
+{_elite_am_book_ctes()},
+params AS (
+  SELECT DATE '{d}' AS report_date
+),
+lifetime AS (
+  SELECT
+    k.account_id,
+    SUM(CAST(k.purchased AS FLOAT64)) AS lifetime_purchased,
+    SUM(
+      CAST(k.purchased AS FLOAT64) - CAST(k.redeemed AS FLOAT64)
+      - CAST(k.chargeback AS FLOAT64) - CAST(k.refunds AS FLOAT64)
+    ) AS lifetime_net_purchase
+  FROM `{PROJECT_ID}.jackpota_agg.daily_player_revenue_kpis` k
+  INNER JOIN elite_am e ON e.account_id = k.account_id
+  GROUP BY k.account_id
+),
+purchase_30d AS (
+  SELECT
+    k.account_id,
+    SUM(CAST(k.purchased AS FLOAT64)) AS purchased_30d
+  FROM `{PROJECT_ID}.jackpota_agg.daily_player_revenue_kpis` k
+  INNER JOIN elite_am e ON e.account_id = k.account_id
+  WHERE k.date BETWEEN DATE_SUB(DATE '{d}', INTERVAL 30 DAY) AND DATE '{d}'
+  GROUP BY k.account_id
+),
+eligible AS (
+  SELECT
+    e.account_id,
+    lt.lifetime_purchased,
+    lt.lifetime_net_purchase,
+    COALESCE(p30.purchased_30d, 0) AS purchased_30d
+  FROM elite_am e
+  INNER JOIN lifetime lt ON lt.account_id = e.account_id
+  LEFT JOIN purchase_30d p30 ON p30.account_id = e.account_id
+  WHERE lt.lifetime_purchased > 0
+    AND lt.lifetime_net_purchase / lt.lifetime_purchased >= {BIRTHDAY_GIFT_MIN_HOLD_PCT}
+    AND COALESCE(p30.purchased_30d, 0) >= {BIRTHDAY_GIFT_MIN_30D_PURCHASE}
+),
+birth AS (
+  SELECT DISTINCT id AS account_id, date_of_birth
+  FROM `{PROJECT_ID}.transactional_data.uam_account_personal_info`
+  WHERE date_of_birth IS NOT NULL
+    AND date_of_birth != DATE '1900-01-01'
+)
+SELECT
+  e.agent,
+  e.account_id AS AID,
+  COALESCE(
+    NULLIF(TRIM(CONCAT(IFNULL(per.first_name, ''), ' ', IFNULL(per.last_name, ''))), ''),
+    ua.name,
+    ua.email,
+    CAST(e.account_id AS STRING)
+  ) AS name,
+  per.first_name,
+  per.last_name,
+  ua.email,
+  b.date_of_birth AS dob,
+  DATE_DIFF((SELECT report_date FROM params), b.date_of_birth, YEAR) AS age,
+  ROUND(g.lifetime_purchased, 2) AS lifetime_purchased,
+  ROUND(g.lifetime_net_purchase, 2) AS lifetime_net_purchase,
+  ROUND(g.purchased_30d, 2) AS purchased_30d,
+  FORMAT_DATE('%B', (SELECT report_date FROM params)) AS gift_month,
+  COALESCE(ua.locked, FALSE) AS locked,
+  COALESCE(ua.lock_reason, '') AS lock_reason,
+  COALESCE(ua.lock_reason_comment, '') AS lock_reason_comment
+FROM eligible g
+INNER JOIN elite_am e ON e.account_id = g.account_id
+INNER JOIN birth b ON b.account_id = e.account_id
+LEFT JOIN `{PROJECT_ID}.transactional_data.uam_accounts` ua ON ua.id = e.account_id
+LEFT JOIN `{PROJECT_ID}.transactional_data.uam_persons` per ON per.id = ua.person_id
+WHERE EXTRACT(MONTH FROM b.date_of_birth) = EXTRACT(MONTH FROM DATE '{d}')
+ORDER BY e.agent, g.purchased_30d DESC, name
 """.strip()
 
 

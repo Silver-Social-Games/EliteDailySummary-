@@ -31,6 +31,7 @@ from payload_builders import (  # noqa: E402
     build_am_shares_and_overview,
     build_anniversary_section,
     build_big_winners_section,
+    build_birthday_gift_section,
     build_birthday_section,
     build_lock_section,
     build_package_fit,
@@ -623,6 +624,93 @@ class BuildAnniversarySectionTests(unittest.TestCase):
         self.assertEqual(build_anniversary_section([]), [])
 
 
+def _birthday_gift_row(
+    aid: int = 512,
+    agent: str = "coral_s",
+    *,
+    locked: bool = False,
+    lock_reason: str = "",
+    lock_reason_comment: str = "",
+    lifetime_purchased: float = 80_000.0,
+    lifetime_net_purchase: float = 48_000.0,
+    purchased_30d: float = 6_500.0,
+) -> dict:
+    return {
+        "AID": aid, "name": "Gift Player", "agent": agent,
+        "first_name": "Gift", "last_name": "Player",
+        "email": "gift@example.com",
+        "dob": "1990-08-15", "age": 36,
+        "lifetime_purchased": lifetime_purchased,
+        "lifetime_net_purchase": lifetime_net_purchase,
+        "purchased_30d": purchased_30d, "gift_month": "September",
+        "locked": locked, "lock_reason": lock_reason,
+        "lock_reason_comment": lock_reason_comment,
+    }
+
+
+class BuildBirthdayGiftSectionTests(unittest.TestCase):
+    def test_happy_path(self) -> None:
+        out = build_birthday_gift_section([_birthday_gift_row()])
+        self.assertEqual(len(out), 1)
+        row = out[0]
+        # verify_brief.verify_birthday_gift asserts these three keys.
+        self.assertIn("aid", row)
+        self.assertIn("holdPct", row)
+        self.assertIn("purchase30d", row)
+        self.assertEqual(row["firstName"], "Gift")
+        self.assertEqual(row["lastName"], "Player")
+        self.assertEqual(row["email"], "gift@example.com")
+        self.assertEqual(row["birthday"], "15/8/1990")
+
+    def test_hold_pct_from_row(self) -> None:
+        out = build_birthday_gift_section(
+            [_birthday_gift_row(lifetime_purchased=100_000.0, lifetime_net_purchase=60_000.0)]
+        )
+        self.assertEqual(out[0]["holdPct"], "60.0%")
+        self.assertEqual(out[0]["holdPctNum"], 60.0)
+
+    def test_thirty_day_and_ltp_numbers(self) -> None:
+        out = build_birthday_gift_section([_birthday_gift_row(purchased_30d=4_200.0)])
+        self.assertEqual(out[0]["purchase30dNum"], 4_200.0)
+        self.assertEqual(out[0]["lifetimePurchasedNum"], 80_000.0)
+
+    def test_tone_is_success(self) -> None:
+        out = build_birthday_gift_section([_birthday_gift_row()])
+        self.assertEqual(out[0]["tone"], "success")
+
+    def test_aid_links_to_looker(self) -> None:
+        out = build_birthday_gift_section([_birthday_gift_row(aid=123456)])
+        self.assertIn("123456", out[0]["aidUrl"])
+
+    def test_draft_attached_and_uses_month(self) -> None:
+        out = build_birthday_gift_section([_birthday_gift_row()], enrich_map={})
+        row = out[0]
+        self.assertTrue(row["ticketEnabled"])
+        self.assertIn("🎁", row["ticketSubject"])
+        self.assertIn("September", row["ticketBody"])
+        self.assertIn("Gourmet Gift Box", row["ticketBody"])
+
+    def test_zendesk_user_id_from_enrich(self) -> None:
+        enrich = {512: {"zendesk_user_id": 987654}}
+        out = build_birthday_gift_section([_birthday_gift_row()], enrich_map=enrich)
+        self.assertIn("987654", out[0]["zendeskUrl"])
+
+    def test_locked_player_excluded(self) -> None:
+        out = build_birthday_gift_section(
+            [_birthday_gift_row(locked=True, lock_reason="Exclusion")], enrich_map={}
+        )
+        self.assertEqual(out, [])
+
+    def test_take_a_break_excluded(self) -> None:
+        out = build_birthday_gift_section(
+            [_birthday_gift_row(locked=True, lock_reason_comment="take a break 7")]
+        )
+        self.assertEqual(out, [])
+
+    def test_empty_rows(self) -> None:
+        self.assertEqual(build_birthday_gift_section([]), [])
+
+
 def _zd_row(
     aid: int = 401,
     agent: str = "coral_s",
@@ -977,6 +1065,7 @@ class FocusForAgentTests(unittest.TestCase):
         return focus_for_agent(
             agent_name, "Monday",
             top10=[], decline=[], rd5k=[], rd_first=[], birthdays=[], anniversary=[],
+            birthday_gift=[],
             zd=[], locks=[], big_winners=[], big_losers=[],
             purchase={"purchased": 12000.0, "purchased_players": 40},
             total_players=560,
@@ -1009,6 +1098,7 @@ class FocusForAgentTests(unittest.TestCase):
         result = focus_for_agent(
             "Alon", "Monday",
             top10=[], decline=[], rd5k=[], rd_first=[], birthdays=[], anniversary=[],
+            birthday_gift=[],
             zd=[], locks=[], big_winners=[], big_losers=[], purchase=None, total_players=0,
             elite_rev=40000.0, elite_ply=130,
         )
@@ -1029,6 +1119,7 @@ class FocusForAgentTests(unittest.TestCase):
         result = focus_for_agent(
             "Coral", "Monday",
             top10=[], decline=[], rd5k=[], rd_first=[], birthdays=[], anniversary=[],
+            birthday_gift=[],
             zd=[coral_row, gabriel_row], locks=[], big_winners=[], big_losers=[],
             purchase={"purchased": 0, "purchased_players": 0},
             total_players=0, elite_rev=0, elite_ply=0,
@@ -1049,6 +1140,7 @@ class FocusForAgentTests(unittest.TestCase):
         result = focus_for_agent(
             "Coral", "Monday",
             top10=[], decline=[], rd5k=[], rd_first=[], birthdays=[], anniversary=[],
+            birthday_gift=[],
             zd=[], locks=[], big_winners=[], big_losers=[elite_coral, non_elite],
             purchase={"purchased": 0, "purchased_players": 0},
             total_players=0, elite_rev=0, elite_ply=0,

@@ -117,6 +117,54 @@ def build_anniversary_ticket_draft(
     }
 
 
+def build_birthday_gift_ticket_draft(
+    row: dict,
+    *,
+    locked: bool = False,
+    lock_reason: str = "",
+    lock_reason_comment: str = "",
+    zendesk_user_id: object = None,
+) -> dict:
+    """Draft inviting a gift-eligible Elite player (birthday this month) to pick
+    their birthday gift. Eligibility (birthday month + hold + 30-day spend) is
+    decided upstream; this is the outreach copy. gift_month (report month name,
+    which is also the player's birthday month here) fills the greeting so the
+    wording stays current. Same shape/keys as wow_drop_analysis.ticket_draft's
+    output so it slots into the existing TicketDraftCell / TicketDraftModal."""
+    disabled, lock_label = outreach_lock_gate(locked, lock_reason, lock_reason_comment)
+    enabled = not disabled
+    first_name = _first_name(row.get("name") or "")
+    month = (row.get("gift_month") or "").strip() or "this month"
+    subject = _sanitize_ticket_copy("A Birthday Treat Just for You 🎁") if enabled else ""
+    body = ""
+    if enabled:
+        body = _sanitize_ticket_copy(
+            f"Dear {first_name},\n\n"
+            "Happy Birthday Month!\n\n"
+            f"Everyone at Jackpota joins me in wishing you a wonderful {month}!\n"
+            "As one of our valued Elite players, I'd love to help make your birthday "
+            "month even more special with a gift just for you.\n\n"
+            "Before I arrange everything, could you please confirm that your mailing "
+            "address is up to date?\n"
+            "Then, let me know which of these you'd enjoy most:\n\n"
+            "- Gourmet Gift Box\n"
+            "- Restaurant Voucher\n"
+            "- Amazon Gift Card\n"
+            "- Gift Card to your favorite store\n\n"
+            "I'll do my very best to accommodate your preference, subject to "
+            "availability.\n"
+            "I look forward to hearing from you and celebrating with you!\n\n"
+            "Warm regards,"
+        )
+    return {
+        "ticketEnabled": enabled,
+        "ticketSubject": subject,
+        "ticketBody": body,
+        "ticketDisabledReason": lock_label,
+        "zendeskUrl": zendesk_new_ticket_url(zendesk_user_id) if enabled else "",
+    }
+
+
 def build_birthday_ticket_draft(
     row: dict,
     *,

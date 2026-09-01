@@ -37,6 +37,12 @@ exports/
 am_daily_dashboard/exports/
 am_daily_dashboard/handoffs/*
 !am_daily_dashboard/handoffs/elite_am_brief_web.html
+am_daily_dashboard/data/am_slack_recipients.local.json
+am_daily_dashboard/data/birthday_gift_weekly.json
+am_daily_dashboard/logs/
+monthly_summaries/*
+!monthly_summaries/.gitkeep
+!monthly_summaries/README.md
 am_daily_dashboard/tests_js/node_modules/
 am_daily_dashboard/tests_js/fixtures/
 automated_offers_buckets/exports/
