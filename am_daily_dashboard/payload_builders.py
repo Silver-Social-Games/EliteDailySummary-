@@ -545,6 +545,61 @@ def build_birthday_gift_section(
     return out
 
 
+def build_responsiveness_section(
+    rows: list[dict], enrich_map: dict[int, dict] | None = None
+) -> list[dict]:
+    """Format raw ticket-inactivity rows into payload dicts.
+
+    Selection (last ticket activity older than TICKET_INACTIVITY_DAYS) is
+    decided in ticket_inactivity_sql; this only formats and gates. Same
+    outreach gate as Birthdays / Anniversary: locked, self-excluded, and TAB
+    players are dropped entirely (elite-core). enrich_map (AID -> shared enrich
+    row) folds in LTP / Hold / 30-day purchase from the batch already fetched
+    for Open Tickets, so the silent-book list still shows account value.
+    lastContact / daysSinceTicket come straight off the row.
+    """
+    out = []
+    for r in rows:
+        if _birthday_row_excluded(
+            bool(r.get("locked")),
+            r.get("lock_reason") or "",
+            r.get("lock_reason_comment") or "",
+        ):
+            continue
+        days = r.get("days_since_ticket")
+        try:
+            days_i = int(days) if days is not None else None
+        except (TypeError, ValueError):
+            days_i = None
+        row = aid_row(
+            r.get("AID"),
+            r.get("name") or "n/a",
+            agent=r.get("agent") or "",
+            agentName=agent_display(r.get("agent") or ""),
+            firstName=r.get("first_name") or "",
+            lastName=r.get("last_name") or "",
+            email=r.get("email") or "",
+            lastContact=_fmt_day_month_year(r.get("last_ticket_date")),
+            daysSinceTicket=days_i,
+            tone="neutral",
+        )
+        if enrich_map is not None:
+            m = enrich_map.get(_safe_int(r.get("AID")), {})
+            gross = float(m.get("lifetime_purchased") or 0)
+            net = float(m.get("lifetime_net_purchase") or 0)
+            p30_num = float(m.get("purchased_30d") or 0)
+            row.update(
+                lifetimePurchase=format_lifetime_purchased(m) if m else fmt_money_short(0),
+                lifetimePurchasedNum=gross,
+                holdPct=format_lifetime_hold(m) if m else "n/a",
+                holdPctNum=(100 * net / gross) if gross > 0 else 0.0,
+                purchase30d=fmt_money_short(p30_num),
+                purchase30dNum=p30_num,
+            )
+        out.append(row)
+    return out
+
+
 def build_big_winners_section(
     rows: list[dict],
     enrich_map: dict[int, dict] | None = None,
@@ -903,6 +958,7 @@ def focus_for_agent(
     birthdays: list[dict],
     anniversary: list[dict],
     birthday_gift: list[dict],
+    responsiveness: list[dict],
     zd: list[dict],
     locks: list[dict],
     big_winners: list[dict],
@@ -967,6 +1023,7 @@ def focus_for_agent(
             "birthdays": len(filt(birthdays)),
             "anniversary": len(filt(anniversary)),
             "birthdayGift": len(filt(birthday_gift)),
+            "responsiveness": len(filt(responsiveness)),
             "declineCount": len(decline_a),
             "bigWinners": len(bw_a),
             "bigLosers": len(bl_a),
@@ -978,6 +1035,7 @@ def focus_for_agent(
         "birthdays": filt(birthdays),
         "anniversary": filt(anniversary),
         "birthdayGift": filt(birthday_gift),
+        "responsiveness": filt(responsiveness),
         "zendesk": zd_a,
         "locks": locks_a,
         "bigWinners": bw_a,

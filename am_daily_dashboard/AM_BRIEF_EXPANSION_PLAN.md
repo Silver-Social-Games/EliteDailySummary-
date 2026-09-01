@@ -7,7 +7,8 @@ may not resolve in new chats).
 
 **Status todos:** Phase 0 ✅ → B ✅ (Goals history, 2026-09-01) → C ✅ (Anniversary,
 2026-09-01, trailing window) → D ✅ (Birthday Gift, this-month birthdays +
-criteria, 2026-09-01) → E → F → G → H (check off in chat as you go).
+criteria, 2026-09-01) → E ✅ (Responsiveness, 90d no ticket activity,
+2026-09-01) → F → G → H (check off in chat as you go).
 
 ---
 

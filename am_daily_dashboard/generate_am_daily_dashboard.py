@@ -85,6 +85,7 @@ from payload_builders import (  # noqa: E402
     build_birthday_section,
     build_lock_section,
     build_rd_section,
+    build_responsiveness_section,
     build_top10_section,
     build_zd_section,
     focus_for_agent,
@@ -298,6 +299,8 @@ def build_payload(report_date: date, client) -> dict:
     anniv_raw = run_query(client, am_queries.anniversary_sql(report_date))
     print(f"  One-month anniversaries (3d): {len(anniv_raw)}")
     bgift_raw = load_or_refresh_birthday_gift(client, report_date)
+    resp_raw = run_query(client, am_queries.ticket_inactivity_sql(report_date))
+    print(f"  Responsiveness (no ticket in 90d): {len(resp_raw)}")
     zd_raw = run_query(client, am_queries.open_zendesk_sql())
     print(f"  Open ZD players: {len(zd_raw)}")
     bw_raw = run_query(client, am_queries.big_winners_sql(report_date))
@@ -316,7 +319,7 @@ def build_payload(report_date: date, client) -> dict:
             continue
     # rd5k_raw is in here for its missing-document status and account context,
     # not for a ticket draft — Pending RD stays view-only.
-    for r in (*top10_raw, *rd5k_raw, *rd_first_raw, *bday_raw, *anniv_raw, *bgift_raw, *bw_raw, *bl_raw):
+    for r in (*top10_raw, *rd5k_raw, *rd_first_raw, *bday_raw, *anniv_raw, *bgift_raw, *resp_raw, *bw_raw, *bl_raw):
         try:
             ticket_aids.add(int(r["AID"]))
         except (TypeError, ValueError, KeyError):
@@ -384,6 +387,7 @@ def build_payload(report_date: date, client) -> dict:
     birthdays = build_birthday_section(bday_raw, ticket_enrich=shared_enrich)
     anniversary = build_anniversary_section(anniv_raw, enrich_map=shared_enrich)
     birthday_gift = build_birthday_gift_section(bgift_raw, enrich_map=shared_enrich)
+    responsiveness = build_responsiveness_section(resp_raw, enrich_map=shared_enrich)
     locks = build_lock_section(locks_raw, report_date)
     print(f"  Locked after past-day window filter: {len(locks)}")
 
@@ -414,6 +418,7 @@ def build_payload(report_date: date, client) -> dict:
                 birthdays=birthdays,
                 anniversary=anniversary,
                 birthday_gift=birthday_gift,
+                responsiveness=responsiveness,
                 zd=zd,
                 locks=locks,
                 big_winners=big_winners,

@@ -17,6 +17,7 @@ import { viewBigLosers } from "./views/bigLosers";
 import { viewCrmCalendar } from "./views/crmCalendar";
 import { viewAnniversary } from "./views/anniversary";
 import { viewBirthdayGift } from "./views/birthdayGift";
+import { viewResponsiveness } from "./views/responsiveness";
 import {
   viewGamesNew,
   viewGamesSticky,
@@ -54,6 +55,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { kind: "view", id: "birthdays" },
       { kind: "view", id: "anniversary" },
       { kind: "view", id: "birthdayGift" },
+      { kind: "view", id: "responsiveness" },
     ],
   },
   {
@@ -122,6 +124,9 @@ export const VIEWS: Record<string, ViewDef> = {
   birthdayGift: { label: "Monthly Birthday Gifts", short: "Monthly Birthday Gifts", icon: "gift",
                   group: "Daily Triggers", key: "birthdayGift",
                   sub: "This month's birthdays, high hold and spend" },
+  responsiveness: { label: "Responsiveness", icon: "message",
+                    group: "Daily Triggers", key: "responsiveness",
+                    sub: "Silent 90+ days, no support ticket" },
 };
 
 export const NAV_ORDER: string[] = NAV_GROUPS.flatMap((g) =>
@@ -136,6 +141,7 @@ export const VIEW_FN: Record<string, () => string> = {
   crmCalendar: viewCrmCalendar, gamesSticky: viewGamesSticky, gamesNew: viewGamesNew,
   anniversary: viewAnniversary,
   birthdayGift: viewBirthdayGift,
+  responsiveness: viewResponsiveness,
 };
 
 /** @deprecated use NAV_GROUPS */

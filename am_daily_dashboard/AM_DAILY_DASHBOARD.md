@@ -1460,7 +1460,44 @@ Full plan and rollback: `am_daily_dashboard/AM_BRIEF_EXPANSION_PLAN.md`.
 
 **Routing table** updated in `SKILL.md` with planned rows for Phases C/D/E/F/G.
 
-**Build order:** Phase 0 (done) - B Goals history (done) - C Anniversary (done) - D Birthday Gift (done) - E Responsiveness - F Peer mode - G Bonus Calculator - H Slack.
+**Build order:** Phase 0 (done) - B Goals history (done) - C Anniversary (done) - D Birthday Gift (done) - E Responsiveness (done) - F Peer mode - G Bonus Calculator - H Slack.
+
+### Phase E - Responsiveness / silent book (done 2026-09-01)
+
+Per-AM list of players who have gone quiet on support: no Zendesk ticket
+activity in the trailing `TICKET_INACTIVITY_DAYS` (90). Ships as
+`agents[].responsiveness`, isolated automatically (rides in the agent block).
+
+- **Definition:** eligible = the account's most recent ticket **created_at or
+  updated_at** (whichever is later, across every ticket in any status) is more
+  than 90 days before report_date. The Zendesk-to-account join is the same
+  external_id-or-email join as `open_zendesk_sql`. **Accounts that have never
+  opened a ticket are not surfaced** - there is no activity date to age, and
+  including them would flood the list with most of the book; the section is a
+  re-engagement prompt for players who were once in contact and have since gone
+  quiet. If the intent shifts to "entire silent book incl. never-ticketed",
+  change the `ticket_activity` join to a LEFT JOIN and widen the WHERE - one
+  line - and note it here.
+- **Outreach gate:** locked / self-excluded / TAB players are dropped entirely
+  (`_birthday_row_excluded`, elite-core), same as Birthdays / Anniversary /
+  Birthday Gift. **No ticket draft** - these players have no open ticket to
+  reply to; the section is a call list, not a reply queue.
+- **Metrics:** LTP, Hold %, and 30-day purchase fold in from the shared
+  `enrich_aids_sql` batch already fetched for Open Tickets (no extra query),
+  so an AM can triage the silent book by value. `lastContact` /
+  `daysSinceTicket` come straight off the query row.
+- **Columns:** AID · Email · First Name · Last Name · Last Contact · Days Silent
+  · Hold % · 30D Purchase · LTP. Search box, sort dropdown (Days Silent ↓ default
+  / LTP / Hold / Name A-Z), forced pagination at 10/page, CSV download.
+- **Verified:** payload tests (9 new `BuildResponsivenessSectionTests`),
+  `tsc --noEmit`, web build guard, jsdom blank-board nav coverage (renders the
+  new view from the manager fixture). Two pre-existing jsdom failures (Gabriel
+  score meter, archive-calendar day count) are environment/fixture drift, not
+  Phase E.
+- **Files:** `queries.ticket_inactivity_sql`, `build_responsiveness_section` +
+  `focus_for_agent` wiring, `views/responsiveness.ts`, registry/exportCsv,
+  fixtures + tests. `verify_brief.verify_responsiveness` (Phase 0 stub) now
+  activates on the `responsiveness` key and asserts `aid` / `daysSinceTicket`.
 
 ### Phase B - Goals history (done 2026-09-01)
 
@@ -1506,9 +1543,10 @@ Per-AM list of players whose birthday is this calendar month and who have
 earned a gift. Ships as `agents[].birthdayGift`, isolated automatically (rides
 in the agent block).
 
-- **Display name:** "Monthly Birthday Gifts" (nav label; `short` "Monthly
-  Gifts"). Card note under the header shows only the criteria numbers: `Hold >=
-  50% and 30-day purchase >= $4,000`.
+- **Display name:** "Monthly Birthday Gifts" (nav label and `short` both use the
+  full name). The criteria numbers show as a grey `pagerNote` in the table
+  footer, next to "Showing X of Y": `Hold >= 50% and 30-day purchase >= $4,000`
+  (locked with user 2026-09-01 - moved out of the header/crumb into the pager).
 - **Definition (locked with user 2026-09-01):** eligible = **birthday month ==
   report month** AND lifetime **Hold %** (`lifetime_net_purchase /
   lifetime_purchased`) >= `BIRTHDAY_GIFT_MIN_HOLD_PCT` (0.50) AND trailing-30-day

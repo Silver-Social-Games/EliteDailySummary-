@@ -36,6 +36,7 @@ from payload_builders import (  # noqa: E402
     build_lock_section,
     build_package_fit,
     build_rd_section,
+    build_responsiveness_section,
     build_top10_section,
     build_zd_section,
     fmt_price,
@@ -711,6 +712,89 @@ class BuildBirthdayGiftSectionTests(unittest.TestCase):
         self.assertEqual(build_birthday_gift_section([]), [])
 
 
+def _responsiveness_row(
+    aid: int = 508,
+    agent: str = "coral_s",
+    *,
+    days_since_ticket: int | None = 120,
+    locked: bool = False,
+    lock_reason: str = "",
+    lock_reason_comment: str = "",
+) -> dict:
+    return {
+        "AID": aid, "name": "Silent Player", "agent": agent,
+        "first_name": "Silent", "last_name": "Player",
+        "email": "silent@example.com",
+        "last_ticket_date": "2026-05-01", "days_since_ticket": days_since_ticket,
+        "locked": locked, "lock_reason": lock_reason,
+        "lock_reason_comment": lock_reason_comment,
+    }
+
+
+class BuildResponsivenessSectionTests(unittest.TestCase):
+    def test_happy_path(self) -> None:
+        out = build_responsiveness_section([_responsiveness_row()])
+        self.assertEqual(len(out), 1)
+        row = out[0]
+        # verify_brief.verify_responsiveness asserts these two keys.
+        self.assertIn("aid", row)
+        self.assertIn("daysSinceTicket", row)
+        self.assertEqual(row["daysSinceTicket"], 120)
+        self.assertEqual(row["lastContact"], "1 May 2026")
+        self.assertEqual(row["firstName"], "Silent")
+        self.assertEqual(row["lastName"], "Player")
+        self.assertEqual(row["email"], "silent@example.com")
+
+    def test_tone_is_neutral(self) -> None:
+        out = build_responsiveness_section([_responsiveness_row()])
+        self.assertEqual(out[0]["tone"], "neutral")
+
+    def test_aid_links_to_looker(self) -> None:
+        out = build_responsiveness_section([_responsiveness_row(aid=123456)])
+        self.assertIn("123456", out[0]["aidUrl"])
+
+    def test_enrich_none_skips_metrics(self) -> None:
+        out = build_responsiveness_section([_responsiveness_row()])
+        self.assertNotIn("lifetimePurchase", out[0])
+        self.assertNotIn("holdPct", out[0])
+
+    def test_enrich_empty_dict_attaches_keys(self) -> None:
+        out = build_responsiveness_section([_responsiveness_row()], enrich_map={})
+        row = out[0]
+        self.assertIn("lifetimePurchase", row)
+        self.assertIn("holdPct", row)
+        self.assertIn("purchase30d", row)
+
+    def test_enrich_populates_ltp_hold_and_30d(self) -> None:
+        enrich = {
+            508: {
+                "lifetime_purchased": 100_000.0,
+                "lifetime_net_purchase": 55_000.0,
+                "purchased_30d": 3_200.0,
+            }
+        }
+        out = build_responsiveness_section([_responsiveness_row()], enrich_map=enrich)
+        row = out[0]
+        self.assertEqual(row["lifetimePurchasedNum"], 100_000.0)
+        self.assertEqual(row["holdPctNum"], 55.0)
+        self.assertEqual(row["purchase30dNum"], 3_200.0)
+
+    def test_locked_player_excluded(self) -> None:
+        out = build_responsiveness_section(
+            [_responsiveness_row(locked=True, lock_reason="Exclusion")], enrich_map={}
+        )
+        self.assertEqual(out, [])
+
+    def test_take_a_break_excluded(self) -> None:
+        out = build_responsiveness_section(
+            [_responsiveness_row(locked=True, lock_reason_comment="take a break 7")]
+        )
+        self.assertEqual(out, [])
+
+    def test_empty_rows(self) -> None:
+        self.assertEqual(build_responsiveness_section([]), [])
+
+
 def _zd_row(
     aid: int = 401,
     agent: str = "coral_s",
@@ -1065,7 +1149,7 @@ class FocusForAgentTests(unittest.TestCase):
         return focus_for_agent(
             agent_name, "Monday",
             top10=[], decline=[], rd5k=[], rd_first=[], birthdays=[], anniversary=[],
-            birthday_gift=[],
+            birthday_gift=[], responsiveness=[],
             zd=[], locks=[], big_winners=[], big_losers=[],
             purchase={"purchased": 12000.0, "purchased_players": 40},
             total_players=560,
@@ -1098,7 +1182,7 @@ class FocusForAgentTests(unittest.TestCase):
         result = focus_for_agent(
             "Alon", "Monday",
             top10=[], decline=[], rd5k=[], rd_first=[], birthdays=[], anniversary=[],
-            birthday_gift=[],
+            birthday_gift=[], responsiveness=[],
             zd=[], locks=[], big_winners=[], big_losers=[], purchase=None, total_players=0,
             elite_rev=40000.0, elite_ply=130,
         )
@@ -1119,7 +1203,7 @@ class FocusForAgentTests(unittest.TestCase):
         result = focus_for_agent(
             "Coral", "Monday",
             top10=[], decline=[], rd5k=[], rd_first=[], birthdays=[], anniversary=[],
-            birthday_gift=[],
+            birthday_gift=[], responsiveness=[],
             zd=[coral_row, gabriel_row], locks=[], big_winners=[], big_losers=[],
             purchase={"purchased": 0, "purchased_players": 0},
             total_players=0, elite_rev=0, elite_ply=0,
@@ -1140,7 +1224,7 @@ class FocusForAgentTests(unittest.TestCase):
         result = focus_for_agent(
             "Coral", "Monday",
             top10=[], decline=[], rd5k=[], rd_first=[], birthdays=[], anniversary=[],
-            birthday_gift=[],
+            birthday_gift=[], responsiveness=[],
             zd=[], locks=[], big_winners=[], big_losers=[elite_coral, non_elite],
             purchase={"purchased": 0, "purchased_players": 0},
             total_players=0, elite_rev=0, elite_ply=0,

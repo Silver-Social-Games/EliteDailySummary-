@@ -20,6 +20,7 @@ from config import (
     GOALS_REACTIVATION_GAP_DAYS,
     PENDING_RD_LOOKBACK_DAYS,
     PENDING_RD_MIN_AMOUNT,
+    TICKET_INACTIVITY_DAYS,
     TRIGGER_LOOKBACK_DAYS,
 )
 
@@ -571,6 +572,83 @@ LEFT JOIN `{PROJECT_ID}.transactional_data.uam_accounts` ua ON ua.id = e.account
 LEFT JOIN `{PROJECT_ID}.transactional_data.uam_persons` per ON per.id = ua.person_id
 WHERE EXTRACT(MONTH FROM b.date_of_birth) = EXTRACT(MONTH FROM DATE '{d}')
 ORDER BY e.agent, g.purchased_30d DESC, name
+""".strip()
+
+
+def ticket_inactivity_sql(report_date: date) -> str:
+    """Elite AM players who have gone silent on support — no Zendesk ticket
+    activity in the trailing TICKET_INACTIVITY_DAYS (90) ending report_date.
+
+    Activity = the most recent of created_at / updated_at across every ticket
+    the account has ever opened (any status), joined by external_id or email
+    the same way as open_zendesk_sql. A row shows when that last activity is
+    more than TICKET_INACTIVITY_DAYS before report_date, i.e. a previously
+    engaged player who has since gone quiet. Accounts that have never opened a
+    ticket are not surfaced here (no activity date to age); the section is a
+    re-engagement prompt for players an AM has heard from before. Locked /
+    self-excluded / TAB players are filtered downstream in
+    build_responsiveness_section (elite-core outreach rule). The threshold
+    lives in config.py.
+    """
+    d = _iso(report_date)
+    return f"""
+WITH
+{_elite_am_book_ctes()},
+params AS (
+  SELECT DATE '{d}' AS report_date
+),
+-- Map Zendesk requesters to Elite accounts ONCE, before touching the ticket
+-- table. The external_id and email matches are two separate equality joins
+-- UNION'd, so BigQuery hash-joins each (cheap). Folding them into a single
+-- `ON ... OR ...` forces a nested-loop over the whole ticket history and blew
+-- past the on-demand CPU/bytes ratio (655k CPU-seconds). open_zendesk_sql only
+-- survives that OR because its open-status filter shrinks the ticket set first.
+elite_users AS (
+  SELECT DISTINCT u.id AS zendesk_user_id, e.account_id
+  FROM `{PROJECT_ID}.zendesk.user` u
+  INNER JOIN `{PROJECT_ID}.transactional_data.uam_accounts` ua
+    ON CAST(u.external_id AS STRING) = CAST(ua.id AS STRING)
+  INNER JOIN elite_am e ON e.account_id = ua.id
+  UNION DISTINCT
+  SELECT DISTINCT u.id AS zendesk_user_id, e.account_id
+  FROM `{PROJECT_ID}.zendesk.user` u
+  INNER JOIN `{PROJECT_ID}.transactional_data.uam_accounts` ua
+    ON u.email IS NOT NULL AND ua.email IS NOT NULL
+    AND LOWER(u.email) = LOWER(ua.email)
+  INNER JOIN elite_am e ON e.account_id = ua.id
+),
+ticket_activity AS (
+  SELECT
+    eu.account_id,
+    MAX(GREATEST(DATE(t.created_at), DATE(t.updated_at))) AS last_activity
+  FROM `{PROJECT_ID}.zendesk.ticket` t
+  INNER JOIN elite_users eu ON t.requester_id = eu.zendesk_user_id
+  GROUP BY eu.account_id
+)
+SELECT
+  e.agent,
+  e.account_id AS AID,
+  COALESCE(
+    NULLIF(TRIM(CONCAT(IFNULL(per.first_name, ''), ' ', IFNULL(per.last_name, ''))), ''),
+    ua.name,
+    ua.email,
+    CAST(e.account_id AS STRING)
+  ) AS name,
+  per.first_name,
+  per.last_name,
+  ua.email,
+  ta.last_activity AS last_ticket_date,
+  DATE_DIFF(p.report_date, ta.last_activity, DAY) AS days_since_ticket,
+  COALESCE(ua.locked, FALSE) AS locked,
+  COALESCE(ua.lock_reason, '') AS lock_reason,
+  COALESCE(ua.lock_reason_comment, '') AS lock_reason_comment
+FROM ticket_activity ta
+INNER JOIN elite_am e ON e.account_id = ta.account_id
+CROSS JOIN params p
+LEFT JOIN `{PROJECT_ID}.transactional_data.uam_accounts` ua ON ua.id = e.account_id
+LEFT JOIN `{PROJECT_ID}.transactional_data.uam_persons` per ON per.id = ua.person_id
+WHERE ta.last_activity < DATE_SUB(p.report_date, INTERVAL {TICKET_INACTIVITY_DAYS} DAY)
+ORDER BY e.agent, days_since_ticket DESC, name
 """.strip()
 
 
