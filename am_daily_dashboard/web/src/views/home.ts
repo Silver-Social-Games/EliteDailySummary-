@@ -1,5 +1,5 @@
 /** Morning Brief — AM intro, segment hero, focus band, Goals. */
-import { amIntro, dailyTriggerMetrics, metricBand, segmentHero } from "./../components";
+import { amIntro, dailyTriggerMetrics, metricBand, personalSnapshotCards, segmentHero } from "./../components";
 import { agentBlock } from "./../selectors";
 import { goalsSummaryCard } from "./goals";
 
@@ -10,6 +10,7 @@ export function viewHome(): string {
         ${amIntro(b.greetingLines || [])}
         ${segmentHero()}
         ${metricBand("Today's focus", dailyTriggerMetrics(f), { subtitle: "Click a metric to open the section", cols: 7 })}
+        ${metricBand("Personal Snapshot", personalSnapshotCards(b), { cols: 4 })}
         ${goalsSummaryCard(b.goals)}
       </div>`;
 }

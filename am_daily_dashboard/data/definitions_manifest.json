@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "files": {
+    "config.py": "f768310a01b58cd7716edf662c761e12e9dc506705985d1496ce47998eec5b59",
+    "queries.py": "6c9373b4adfbefa17890ad2657663067403bafbfef7b2f1d21855b1c82a06af9",
+    "goals.py": "84744cb377414b25011936b3eb3c6cd52b0b85b594e3e2246bec58843dfb0b59",
+    "payload_builders.py": "4e17c27fbc64c6d306349d218189bd26bcac6e1315b42cbdcfefd66d1deadafb",
+    "elite_goals.tsv": "bf97b71a2fbcfe0b2475cafc50bac809112545f685e86a293e693424e4eca531",
+    "elite_am_brief_web.html": "70a87e108cce3f6d42f00c4c37f9467e67bfdde8f667fde00dc366e55f3e34a2"
+  }
+}

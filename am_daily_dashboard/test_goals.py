@@ -43,6 +43,7 @@ from goals import (  # noqa: E402
     strip_payload_for_am,
     targets_for_month,
     team_actuals,
+    _display_gap,
 )
 
 
@@ -205,10 +206,12 @@ class WeightedGoalsTests(unittest.TestCase):
             arppu["pace"], (918_432 / 16 * 31) / purchasers["pace"], places=2
         )
 
-        # % Active is point-in-time from active_players, not paced purchasers.
+        # % Active = MTD purchasers / portfolio; pace uses shaped purchasers.
         pct_active = kpi_by_key(block, "pct_active")
-        self.assertAlmostEqual(pct_active["actual"], 508 / 621 * 100, places=2)
-        self.assertAlmostEqual(pct_active["pace"], pct_active["actual"], places=6)
+        self.assertAlmostEqual(pct_active["actual"], 472 / 621 * 100, places=2)
+        self.assertAlmostEqual(
+            pct_active["pace"], purchasers["pace"] / 621 * 100, places=2
+        )
 
     def test_missing_shape_falls_back_to_mtd_status(self) -> None:
         actuals = {
@@ -230,11 +233,8 @@ class WeightedGoalsTests(unittest.TestCase):
         self.assertIn("No month-end projection", purchasers["paceBasis"])
         self.assertIsNone(kpi_by_key(block, "arppu")["pace"])
 
-    def test_pct_active_is_point_in_time_not_derived(self) -> None:
-        """% Active comes from active_players (last purchase inside the window)
-        over the whole tagged book, locked included — a tagged player contributes
-        to every KPI regardless of lock status. Not derived from monthly
-        purchasers, and never paced."""
+    def test_pct_active_is_mtd_purchasers_over_portfolio(self) -> None:
+        """% Active = MTD purchasers / whole tagged book; pace uses shaped purchasers."""
         actuals = {
             "mtd_purchase": 918_432,
             "mtd_net_purchase": 543_216,
@@ -252,36 +252,33 @@ class WeightedGoalsTests(unittest.TestCase):
         assert block is not None
 
         pct_active = kpi_by_key(block, "pct_active")
-        self.assertAlmostEqual(pct_active["actual"], 508 / 594 * 100, places=2)
-        # Point-in-time: pace equals actual, no projection.
-        self.assertAlmostEqual(pct_active["pace"], pct_active["actual"], places=6)
-        self.assertIn("Point-in-time", pct_active["paceBasis"])
-        # Must not be purchasers / portfolio.
-        self.assertNotAlmostEqual(
-            pct_active["actual"], 472 / 594 * 100, places=2
+        purchasers = kpi_by_key(block, "monthly_purchasers")
+        self.assertAlmostEqual(pct_active["actual"], 472 / 594 * 100, places=2)
+        self.assertAlmostEqual(
+            pct_active["pace"], purchasers["pace"] / 594 * 100, places=2
         )
+        self.assertIn("MTD purchasers", pct_active["paceBasis"])
 
-    def test_pct_active_capped_and_safe_without_actives(self) -> None:
+    def test_pct_active_capped_and_safe_without_purchasers(self) -> None:
         base = {
             "mtd_purchase": 918_432,
             "mtd_net_purchase": 543_216,
-            "monthly_purchasers": 472,
             "reactivations": 55,
             "upgrades": 37,
             "portfolio_size": 594,
             "purchasers_shape": 0.919,
             "upgrades_shape": 0.876,
         }
-        # More actives than book (stale tag snapshot) must not exceed 100%.
         over = build_agent_goals_block(
-            "coral_s", AUG_TARGET, {**base, "active_players": 700},
+            "coral_s", AUG_TARGET, {**base, "monthly_purchasers": 700},
             date(2026, 8, 16),
         )
         assert over is not None
         self.assertEqual(kpi_by_key(over, "pct_active")["actual"], 100.0)
 
         missing = build_agent_goals_block(
-            "coral_s", AUG_TARGET, base, date(2026, 8, 16)
+            "coral_s", AUG_TARGET, {**base, "monthly_purchasers": 0},
+            date(2026, 8, 16),
         )
         assert missing is not None
         self.assertEqual(kpi_by_key(missing, "pct_active")["actual"], 0.0)
@@ -372,7 +369,7 @@ class TeamGoalsTests(unittest.TestCase):
         arppu = kpi_by_key(block, "arppu")
         self.assertAlmostEqual(arppu["actual"], 3_535_949 / 1_883, places=2)
         pct = kpi_by_key(block, "pct_active")
-        self.assertAlmostEqual(pct["actual"], 2_085 / 2_461 * 100, places=2)
+        self.assertAlmostEqual(pct["actual"], 1_883 / 2_461 * 100, places=2)
         # Paced ARPPU clears the goal even though every AM's own MTD ARPPU is
         # far below it — averaging the four would have said the opposite.
         self.assertGreater(arppu["pace"], TEAM_TARGET.arppu)
@@ -455,6 +452,8 @@ class TeamGoalsTests(unittest.TestCase):
         stripped = strip_payload_for_am(payload, "Coral")
         self.assertNotIn("teamGoals", stripped)
         self.assertNotIn("managerGate", stripped)
+        self.assertNotIn("archive", stripped["report"])
+        self.assertEqual(stripped["audienceSlug"], "coral")
 
 
 APPRECIATION_TSV = """year\tmonth\tagent\tpoints\tnote
@@ -711,13 +710,20 @@ class ArchiveCalendarTests(unittest.TestCase):
         text = out.read_text(encoding="utf-8")
         self.assertIn("2026-07-27_elite_am_brief.html", text)
 
-    def test_existing_archive_on_payload_is_left_alone(self) -> None:
+    def test_existing_archive_on_payload_is_rebuilt_for_audience(self) -> None:
         payload = {
-            "report": {"date": "2026-08-17", "archive": [{"d": "2026-01-01", "f": "x.html"}]}
+            "report": {
+                "date": "2026-08-17",
+                "archive": [{"d": "2026-01-01", "f": "wrong_manager.html"}],
+            },
+            "singleAm": True,
+            "singleAmName": "Coral",
         }
-        out = self.dir / "elite_am_brief.html"
+        out = self.dir / "2026-08-17_elite_am_brief_coral.html"
         canvas_to_html.write_am_brief_html(payload, out)
-        self.assertIn("2026-01-01", out.read_text(encoding="utf-8"))
+        text = out.read_text(encoding="utf-8")
+        self.assertNotIn("wrong_manager.html", text)
+        self.assertIn("2026-08-16_elite_am_brief_coral.html", text)
 
     def test_per_am_json_refresh_does_not_overwrite_the_manager_file(self) -> None:
         payload_path = self.dir / "2026-08-17_elite_am_brief_lee.json"
@@ -728,6 +734,20 @@ class ArchiveCalendarTests(unittest.TestCase):
         with mock.patch.object(canvas_to_html, "OUT_DIR", self.dir):
             out = canvas_to_html.convert(payload_path)
         self.assertEqual(out.name, "2026-08-17_elite_am_brief_lee.html")
+
+
+class DisplayGapTests(unittest.TestCase):
+    def test_money_sign(self) -> None:
+        self.assertEqual(_display_gap("daily_avg_purchase", 2340), "$2,340")
+        self.assertEqual(_display_gap("daily_avg_purchase", -4633), "-$4,633")
+        self.assertEqual(_display_gap("daily_avg_purchase", 0), "$0")
+
+    def test_count_signed(self) -> None:
+        self.assertEqual(_display_gap("monthly_purchasers", 196), "+196")
+        self.assertEqual(_display_gap("monthly_purchasers", -12), "-12")
+
+    def test_pct_active_keeps_pp(self) -> None:
+        self.assertEqual(_display_gap("pct_active", -2.5), "-2.5pp")
 
 
 if __name__ == "__main__":

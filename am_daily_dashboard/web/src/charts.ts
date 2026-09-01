@@ -94,22 +94,14 @@ export function donutChartHtml(chart: Dict | null | undefined): string {
   const otherBar = geo.other
     ? geoBarRow(geo.other, topNamed.length, maxShare, true)
     : "";
-  const otherFoot = geo.other
-    ? `Other = ${geo.otherKnown.toLocaleString()} minor states`
-      + (geo.otherUnknown ? ` + ${geo.otherUnknown.toLocaleString()} no sign-in state` : "")
-      + ` (${geo.other.bettors.toLocaleString()} players, ${geo.other.share.toFixed(1)}%)`
-    : "";
-  const period = chart.period ? `<div class="geo-period t-tertiary t-small">${esc(String(chart.period))}</div>` : "";
   return `<div class="segment-panel geo-panel">
         <div class="segment-panel-head">
           <span class="segment-panel-title">${esc(chart.title || "Elite Player by State")}</span>
-          ${period}
         </div>
         <div class="geo-bar-chart">
           <div class="geo-bar-head t-small t-tertiary"><span>State</span><span>Share</span><span>Players</span></div>
           ${bars}
           ${otherBar}
-          <div class="geo-bar-foot t-tertiary t-small">${geo.total.toLocaleString()} active Elite · last 30 days${otherFoot ? ` · ${otherFoot}` : ""}</div>
         </div>
       </div>`;
 }

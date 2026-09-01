@@ -1,8 +1,8 @@
 /** Blocks reused by more than one view. */
 import type { Dict } from "./types";
 import { REPORT, day, dayShort, TEAM_GOALS } from "./payload";
-import { esc, icon, fmtCount, inlineBold, compactMoney } from "./format";
-import { wowHtml, wowPillHtml } from "./cells";
+import { esc, icon, fmtCount, inlineBold, money, formatGoalPct } from "./format";
+import { wowHtml, wowPillHtml, teamProgressTone } from "./cells";
 import { donutChartHtml } from "./charts";
 import { logoImg } from "./logos";
 import { tableHtml } from "./table";
@@ -81,24 +81,62 @@ export function segmentHero(): string {
       </div>`;
 }
 
-/** Elite portfolio snapshot — whole managed book from team goals actuals. */
+function snapshotCardsFromGoals(
+  goals: Dict,
+  yesterday: { purchase?: string },
+): Dict[] {
+  const kpi = (key: string) => (goals.kpis || []).find((k: Dict) => k.key === key);
+  // Snapshot bands use one neutral ink tone — color is reserved for triggers and table cells.
+  const neutral = "neutral" as const;
+  const portfolio = Number(goals.portfolioSize) || 0;
+  const purchasers = kpi("monthly_purchasers");
+  const purchaserCount = purchasers?.actual != null ? Number(purchasers.actual) : null;
+  const mtdActivePct = purchaserCount != null && portfolio > 0
+    ? Math.min(100, purchaserCount / portfolio * 100)
+    : null;
+  const activeDisplay = mtdActivePct != null
+    ? formatGoalPct(mtdActivePct)
+    : String(kpi("pct_active")?.actualDisplay || "—");
+  return [
+    { label: "Portfolio", value: portfolio.toLocaleString(), icon: "list",
+      tone: neutral },
+    { label: "Yesterday Purchase", value: yesterday.purchase || "—", icon: "dollar",
+      tone: neutral },
+    { label: "MTD Purchase", value: money(Number(goals.mtdPurchase || 0)), icon: "dollar",
+      tone: neutral },
+    { label: "MTD Net Purchase", value: money(Number(goals.mtdNetPurchase || 0)), icon: "banknote",
+      tone: neutral },
+    { label: "MTD Purchasers", value: String(purchasers?.actualDisplay || "—"),
+      icon: "users", tone: neutral },
+    { label: "Daily Avg Purchase", value: String(kpi("daily_avg_purchase")?.actualDisplay || "—"),
+      icon: "trend-up", tone: neutral },
+    { label: "Daily Avg Net", value: String(kpi("daily_avg_net_purchase")?.actualDisplay || "—"),
+      icon: "banknote", tone: neutral },
+    { label: "Active % of Portfolio", value: activeDisplay, icon: "pie", tone: neutral },
+  ];
+}
+
+/** Per-AM personal snapshot from the agent block and goals actuals. */
+export function personalSnapshotCards(agent: Dict): Dict[] {
+  const goals = agent.goals;
+  if (!goals?.available) {
+    return [{ label: "Portfolio", value: "—", tone: "neutral" }];
+  }
+  return snapshotCardsFromGoals(goals, {
+    purchase: agent.purchase,
+  });
+}
+
+/** Elite snapshot — same metrics as Personal Snapshot, aggregated for the book. */
 export function eliteSnapshotCards(): Dict[] {
   const g = TEAM_GOALS;
   if (!g?.available) {
-    return [
-      { label: "Elite Portfolio", value: "—", tone: "neutral" },
-    ];
+    return [{ label: "Portfolio", value: "—", tone: "neutral" }];
   }
-  return [
-    { label: "Elite Portfolio", value: (g.portfolioSize || 0).toLocaleString(), icon: "list",
-      tone: "neutral" },
-    { label: "MTD Purchase", value: compactMoney(g.mtdPurchase || 0), icon: "dollar",
-      tone: "success" },
-    { label: "MTD Net Purchase", value: compactMoney(g.mtdNetPurchase || 0), icon: "banknote",
-      tone: "brand" },
-    { label: "MTD Purchasers", value: String((g.kpis || []).find((k: Dict) => k.key === "monthly_purchasers")?.actualDisplay || "—"),
-      icon: "users", tone: "brand" },
-  ];
+  const elite = segmentByLabel(REPORT.segments || [], "Elite");
+  return snapshotCardsFromGoals(g, {
+    purchase: elite?.revThis || "—",
+  });
 }
 
 /** Daily trigger tiles — shared by Morning Brief and Manager Dashboard. */
@@ -194,7 +232,7 @@ export function emptyState(ico: string, title: string, body: string): string {
       </div></div>`;
 }
 
-/** Compact AM intro — salute + one-line body at the top of Morning Brief. */
+/** Compact AM intro — salute + body, sized to sit with the KPI bands. */
 export function amIntro(lines: string[]): string {
   if (!lines.length) return "";
   const salute = esc(lines[0]);
@@ -205,13 +243,74 @@ export function amIntro(lines: string[]): string {
       </div>`;
 }
 
+/** Final results for prior completed months — a month-over-month Goals trend.
+ *
+ * The snapshots arrive precomputed from goals_history.py (per AM inside their
+ * own goals block, per team inside the manager-only teamGoals). Nothing here
+ * recalculates. Each month is a collapsed dropdown (native <details>, so a
+ * second click closes it and no JS state is needed): the summary row saves
+ * space with Month · Result % · a few headline finals, and expanding reveals
+ * the full KPI breakdown for that closed month. Renders nothing until at least
+ * one month has closed. */
+export function goalsHistoryCard(history: Dict[] | undefined): string {
+  if (!history || !history.length) return "";
+  const kpiCell = (m: Dict, key: string): string => {
+    const k = (m.kpis || []).find((x: Dict) => x.key === key);
+    return (k && k.actualDisplay) || "—";
+  };
+  const items = history
+    .map((m) => {
+      const pct = Number(m.kpiPct);
+      const tone = Number.isFinite(pct) ? teamProgressTone(pct) : "neutral";
+      const kpis: Dict[] = m.kpis || [];
+      const quick = [
+        kpiCell(m, "daily_avg_purchase") + "/day",
+        kpiCell(m, "monthly_purchasers") + " purchasers",
+        kpiCell(m, "pct_active") + " active",
+      ].join(" · ");
+      const rows = kpis.map((k) => [
+        esc(k.label),
+        esc(k.weightLabel || ""),
+        esc(k.goalDisplay || "—"),
+        esc(k.actualDisplay || "—"),
+        `<span class="badge ${k.statusTone || ""}">${esc(k.status || "")}</span>`,
+      ]);
+      const table = tableHtml(
+        ["KPI", "Weight", "Goal", "Actual", "Status"],
+        rows,
+        ["left", "right", "right", "right", "left"],
+        kpis.map((k) => k.statusTone || "neutral"),
+        { markerCol: 0 }
+      );
+      return `<details class="hist-month">
+          <summary class="hist-summary">
+            <span class="hist-caret">${icon("chev-right", "ic-xs")}</span>
+            <span class="hist-label">${esc(m.monthLabel || m.monthKey || "")}</span>
+            <span class="badge ${tone}">${esc(formatGoalPct(pct))}</span>
+            <span class="spacer"></span>
+            <span class="hist-quick t-tertiary t-small">${esc(quick)}</span>
+          </summary>
+          <div class="hist-detail">${table}</div>
+        </details>`;
+    })
+    .join("");
+  return `<div class="card">
+        <div class="card-head">
+          <span class="card-icon neutral">${icon("calendar", "ic-sm")}</span>
+          <div><div class="card-title">Goals History</div>
+          <div class="card-sub">Final results, prior months. Click a month for the full breakdown.</div></div>
+        </div>
+        <div class="card-body stack-10">${items}</div>
+      </div>`;
+}
+
 /** Passcode wall for the manager-only views. */
 export function gateHtml(): string {
   return `<div class="gate gold-top">
         <div class="gate-mark">${logoImg("elite", 48, "Elite Club")}</div>
         <h2>Manager Dashboard</h2>
         <p>Cross-AM revenue, goals and risk roll-up. Enter the passcode to view.</p>
-        <input type="password" id="gateInput" placeholder="••••••" autocomplete="off" spellcheck="false">
+        <input type="password" id="gateInput" placeholder="Passcode" autocomplete="off" spellcheck="false" inputmode="text" enterkeyhint="go">
         <div class="err">${esc(app.gateError)}</div>
         <button type="button" class="btn primary" id="gateSubmit" style="width:100%;justify-content:center">
           ${icon("unlock", "ic-sm")} Unlock

@@ -4,7 +4,7 @@
  * transaction identifier.
  *
  * Default sort: Priority Score (weighted financial signals × topic multiplier).
- * Tier badges: Withdrawal/Security = danger, Account/KYC/Promo = warning,
+ * Tier badges: Redemption/Security = danger, Account/KYC/Promo = warning,
  * Service Issue = info, General = plain text.
  */
 import { esc } from "./../format";
@@ -30,15 +30,27 @@ function topicBadge(label: string, mult: number): string {
   return `<span class="badge neutral-soft">${esc(label)}</span>`;
 }
 
+const TOPIC_MULT: Record<string, number> = {
+  "Redemption / Security": 2.0,
+  "Account / KYC / Promo": 1.5,
+  "Service Issue": 1.2,
+  General: 1.0,
+};
+
+function topicMultForLabel(label: string, fallback: number): number {
+  return TOPIC_MULT[label] ?? fallback;
+}
+
 function topicCell(p: Record<string, unknown>): string {
-  const labels: string[] = Array.isArray(p.topicLabels) && p.topicLabels.length
+  let labels: string[] = Array.isArray(p.topicLabels) && p.topicLabels.length
     ? p.topicLabels.map(String)
     : [String(p.topicLabel ?? "General")];
+  const hasClassified = labels.some((l) => l !== "General");
+  if (hasClassified) labels = labels.filter((l) => l !== "General");
   const mult = Number(p.topicMult ?? 1.0);
-  const secondaryMult = Math.max(1.0, mult - 0.3);
   const unique = [...new Set(labels)].slice(0, 2);
-  return `<div class="topic-stack">${unique.map((label, i) =>
-    topicBadge(label, i === 0 ? mult : secondaryMult)).join("")}</div>`;
+  return `<div class="topic-stack">${unique.map((label) =>
+    topicBadge(label, topicMultForLabel(label, mult))).join("")}</div>`;
 }
 
 export function viewTickets(): string {
@@ -48,7 +60,7 @@ export function viewTickets(): string {
       { value: "score",     label: "Sort: Priority ↓" },
       { value: "ltp",       label: "Sort: LTP ↓" },
       { value: "tickets",   label: "Sort: Open Tickets ↓" },
-      { value: "purchase7d", label: "Sort: 7D Purchase ↓" },
+      { value: "purchase7d", label: "Sort: 7DP ↓" },
       { value: "created", label: "Sort: Oldest created" },
       { value: "updated", label: "Sort: Stale updated" },
     ],
@@ -60,7 +72,7 @@ export function viewTickets(): string {
       : s === "created"  ? sortByNumKey(rows, "ticketAgeDays", true)
       : s === "updated"  ? sortByNumKey(rows, "ticketUpdatedAgeDays", true)
       : sortByNumKey(rows, "priorityScore", true),
-    headers: ["AID", "Name", "Topic", "Created / Updated", "LTP", "Hold", "7D", "Open", "Ticket"],
+    headers: ["AID", "Name", "Topic", "Created / Updated", "LTP", "Hold", "7DP", "Open", "Ticket"],
     align: ["left", "left", "left", "left", "right", "right", "right", "center", "center"],
     markerCol: 3,
     empty: "No open tickets.",

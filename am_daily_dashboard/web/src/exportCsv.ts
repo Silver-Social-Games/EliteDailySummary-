@@ -68,8 +68,8 @@ export function exportCurrentViewCsv(): void {
   if (app.view === "top20") pack = top20Rows();
   else if (app.view === "top10") {
     pack = genericRows("top10",
-      ["#", "AID", "Name", "Purchased", "Orders", "Top Offer", "Price", "Frequent 30d", "Max Purchase 30D"],
-      ["rank", "aid", "name", "purchased", "orderCount", "offerCode", "offerPrice", "frequentLast30d", "maxPurchase30d"]);
+      ["#", "AID", "Name", "Purchased", "Top Offer", "Price", "Frequent 30d", "Max Purchase 30D", "LTP", "Hold"],
+      ["rank", "aid", "name", "purchased", "offerCode", "offerPrice", "frequentLast30d", "maxPurchase30d", "lifetimePurchase", "lifetimeHold"]);
   } else if (app.view === "tickets") {
     pack = genericRows("zendesk",
       ["AID", "Name", "Topic", "Priority", "Open tickets", "LTP", "7D Purchase"],

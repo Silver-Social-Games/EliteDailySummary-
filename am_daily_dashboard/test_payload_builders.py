@@ -303,6 +303,17 @@ class BuildTop10SectionTests(unittest.TestCase):
         out = build_top10_section([_top10_row()])
         self.assertEqual(out[0]["tone"], "success")
 
+    def test_enrich_map_adds_ltp_and_hold(self) -> None:
+        enrich = {101: {"lifetime_purchased": 25_000, "lifetime_net_purchase": 18_000}}
+        out = build_top10_section([_top10_row()], metrics_enrich=enrich)
+        self.assertIn("lifetimePurchase", out[0])
+        self.assertIn("lifetimeHold", out[0])
+        self.assertEqual(out[0]["lifetimePurchasedNum"], 25_000.0)
+
+    def test_no_enrich_map_skips_ltp(self) -> None:
+        out = build_top10_section([_top10_row()])
+        self.assertNotIn("lifetimePurchase", out[0])
+
 
 def _rd_row(
     aid: int = 201,
@@ -508,12 +519,28 @@ class BuildBirthdaySectionTests(unittest.TestCase):
         # Draft fields should be present (locked=False so draft is enabled)
         self.assertIn("ticketEnabled", out[0])
 
-    def test_locked_player_disables_ticket(self) -> None:
+    def test_locked_player_excluded_from_section(self) -> None:
         out = build_birthday_section(
             [_birthday_row(locked=True, lock_reason="Exclusion")],
             ticket_enrich={},
         )
-        self.assertFalse(out[0]["ticketEnabled"])
+        self.assertEqual(out, [])
+
+    def test_take_a_break_locked_excluded(self) -> None:
+        out = build_birthday_section(
+            [_birthday_row(locked=True, lock_reason_comment="take a break 7")],
+        )
+        self.assertEqual(out, [])
+
+    def test_take_a_break_text_excluded_when_unlocked(self) -> None:
+        out = build_birthday_section(
+            [_birthday_row(locked=False, lock_reason_comment="take a break 14")],
+        )
+        self.assertEqual(out, [])
+
+    def test_unlocked_player_still_shown(self) -> None:
+        out = build_birthday_section([_birthday_row(locked=False)])
+        self.assertEqual(len(out), 1)
 
     def test_empty_rows(self) -> None:
         self.assertEqual(build_birthday_section([]), [])
@@ -526,11 +553,13 @@ def _zd_row(
     open_tickets: int = 2,
     ticket_ids: str = "100001,100002",
     subjects: list[str] | None = None,
+    zendesk_fields: list[str] | None = None,
 ) -> dict:
     return {
         "AID": aid, "name": "ZD Player", "agent": agent,
         "open_tickets": open_tickets, "ticket_ids": ticket_ids,
         "subjects": subjects or [],
+        "zendesk_fields": zendesk_fields or [],
     }
 
 
@@ -581,7 +610,7 @@ class BuildZdSectionTests(unittest.TestCase):
     def test_topic_tier1_withdrawal(self) -> None:
         out = build_zd_section([_zd_row(subjects=["withdrawal issue"])])
         self.assertAlmostEqual(out[0]["topicMult"], 2.0)
-        self.assertEqual(out[0]["topicLabel"], "Withdrawal / Security")
+        self.assertEqual(out[0]["topicLabel"], "Redemption / Security")
 
     def test_topic_tier1_self_exclusion(self) -> None:
         out = build_zd_section([_zd_row(subjects=["i want to self-exclude"])])
@@ -619,20 +648,43 @@ class BuildZdSectionTests(unittest.TestCase):
         self.assertAlmostEqual(out[0]["topicMult"], 1.0)
 
     def test_topic_highest_tier_wins(self) -> None:
-        # Multiple subjects: one tier-3, one tier-1 → tier-1 wins
+        # Multiple subjects: one tier-3, one tier-1 → tier-1 wins; lower tiers hidden
         out = build_zd_section([_zd_row(subjects=["game crash", "withdrawal blocked"])])
         self.assertAlmostEqual(out[0]["topicMult"], 2.0)
-        self.assertEqual(out[0]["topicLabels"][:2], ["Withdrawal / Security", "Service Issue"])
+        self.assertEqual(out[0]["topicLabels"], ["Redemption / Security"])
 
     def test_topic_dedupes_duplicate_subjects(self) -> None:
         out = build_zd_section([_zd_row(subjects=["withdrawal blocked"] * 3)])
-        self.assertEqual(out[0]["topicLabels"], ["Withdrawal / Security"])
+        self.assertEqual(out[0]["topicLabels"], ["Redemption / Security"])
 
     def test_topic_caps_at_two_labels(self) -> None:
         out = build_zd_section([
             _zd_row(subjects=["withdrawal blocked", "deposit not working", "hello there"])
         ])
         self.assertLessEqual(len(out[0]["topicLabels"]), 2)
+
+    def test_topic_general_dropped_when_classified_exists(self) -> None:
+        """A vague second ticket must not add a grey General badge beside a real topic."""
+        out = build_zd_section([
+            _zd_row(subjects=["withdrawal blocked", "hello there"])
+        ])
+        self.assertEqual(out[0]["topicLabel"], "Redemption / Security")
+        self.assertEqual(out[0]["topicLabels"], ["Redemption / Security"])
+
+    def test_topic_general_only_when_all_vague(self) -> None:
+        out = build_zd_section([_zd_row(subjects=["hello there", "follow up"])])
+        self.assertEqual(out[0]["topicLabels"], ["General"])
+
+    def test_topic_zendesk_self_exclusion_field_wins_over_subject(self) -> None:
+        out = build_zd_section([
+            _zd_row(
+                subjects=["Restriction still on account"],
+                zendesk_fields=["rg__self_exclusion", "elite"],
+            )
+        ])
+        self.assertEqual(out[0]["topicLabel"], "Redemption / Security")
+        self.assertEqual(out[0]["topicLabels"], ["Redemption / Security"])
+        self.assertAlmostEqual(out[0]["topicMult"], 2.0)
 
     # --- priority score ---
 
@@ -716,6 +768,14 @@ class BuildLockSectionTests(unittest.TestCase):
         self.assertEqual(len(out), 1)
         self.assertEqual(out[0]["bucket"], "Self-exclusion")
 
+    def test_non_tab_lock_two_days_ago_included(self) -> None:
+        out = build_lock_section(
+            [_lock_row(lock_reason="Fraud", lock_reason_comment="", days_ago=2)],
+            REPORT_DATE,
+        )
+        self.assertEqual(len(out), 1)
+        self.assertEqual(out[0]["created"], out[0]["lockedAt"])
+
     def test_old_lock_not_take_a_break_excluded(self) -> None:
         # Fraud lock 10 days old — neither the "today" path nor the
         # "due for review" path fires for a non-TAB lock this old.
@@ -726,14 +786,29 @@ class BuildLockSectionTests(unittest.TestCase):
         self.assertEqual(len(out), 0)
 
     def test_overdue_take_a_break_gets_danger_tone(self) -> None:
-        # Locked 30 days ago on a 7-day break → overdue by 23 days.
-        # Must use "take a break 7" (not "7 days") so _take_a_break_days parses it.
+        # Locked 10 days ago on a 7-day break → overdue by 3 days (still within expire window).
         out = build_lock_section(
-            [_lock_row(lock_reason_comment="take a break 7", days_ago=30)],
+            [_lock_row(lock_reason_comment="take a break 7", days_ago=10)],
             REPORT_DATE,
         )
         self.assertEqual(len(out), 1)
         self.assertEqual(out[0]["tone"], "danger")
+
+    def test_tab_expires_seven_days_past_unlock(self) -> None:
+        # 7-day break locked 20 days ago → unlock was 13 days before report_date.
+        out = build_lock_section(
+            [_lock_row(lock_reason_comment="take a break 7", days_ago=20)],
+            REPORT_DATE,
+        )
+        self.assertEqual(len(out), 0)
+
+    def test_tab_still_shown_six_days_past_unlock(self) -> None:
+        # Unlock ended 6 days ago — still inside LOCKS_TAB_EXPIRE_DAYS grace.
+        out = build_lock_section(
+            [_lock_row(lock_reason_comment="take a break 7", days_ago=13)],
+            REPORT_DATE,
+        )
+        self.assertEqual(len(out), 1)
 
     def test_missing_locked_at_skipped(self) -> None:
         row = {"AID": 999, "name": "X", "agent": "coral_s", "lock_reason": "Fraud",
@@ -962,6 +1037,14 @@ class BuildAmSharesAndOverviewTests(unittest.TestCase):
 # ---------------------------------------------------------------------------
 # queries._iso safety guard
 # ---------------------------------------------------------------------------
+
+
+class LockedRdSqlTests(unittest.TestCase):
+    def test_pending_rd_requires_creation_within_lookback(self) -> None:
+        import queries as am_queries
+
+        sql = am_queries.locked_rd_over_5k_sql(date(2026, 8, 24))
+        self.assertIn("DATE(w.created_at) >= DATE_SUB", sql)
 
 
 class QueriesIsoTests(unittest.TestCase):

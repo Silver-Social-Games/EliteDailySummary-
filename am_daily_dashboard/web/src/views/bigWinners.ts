@@ -1,9 +1,8 @@
 /** Big Winners ≥ $20K — players whose report-day GGR was ≤ −$20,000.
  *
  * GGR is house-side (profit − loss), so a player win is a *negative* GGR day.
- * win_ggr = −GGR = sc_won − sc_turnover; all three columns are shown so the
- * AM can read the gap directly. Read the sign backwards and this section lands
- * on the biggest losers instead.
+ * win_ggr = −GGR on the peak qualifying day. SC Turnover / SC Won are for that
+ * same day (bets / payout in Elite.MD terms).
  *
  * Non-Elite players (isElite=false) appear in every AM's tab — this is the
  * only section that reaches outside the Elite book. Those rows carry a warning
@@ -28,10 +27,10 @@ export function viewBigWinners(): string {
     sortOptions: [{ value: "win", label: "Sort: Win ↓" }],
     defaultSort: "win",
     sortFn: (rows) => sortByNumKey(rows, "winGgrNum", true),
-    headers: ["AID", "Name", "Elite / AM", "Win (GGR)", "SC Turnover", "SC Won", "Game", "Pending RD"],
-    align: ["left", "left", "left", "right", "right", "right", "left", "right"],
+    headers: ["AID", "Name", "Elite / AM", "Win (GGR)", "SC Turnover", "SC Won", "Game", "Created", "Pending RD"],
+    align: ["left", "left", "left", "right", "right", "right", "left", "left", "right"],
     markerCol: 3,
-    empty: "No big winners yesterday.",
+    empty: "No big winners in the Last 3 Days.",
     renderRow: (p) => [
       aidHtml(p),
       esc(p.name),
@@ -42,6 +41,7 @@ export function viewBigWinners(): string {
       `<span class="t-small">${esc(p.scTurnover)}</span>`,
       `<span class="t-small">${esc(p.scWon)}</span>`,
       `<span class="t-small t-tertiary">${esc(p.game || "—")}</span>`,
+      `<span class="t-small">${esc(p.created || "—")}</span>`,
       p.pendingRdNum
         ? `<span class="t-warning w-semibold">${esc(p.pendingRd)}</span>`
         : `<span class="t-quaternary">—</span>`,

@@ -34,6 +34,7 @@ from goals import (  # noqa: E402
     build_team_goals_block,
     strip_payload_for_am,
 )
+from goals_history import _snapshot_goals_block  # noqa: E402
 from payload_builders import (  # noqa: E402
     agent_display,
     build_am_shares_and_overview,
@@ -102,6 +103,18 @@ TEAM_ACTUALS = {
 }
 
 UPGRADES_NOTE = "Fixture note — see AM_DAILY_DASHBOARD.md for the real caveat."
+
+
+def _july_history(block: dict | None) -> list[dict]:
+    """One prior closed month for the Goals History card, built with the real
+    goals_history snapshot function so it carries the full KPI set (not a
+    hand-written subset) and drifts loudly if the snapshot shape changes."""
+    if not block:
+        return []
+    snap = _snapshot_goals_block(block)
+    snap["monthKey"] = "2026-07"
+    snap["monthLabel"] = "Jul 2026"
+    return [snap]
 
 
 def _top10_row(agent_tag: str, aid: int, name: str, *, purchased: float = 500.0, **extra: Any) -> dict:
@@ -298,6 +311,8 @@ def build_manager_payload(*, ticket_count_for_coral: int = 1) -> dict:
         ),
         "Alon": None,
     }
+    if goals_blocks["Coral"]:
+        goals_blocks["Coral"]["history"] = _july_history(goals_blocks["Coral"])
 
     agents = [
         focus_for_agent(
@@ -316,11 +331,13 @@ def build_manager_payload(*, ticket_count_for_coral: int = 1) -> dict:
         TEAM_TARGET, TEAM_ACTUALS, REPORT_DATE,
         upgrades_available=True, upgrades_note=UPGRADES_NOTE,
     )
+    if team_goals:
+        team_goals["history"] = _july_history(team_goals)
 
     return {
         "report": {
             "date": REPORT_DATE.isoformat(), "weekday": WEEKDAY, "dayShort": DAY_SHORT,
-            "subtitle": f"{WEEKDAY} {REPORT_DATE.strftime('%d %b %Y')}", "title": "Elite AM Brief",
+            "subtitle": f"{WEEKDAY} {REPORT_DATE.strftime('%d %b %Y')}", "title": "Elite Dashboard",
             "headline": "Fixture headline — Elite steady vs last week.",
             "segmentTitle": "WoW Purchase",
             "geoChart": json.loads(

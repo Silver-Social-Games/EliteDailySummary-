@@ -4,7 +4,7 @@
  * a TID, a WoW arrow or the score meter looks belongs here and in that file.
  */
 import type { Dict } from "./types";
-import { esc, icon, toNum } from "./format";
+import { esc, icon, toNum, formatGoalPct } from "./format";
 
 /** USD / count coloring — high = green, critical low = red, else plain. */
 export type NumTone = "high" | "low" | "neutral";
@@ -120,9 +120,72 @@ export function scoreMeterHtml(score: Dict, tone: string): string {
 }
 
 export function scoreLegendHtml(score: Dict, tone: string): string {
+  const kpiMax = Number(score.kpiPointsMax) || 80;
+  const pts = Number(score.kpiPoints) || 0;
+  const pct = kpiMax > 0 ? Math.max(0, Math.min(100, (pts / kpiMax) * 100)) : 0;
+  const label = formatGoalPct(pct);
   return `<div class="score-legend">
-        <span><i class="lg-${tone}"></i>${esc(score.kpiPointsDisplay || "")} · Personal goals progress</span>
+        <span><i class="lg-${tone}"></i>${esc(label)} · Personal goals progress</span>
       </div>`;
+}
+
+/** KPI points earned out of 80 (personal AM, team goals, leaderboard). */
+export function goalsKpiPoints(goals: Dict): { points: number; max: number } {
+  const score = goals.score || {};
+  if (score.kpiPoints != null) {
+    return {
+      points: Number(score.kpiPoints) || 0,
+      max: Number(score.kpiPointsMax) || 80,
+    };
+  }
+  if (goals.kpiPoints != null) {
+    return {
+      points: Number(goals.kpiPoints) || 0,
+      max: Number(goals.kpiPointsMax) || 80,
+    };
+  }
+  const weightUsed = Number(goals.weightUsed);
+  const pct = Number(goals.weightedTrackedPct);
+  const max = Number(goals.includedWeightTotal) || 80;
+  if (Number.isFinite(pct) && weightUsed > 0) {
+    return { points: (pct / 100) * weightUsed, max };
+  }
+  return { points: 0, max: 80 };
+}
+
+export function goalsScoreDisplay(goals: Dict): string {
+  // Locked: GOALS_DISPLAY.md — (KPI points ÷ 80) × 100, % only.
+  const { points, max } = goalsKpiPoints(goals);
+  const pct = max > 0 ? Math.max(0, Math.min(100, (points / max) * 100)) : 0;
+  return formatGoalPct(pct);
+}
+
+export function goalsScoreTone(goals: Dict): string {
+  const { points } = goalsKpiPoints(goals);
+  const outOf = Number(goals.includedWeightTotal) || 80;
+  return teamProgressTone(outOf > 0 ? (points / outOf) * 100 : 0);
+}
+
+/** Team Goals headline — % of the 80-point KPI scale. */
+export function teamScoreDisplay(teamGoals: Dict): string {
+  return goalsScoreDisplay(teamGoals);
+}
+
+/** Personal Goals headline — % of the 80-point KPI scale. */
+export function amScoreDisplay(goals: Dict): string {
+  return goalsScoreDisplay(goals);
+}
+
+export function teamProgressMeterHtml(teamGoals: Dict, tone: string): string {
+  const { points, max } = goalsKpiPoints(teamGoals);
+  const pct = max > 0 ? Math.max(0, Math.min(100, (points / max) * 100)) : 0;
+  return `<div class="score-meter single">
+        <span class="trk kpi"><span class="fill ${tone}" style="width:${pct.toFixed(2)}%"></span></span>
+      </div>`;
+}
+
+export function teamProgressTone(pct: number): string {
+  return pct >= 90 ? "success" : pct >= 70 ? "warning" : "danger";
 }
 
 export function bigWinHtml(p: Dict): string {

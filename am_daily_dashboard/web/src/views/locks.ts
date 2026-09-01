@@ -15,11 +15,12 @@ export function viewLocks(): string {
   return tableCard({
     rows: rowsFor("locks"), stateKey: `lk_${app.agent}`, showSearch: false,
     sortFn: (rows) => sortBySoonestUnlock(rows),
-    headers: ["AID", "Name", "Lock Reason", "Days Remaining / Unlock"],
-    align: ["left", "left", "left", "left"], markerCol: 2,
-    empty: "No new locks and no breaks due to end.",
+    headers: ["AID", "Name", "Lock Reason", "Created", "Days Remaining / Unlock"],
+    align: ["left", "left", "left", "left", "left"], markerCol: 2,
+    empty: "No new locks or breaks due in the Last 3 Days.",
     renderRow: (p) => [aidHtml(p), esc(p.name),
       `<span class="t-${p.tone || "warning"}">${esc(p.lockReason)}</span>`,
+      `<span class="t-small">${esc(p.created || p.lockedAt || "—")}</span>`,
       unlockHtml(p.unlockDetail, p.unlockRemainingDays)],
   });
 }

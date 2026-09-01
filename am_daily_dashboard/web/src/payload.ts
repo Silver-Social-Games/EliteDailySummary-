@@ -16,6 +16,9 @@ export const AGENTS: Dict[] = DATA.agents || [];
 export const AM_SHARES: Dict[] = DATA.amShares || [];
 export const AM_ORDER: string[] = DATA.amOrder || [];
 export const SINGLE_AM: boolean = !!DATA.singleAm;
+export const AUDIENCE_SLUG: string = String(
+  DATA.audienceSlug || (SINGLE_AM ? (DATA.singleAmName || "").trim().toLowerCase() : "")
+);
 /* Manager-only: the four books measured as one against the manager's own
    targets. Absent from every per-AM payload by construction. */
 export const TEAM_GOALS: Dict | null = DATA.teamGoals || null;

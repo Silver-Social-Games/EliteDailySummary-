@@ -157,20 +157,24 @@ function AgentPanel({{
         stateKey={{`t10_${{block.agentName}}`}}
         sectionId={{`${{prefix}}-top10`}}
         extraSearchKeys={{["offerCode", "offerTitle"]}}
-        headers={{["#", "AID", "Name", "Purchased $", "Purchases (#)", "Top Offer", "Price", "Usual \u2192 Ceiling (30D)"]}}
-        columnAlign={{["center", "left", "left", "right", "right", "left", "right", "left"]}}
+        headers={{["#", "AID", "Name", "Purchased $", "Top Offer", "Price", "Usual \u2192 Ceiling (30D)", "LTP", "Hold"]}}
+        columnAlign={{["center", "left", "left", "right", "left", "right", "left", "right", "right"]}}
         tableStyle={{{{ width: "max-content", maxWidth: "100%" }}}}
         renderRow={{(p) => [
           p.rank,
           <AidLink row={{p}} />,
           p.name,
           <Text tone="success">{{p.purchased as string}}</Text>,
-          p.orderCount,
-          p.offerCode,
+          <>
+            {{p.offerCode}}
+            {{(p.offerQty || 0) > 1 ? ` x${{p.offerQty}}` : ""}}
+          </>,
           <Text tone={{p.offerPriceVaries ? "warning" : "neutral"}}>
             {{(p.offerPrice as string) + (p.offerPriceVaries ? " avg" : "")}}
           </Text>,
           p.packageFit as string,
+          (p.lifetimePurchase as string) || "$0",
+          <HoldCell value={{(p.lifetimeHold as string) || "n/a"}} />,
         ]}}
       />
 

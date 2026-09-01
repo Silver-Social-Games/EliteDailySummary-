@@ -214,6 +214,59 @@ describe("score meter", () => {
   });
 });
 
+describe("goals history", () => {
+  test("Coral's Goals view shows a collapsible month with the full KPI breakdown", () => {
+    const { dom } = loadBoard("manager");
+    clickNav(dom, "goals"); // default agent is AM_ORDER[0] = Coral
+    const el = content(dom);
+    assert.ok(el.innerHTML.includes("Goals History"),
+      "expected the Goals History card once a prior month has closed");
+    const drop = el.querySelector("details.hist-month");
+    assert.ok(drop, "expected a collapsible <details> month row");
+    assert.ok(!drop.open, "the month should start collapsed to save space");
+    assert.ok(drop.querySelector("summary").textContent.includes("Jul 2026"),
+      "the summary should name the closed month");
+    // Full breakdown lives inside the drawer — assert on a KPI that only the
+    // full month table carries, not just the 3-stat summary.
+    const detail = drop.querySelector(".hist-detail");
+    assert.ok(detail && /ARPPU/.test(detail.innerHTML),
+      "the expandable drawer should hold the full KPI table (ARPPU, etc.)");
+    // A second click collapses it again (native <details> toggle).
+    const summary = drop.querySelector("summary");
+    drop.open = true;
+    assert.ok(drop.open, "clicking a collapsed month opens the drawer");
+    summary.click?.();
+  });
+
+  test("Team Goals view shows its own collapsible Goals History", () => {
+    const { meta } = readFixture("manager");
+    const { dom } = loadBoard("manager", { seedGate: meta.managerGate });
+    clickNav(dom, "team");
+    const el = content(dom);
+    assert.ok(el.innerHTML.includes("Goals History"), "team view should carry Goals History");
+    const drop = el.querySelector("details.hist-month");
+    assert.ok(drop, "expected a collapsible month row on the team view");
+    assert.ok(drop.querySelector("summary").textContent.includes("Jul 2026"),
+      "team history month label expected");
+    assert.ok(/ARPPU/.test(drop.querySelector(".hist-detail").innerHTML),
+      "team drawer should hold the full KPI table");
+  });
+
+  test("an AM with no closed history shows no history card", () => {
+    const { dom } = loadBoard("manager");
+    const chip = [...dom.window.document.querySelectorAll("[data-agent]")].find(
+      (b) => b.getAttribute("data-agent") === "Gabriel"
+    );
+    assert.ok(chip, "expected an AM switch chip for Gabriel");
+    chip.onclick();
+    clickNav(dom, "goals");
+    assert.ok(
+      !content(dom).innerHTML.includes("Goals History"),
+      "Gabriel has no closed history in the fixture, so no card should render"
+    );
+  });
+});
+
 describe("archive calendar", () => {
   test("only archive days in the open month are clickable, matching the fixture's own archive list", () => {
     const { dom, meta } = loadBoard("manager");

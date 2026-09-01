@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import shutil
 import sys
 from datetime import date, timedelta
 from pathlib import Path
@@ -23,10 +24,12 @@ sys.path.insert(0, str(PROJECT_ROOT))
 sys.path.insert(0, str(PACKAGE_DIR))
 
 from elite_lib.bigquery import HEAVY_QUERY_SCAN_CAP_BYTES, get_client, run_query  # noqa: E402
-from elite_lib.export_paths import mirror_to_cursor  # noqa: E402
+from elite_lib.export_paths import cursor_export_dir, mirror_to_cursor  # noqa: E402
+from elite_lib.console import use_utf8_stdout  # noqa: E402
 
 from config import (  # noqa: E402
     PENDING_RD_LOOKBACK_DAYS,
+    PRODUCT_TITLE,
     manager_gate_token,
 )
 import queries as am_queries  # noqa: E402
@@ -50,8 +53,17 @@ from goals_reference import (  # noqa: E402
     load_reference_tsv,
     reference_for,
 )
+from goals_history import (  # noqa: E402
+    attach_history_to_payload,
+    close_month_from_payload,
+)
 from am_brief_canvas import render_am_brief_canvas  # noqa: E402
-from canvas_to_html import publish_am_brief, write_am_brief_html  # noqa: E402
+from canvas_to_html import (  # noqa: E402
+    publish_am_brief,
+    refresh_all_brief_archives,
+    mirror_brief_exports_to_cursor,
+    write_am_brief_html,
+)
 from daily_summary.generate_daily_elite_canvas import build_report, build_top10_rows  # noqa: E402
 from daily_summary.generate_daily_elite_summary import (  # noqa: E402
     build_sql,
@@ -85,6 +97,44 @@ DEFAULT_CANVAS_DIR = Path(
 AM_ORDER = ["Coral", "Gabriel", "Lee", "Rachel", "Alon"]
 # Goals exports (file-level isolation) — Alon omitted.
 GOALS_AM_ORDER = ["Coral", "Gabriel", "Lee", "Rachel"]
+CURSOR_AUDIENCE_CHOICES = ("manager", "coral", "gabriel", "lee", "rachel")
+CURSOR_AUDIENCE_NAMES = {
+    "coral": "Coral",
+    "gabriel": "Gabriel",
+    "lee": "Lee",
+    "rachel": "Rachel",
+}
+
+
+def normalize_cursor_audience(raw: str | None) -> str | None:
+    if not raw:
+        return None
+    key = raw.strip().lower()
+    if key not in CURSOR_AUDIENCE_CHOICES:
+        known = ", ".join(CURSOR_AUDIENCE_CHOICES)
+        raise SystemExit(f"Unknown --cursor-audience {raw!r}. Choose: {known}")
+    return key
+
+
+def mirror_cursor_audience(
+    audience: str,
+    *,
+    payload: dict,
+    manager_html: Path,
+) -> Path | None:
+    """Write one self-contained brief to Elite_Cursor as elite_am_brief.html."""
+    dest_dir = cursor_export_dir("am_brief")
+    if dest_dir is None:
+        return None
+    dest = dest_dir / "elite_am_brief.html"
+    if audience == "manager":
+        if manager_html.resolve() != dest.resolve():
+            shutil.copy2(manager_html, dest)
+    else:
+        am_payload = strip_payload_for_am(payload, CURSOR_AUDIENCE_NAMES[audience])
+        write_am_brief_html(am_payload, dest)
+    print(f"  Elite_Cursor audience ({audience}): {dest}")
+    return dest
 
 UPGRADES_NOTE = (
     "Upgrade to Elite = first Elite `dbt_utils.elite_account_tags` snapshot "
@@ -196,8 +246,8 @@ def build_payload(report_date: date, client) -> dict:
     print(f"  Top 10 rows: {len(top10_raw)}")
     rd5k_raw = run_query(client, am_queries.locked_rd_over_5k_sql(report_date))
     print(f"  Pending Redemptions (>=$5k, 3d): {len(rd5k_raw)}")
-    rd_first_raw = run_query(client, am_queries.first_time_locked_rd_sql())
-    print(f"  First-time locked RD: {len(rd_first_raw)}")
+    rd_first_raw = run_query(client, am_queries.first_time_locked_rd_sql(report_date))
+    print(f"  First-time locked RD (3d): {len(rd_first_raw)}")
     bday_raw = run_query(client, am_queries.birthdays_last_3d_sql(report_date))
     print(f"  Birthdays (3d): {len(bday_raw)}")
     zd_raw = run_query(client, am_queries.open_zendesk_sql())
@@ -218,14 +268,17 @@ def build_payload(report_date: date, client) -> dict:
             continue
     # rd5k_raw is in here for its missing-document status and account context,
     # not for a ticket draft — Pending RD stays view-only.
-    for r in (*rd5k_raw, *rd_first_raw, *bday_raw, *bw_raw, *bl_raw):
+    for r in (*top10_raw, *rd5k_raw, *rd_first_raw, *bday_raw, *bw_raw, *bl_raw):
         try:
             ticket_aids.add(int(r["AID"]))
         except (TypeError, ValueError, KeyError):
             continue
     shared_enrich: dict[int, dict] = {}
     if ticket_aids:
-        print(f"  Enriching metrics for {len(ticket_aids)} AIDs (Open Tickets, RD, Birthdays, Big Winners)...")
+        print(
+            f"  Enriching metrics for {len(ticket_aids)} AIDs "
+            f"(Top 10, Open Tickets, RD, Birthdays, Big Winners)..."
+        )
         shared_enrich = {
             int(e["AID"]): e
             for e in run_query(client, enrich_aids_sql(sorted(ticket_aids), report_date))
@@ -272,7 +325,7 @@ def build_payload(report_date: date, client) -> dict:
     for name, rows in decline_by_am.items():
         print(f"    {name}: {len(rows)} Top 20 rows")
 
-    top10 = build_top10_section(top10_raw)
+    top10 = build_top10_section(top10_raw, metrics_enrich=shared_enrich)
     rd5k = build_rd_section(
         rd5k_raw,
         report_date,
@@ -323,13 +376,13 @@ def build_payload(report_date: date, client) -> dict:
 
     am_shares, overview = build_am_shares_and_overview(agents)
 
-    return {
+    payload = {
         "report": {
             "date": report_date.isoformat(),
             "weekday": weekday,
             "dayShort": day_short,
             "subtitle": subtitle,
-            "title": "Elite AM Brief",
+            "title": PRODUCT_TITLE,
             "headline": decline_report.get("headline") or "",
             "segmentTitle": "WoW Purchase",
             "geoChart": load_geo_chart(),
@@ -356,10 +409,18 @@ def build_payload(report_date: date, client) -> dict:
         "teamGoals": team_goals,
         "managerGate": manager_gate_token(),
     }
+    # Prior completed months' final Goals, per AM (inside each goals block) and
+    # for the team (inside manager-only teamGoals). Isolation is automatic.
+    attach_history_to_payload(payload)
+    return payload
 
 
 def write_outputs(
-    payload: dict, canvas_dir: Path, *, publish: bool = False
+    payload: dict,
+    canvas_dir: Path,
+    *,
+    publish: bool = False,
+    cursor_audience: str | None = None,
 ) -> tuple[Path, Path]:
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     canvas_dir.mkdir(parents=True, exist_ok=True)
@@ -401,13 +462,27 @@ def write_outputs(
         per_am_paths.extend([am_html, am_json])
         print(f"  Per-AM: {am_html.name}  (+ {am_latest.name})")
 
+    # Month-end: freeze this month's final Goals into the history file so next
+    # month's board can show it. No-op on any other day; idempotent on re-run.
+    closed = close_month_from_payload(payload)
+    if closed:
+        print(f"  Month-end: closed Goals history for {closed}")
+
     if publish:
         publish_am_brief(html_path)
-    mirror_to_cursor("am_brief", html_path, json_path, *per_am_paths, *latest_paths)
+    refresh_all_brief_archives(mirror=False)
+    mirror_brief_exports_to_cursor()
+    if cursor_audience:
+        mirror_cursor_audience(cursor_audience, payload=payload, manager_html=html_path)
     return canvas_path, html_path
 
 
-def rebuild_html_from_json(report_date: date, *, publish: bool = False) -> Path:
+def rebuild_html_from_json(
+    report_date: date,
+    *,
+    publish: bool = False,
+    cursor_audience: str | None = None,
+) -> Path:
     """Rewrite every HTML file for a date from the saved payload, no query.
 
     Editing the web shell used to mean a full ~90s run against BigQuery just to
@@ -424,10 +499,14 @@ def rebuild_html_from_json(report_date: date, *, publish: bool = False) -> Path:
         )
     payload = json.loads(json_path.read_text(encoding="utf-8"))
     report = payload.setdefault("report", {})
+    report["title"] = PRODUCT_TITLE
     report["segmentTitle"] = "WoW Purchase"
     geo = load_geo_chart()
     if geo:
         report["geoChart"] = geo
+    # Refresh prior-month Goals history from the current history file so an
+    # html-only rebuild picks up any month closed since this JSON was written.
+    attach_history_to_payload(payload)
     written: list[Path] = []
     manager_dated = OUTPUT_DIR / f"{d}_elite_am_brief.html"
     for path in (manager_dated, OUTPUT_DIR / "elite_am_brief.html"):
@@ -443,9 +522,16 @@ def rebuild_html_from_json(report_date: date, *, publish: bool = False) -> Path:
             write_am_brief_html(am_payload, path)
             written.append(path)
     print(f"Rebuilt {len(written)} HTML files from {json_path.name} (no query)")
+    refresh_all_brief_archives(mirror=False)
+    mirror_brief_exports_to_cursor()
+    if cursor_audience:
+        mirror_cursor_audience(
+            cursor_audience,
+            payload=payload,
+            manager_html=manager_dated,
+        )
     if publish:
         publish_am_brief(manager_dated)
-    mirror_to_cursor("am_brief", *written)
     return manager_dated
 
 
@@ -526,6 +612,7 @@ def print_goals_audit(payload: dict) -> None:
 
 
 def main() -> None:
+    use_utf8_stdout()
     parser = argparse.ArgumentParser(description="Elite AM Brief morning board")
     parser.add_argument("--date", help="Report date YYYY-MM-DD (default: yesterday)")
     parser.add_argument(
@@ -551,10 +638,21 @@ def main() -> None:
         help="Rebuild every HTML file for the date from the saved JSON, with no "
         "BigQuery query (~3s vs ~90s). Use after editing the web shell.",
     )
+    parser.add_argument(
+        "--cursor-audience",
+        choices=CURSOR_AUDIENCE_CHOICES,
+        help="Also mirror one elite_am_brief.html to Elite_Cursor for this audience "
+        "(manager = full book; coral/gabriel/lee/rachel = stripped payload)",
+    )
     args = parser.parse_args()
     report_date = resolve_report_date(args.date)
+    cursor_audience = normalize_cursor_audience(args.cursor_audience)
     if args.html_only:
-        rebuild_html_from_json(report_date, publish=args.publish)
+        rebuild_html_from_json(
+            report_date,
+            publish=args.publish,
+            cursor_audience=cursor_audience,
+        )
         return
     client = get_client()
     if args.goals_only:
@@ -572,7 +670,10 @@ def main() -> None:
         return
     payload = build_payload(report_date, client)
     canvas_path, html_path = write_outputs(
-        payload, args.canvas_dir, publish=args.publish
+        payload,
+        args.canvas_dir,
+        publish=args.publish,
+        cursor_audience=cursor_audience,
     )
     print_goals_audit(payload)
     print(f"Wrote {canvas_path}")

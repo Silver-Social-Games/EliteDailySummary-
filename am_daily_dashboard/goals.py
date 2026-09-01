@@ -15,6 +15,8 @@ from datetime import date
 from pathlib import Path
 from typing import Any
 
+from config import PRODUCT_TITLE
+
 DATA_DIR = Path(__file__).resolve().parent / "data"
 DEFAULT_GOALS_TSV = DATA_DIR / "elite_goals.tsv"
 DEFAULT_APPRECIATION_TSV = DATA_DIR / "elite_manager_appreciation.tsv"
@@ -62,15 +64,14 @@ KPI_LABELS: dict[str, str] = {
 #   Coral to 914 purchasers out of a 621-player portfolio, so they use an
 #   empirical month-shape divisor instead. ARPPU and % Active are derived from
 #   the paced components rather than paced on their own.
-#   % Active is point-in-time (share of the book whose last purchase is inside
-#   the inactivity window), so like a daily average it is already a month-end
-#   rate and is not projected.
+#   % Active is MTD purchasers / whole tagged book (same numerator as Monthly
+#   Purchasers KPI); pace uses the shaped month-end purchaser projection.
 PACE_IS_ACTUAL = frozenset(
-    {"daily_avg_purchase", "daily_avg_net_purchase", "pct_active"}
+    {"daily_avg_purchase", "daily_avg_net_purchase"}
 )
 PACE_RUN_RATE = frozenset({"reactivations"})
 PACE_BY_SHAPE = {"monthly_purchasers": "purchasers", "upgrades": "upgrades"}
-PACE_DERIVED = frozenset({"arppu"})
+PACE_DERIVED = frozenset({"arppu", "pct_active"})
 
 # Sanity band for a shape divisor before we trust it.
 SHAPE_MIN = 0.05
@@ -417,12 +418,9 @@ def build_agent_goals_block(
     daily_avg_purchase = mtd_purchase / elapsed if elapsed else 0.0
     daily_avg_net = mtd_net / elapsed if elapsed else 0.0
     arppu_actual = (mtd_purchase / purchasers) if purchasers > 0 else 0.0
-    # Active players are counted point-in-time (last purchase inside the
-    # inactivity window), not "bought at some point this month" — that is what
-    # the AMs' Tableau report measures.
-    active_players = float(actuals.get("active_players") or 0)
+    # MTD active rate: distinct purchasers this month / whole tagged book.
     pct_active_actual = (
-        min(100.0, active_players / portfolio * 100.0) if portfolio > 0 else 0.0
+        min(100.0, purchasers / portfolio * 100.0) if portfolio > 0 else 0.0
     )
 
     raw_values = {
@@ -459,7 +457,11 @@ def build_agent_goals_block(
                 if paced_purchasers and paced_purchasers > 0
                 else None
             ),
-            "pct_active": pct_active_actual,
+            "pct_active": (
+                min(100.0, paced_purchasers / portfolio * 100.0)
+                if portfolio > 0 and paced_purchasers is not None
+                else None
+            ),
         }
     shape_note = {
         "monthly_purchasers": purchasers_shape,
@@ -594,6 +596,7 @@ def build_agent_goals_block(
         "portfolioSize": int(portfolio),
         "portfolioSizeAll": int(portfolio_all),
         "portfolioLocked": int(portfolio_locked),
+        "activePlayers": int(purchasers),
         "mtdPurchase": mtd_purchase,
         "mtdNetPurchase": mtd_net,
         "mtdNetPurchasePaidRedeem": mtd_net_paid_redeem,
@@ -607,6 +610,11 @@ def build_agent_goals_block(
             if tracked_pct is not None
             else "—"
         ),
+        # Always expose the 80-point KPI headline, even when include_score=False
+        # (manager Team Goals has no appreciation block).
+        "kpiPoints": round(weighted_points, 1),
+        "kpiPointsMax": float(INCLUDED_WEIGHT_TOTAL),
+        "kpiPointsDisplay": f"{weighted_points:.1f} / {INCLUDED_WEIGHT_TOTAL:g}",
         "includedWeightTotal": INCLUDED_WEIGHT_TOTAL,
         "weightUsed": weight_used,
         "achievementCapNote": (
@@ -631,18 +639,17 @@ def build_agent_goals_block(
             "Daily avgs = MTD / elapsed days. "
             "Net Purchase = by requested redeem: purchased − (requested redeem "
             "− cancelled) − chargeback − refunds, after account/date agg. "
-            "Reactivation and % Active match the AMs' Tableau report: "
-            "purchases from successful payment orders; Reactivation = purchase "
-            "after a gap of ≥20 days (Tableau churn_period_days), once per AID "
-            "in the month; % Active = players whose last purchase is within 30 "
-            "days of the as-of date, over the whole tagged book — locked accounts "
-            "are counted on both sides, because a tagged player contributes to "
-            "every KPI regardless of lock status. "
-            "Pace projects month-end: daily avgs and % Active are already a "
-            "month-end rate; Reactivations extrapolate linearly; Monthly "
-            "Purchasers and Upgrades divide by the share of the month reached "
-            "by this day in the two prior months, because both saturate rather "
-            "than accrue linearly; ARPPU is rebuilt from the paced numbers. "
+            "Reactivation matches the AMs' Tableau report: purchases from "
+            "successful payment orders; Reactivation = purchase after a gap of "
+            "≥20 days (Tableau churn_period_days), once per AID in the month. "
+            "% Active from portfolio = MTD purchasers / whole tagged book — "
+            "locked accounts are counted on both sides, because a tagged player "
+            "contributes to every KPI regardless of lock status. "
+            "Pace projects month-end: daily avgs are already a month-end rate; "
+            "Reactivations extrapolate linearly; Monthly Purchasers and Upgrades "
+            "divide by the share of the month reached by this day in the two "
+            "prior months, because both saturate rather than accrue linearly; "
+            "ARPPU and % Active are rebuilt from the paced numbers. "
             "Status compares Pace (not Actual) to goal."
         ),
     }
@@ -654,8 +661,8 @@ def _pace_basis(key: str, pace: float | None, shape: float | None) -> str:
         return "No month-end projection — Status reads MTD actual vs goal."
     if key == "pct_active":
         return (
-            "Point-in-time: share of the whole tagged book whose last purchase "
-            "is within 30 days, so it is already a month-end rate."
+            "MTD purchasers / whole tagged book; pace uses shaped month-end "
+            "purchaser projection / same book."
         )
     if key in PACE_IS_ACTUAL:
         return "Daily average is already month-end pace (spend accrues linearly)."
@@ -748,8 +755,10 @@ def strip_payload_for_am(payload: dict, agent_name: str) -> dict:
     if not agents:
         raise ValueError(f"No agent block for {agent_name}")
     report = dict(payload.get("report") or {})
-    report["title"] = f"Elite AM Brief · {agent_name}"
+    report["title"] = f"{PRODUCT_TITLE} · {agent_name}"
     report["overviewGreetingLines"] = []
+    # Manager archive lists point at full-book HTML; never carry them forward.
+    report.pop("archive", None)
     # goalsAmOrder names every AM on the board, so narrow it too — an AM's own
     # file should not even carry the roster of who else is measured.
     goals_meta = dict(payload.get("goalsMeta") or {})
@@ -768,4 +777,5 @@ def strip_payload_for_am(payload: dict, agent_name: str) -> dict:
         "goalsMeta": goals_meta,
         "singleAm": True,
         "singleAmName": agent_name,
+        "audienceSlug": agent_name.strip().lower(),
     }

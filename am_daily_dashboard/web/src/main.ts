@@ -6,8 +6,12 @@ import { render } from "./render";
 
 /* Bound once on document, not re-bound per render: clicking anywhere off the
    calendar closes it, as does Escape. */
-document.addEventListener("click", () => {
-  if (app.calOpen) { app.calOpen = false; render(); }
+document.addEventListener("click", (e) => {
+  if (!app.calOpen) return;
+  const t = e.target;
+  if (t instanceof Element && t.closest(".cal-wrap")) return;
+  app.calOpen = false;
+  render();
 });
 document.addEventListener("keydown", (e) => {
   if (e.key === "Escape" && app.calOpen) { app.calOpen = false; render(); }

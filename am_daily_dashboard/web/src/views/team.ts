@@ -12,7 +12,8 @@
 import type { Dict } from "./../types";
 import { TEAM_GOALS } from "./../payload";
 import { esc, icon } from "./../format";
-import { emptyState, eliteSnapshotCards, gateHtml, metricBand } from "./../components";
+import { teamProgressMeterHtml, goalsScoreTone, teamScoreDisplay } from "./../cells";
+import { emptyState, gateHtml, goalsHistoryCard } from "./../components";
 import { app } from "./../state";
 import { tableHtml } from "./../table";
 
@@ -23,32 +24,30 @@ export function teamKpi(key: string): Dict | null {
 /** Headline three KPIs as a card on the Manager Dashboard. */
 export function teamGoalsCard(): string {
   if (!TEAM_GOALS || !TEAM_GOALS.available) return "";
-  const kpis: Dict[] = TEAM_GOALS.kpis || [];
-  const onTrack = kpis.filter((k) => k.statusTone === "success").length;
-  const behind = kpis.filter((k) => k.statusTone === "danger" || k.statusTone === "warning").length;
   const headline = ["daily_avg_purchase", "daily_avg_net_purchase", "monthly_purchasers"]
     .map(teamKpi).filter(Boolean) as Dict[];
-  return `<div class="card gold-top">
+  const meterTone = goalsScoreTone(TEAM_GOALS);
+  return `<div class="card gold-top goals-team-card">
         <div class="card-head">
-          <span class="card-icon ${behind ? "warning" : "success"}">${icon("target", "ic-sm")}</span>
+          <span class="card-icon ${meterTone}">${icon("target", "ic-sm")}</span>
           <div><div class="card-title">Team Goals</div>
           <div class="card-sub">Your targets, Elite Portfolio · ${esc(TEAM_GOALS.monthLabel || "")}</div></div>
           <div class="spacer"></div>
           <button type="button" class="btn" data-go="team">Open ${icon("chev-right", "ic-xs")}</button>
         </div>
         <div class="card-body stack-10">
-          ${tableHtml(["KPI", "Goal", "Pace", "Status"],
-            headline.map((k) => [
-              esc(k.label), esc(k.goalDisplay), esc(k.paceDisplay),
-              `<span class="badge ${k.statusTone || ""}">${esc(k.status)}</span>`,
-            ]),
-            ["left", "right", "right", "left"],
-            headline.map((k) => k.statusTone || "neutral"), { markerCol: 0 })}
-          <div class="row">
-            <span class="badge success">${icon("check-circle", "ic-xs")}${onTrack} on track</span>
-            <span class="badge ${behind ? "danger" : ""}">${icon("alert", "ic-xs")}${behind} need attention</span>
+          <div class="goal-score">
+            <span class="goal-pct t-${meterTone}">${esc(teamScoreDisplay(TEAM_GOALS))}</span>
           </div>
+          ${teamProgressMeterHtml(TEAM_GOALS, meterTone)}
         </div>
+        ${tableHtml(["KPI", "Goal", "Pace", "Status"],
+          headline.map((k) => [
+            esc(k.label), esc(k.goalDisplay), esc(k.paceDisplay),
+            `<span class="badge ${k.statusTone || ""}">${esc(k.status)}</span>`,
+          ]),
+          ["left", "right", "right", "left"],
+          headline.map((k) => k.statusTone || "neutral"), { markerCol: 0 })}
       </div>`;
 }
 
@@ -70,7 +69,7 @@ export function viewTeamGoals(): string {
     g.elapsedDays && g.daysInMonth ? `day ${g.elapsedDays} of ${g.daysInMonth}` : "",
   ].filter(Boolean).join(" · ");
 
-  const cards = eliteSnapshotCards();
+  const meterTone = goalsScoreTone(g);
 
   const rows = kpis.map((k) => [
     esc(k.label), esc(k.weightLabel), esc(k.goalDisplay), esc(k.actualDisplay),
@@ -84,25 +83,24 @@ export function viewTeamGoals(): string {
   return `<div class="stack">
         <div class="card gold-top">
           <div class="card-head">
-            <span class="card-icon">${icon("target", "ic-sm")}</span>
+            <span class="card-icon ${meterTone}">${icon("target", "ic-sm")}</span>
             <div><div class="card-title">Elite Goals · Team</div>
             <div class="card-sub">Your targets, Elite Portfolio · ${esc(g.monthLabel || "")}</div></div>
             <div class="spacer"></div>
             <span class="badge">${esc(subtitle)}</span>
           </div>
+          <div class="card-body stack-10">
+            <div class="goal-score">
+              <span class="goal-pct t-${meterTone}">${esc(teamScoreDisplay(g))}</span>
+            </div>
+            ${teamProgressMeterHtml(g, meterTone)}
+          </div>
         </div>
-        ${metricBand("Elite Snapshot", cards, { cols: 4 })}
         <div class="card gold-top">
           ${tableHtml(["KPI", "Weight", "Goal", "Actual", "Pace", "Gap", "Status"], rows,
             ["left", "right", "right", "right", "right", "right", "left"],
             kpis.map((k) => k.statusTone || "neutral"), { markerCol: 0 })}
         </div>
-        <div class="note">These are your own targets, loaded as given, never derived
-          from the AMs' targets. Progress is measured over the whole managed book,
-          Alon's portfolio included: Purchasers, Reactivation and % Active are counted
-          as distinct accounts across the book, and ARPPU and % Active are rebuilt from
-          the book totals rather than averaged across the AMs.</div>
-        <div class="note">${esc(g.definitionsNote || "")}</div>
-        <div class="note">${esc(g.achievementCapNote || "")}</div>
+        ${goalsHistoryCard(g.history)}
       </div>`;
 }

@@ -60,7 +60,7 @@ export function sidebar(): string {
         <div class="brand">
           <span class="brand-mark">${logoImg("elite", 32, "Elite Club")}</span>
           <div class="brand-text">
-            <div class="brand-title">${esc(REPORT.title || "Elite AM Brief")}</div>
+            <div class="brand-title">${esc(REPORT.title || "Elite Dashboard")}</div>
             <div class="brand-sub">${esc(REPORT.subtitle || "")}</div>
           </div>
         </div>

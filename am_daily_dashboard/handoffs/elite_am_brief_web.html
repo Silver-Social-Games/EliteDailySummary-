@@ -2,9 +2,9 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <!-- am-brief-build sources sha256:93c2e0c55e05d611ac56831ab10ec4e3caad5f0d2d783bed564ddb70a301a1b1 output sha256:4fb71ce5f50a67bb2e58da3140d375fb421c7202f070485577adc8f2372cd202 -->
+  <!-- am-brief-build sources sha256:99920699997ab8a3cb1cf296e4ee2ddac71d4608c2948dff5afce58570247b4f output sha256:573171534b2250116d3a715657fb9e2d010163202ee37cc1e108db7f63d593df -->
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Elite AM Brief</title>
+  <title>Elite Dashboard</title>
   <style>
     :root {
       --sidebar-w: 268px;
@@ -133,6 +133,7 @@
     .side-group-title.g-operations  { color: #93C5FD; }
     .side-group-title.g-gaps        { color: #FCD9A0; }
     .side-group-title.g-brand       { color: #C4B5FD; }
+    .side-group-title.g-games       { color: #5EEAD4; }
     .side-group-title.g-outreach      { color: #F9A8D4; }
     .side-section-title {
       font-size: 10px; font-weight: 650; letter-spacing: .06em; text-transform: uppercase;
@@ -198,6 +199,7 @@
     .crumb-top.g-operations  { color: #2563EB; }
     .crumb-top.g-gaps        { color: #D97706; }
     .crumb-top.g-brand       { color: #6D5CE0; }
+    .crumb-top.g-games       { color: #14B8A6; }
     .crumb-top.g-outreach    { color: #DB2777; }
     .icon-btn {
       width: 32px; height: 32px; flex: none; display: grid; place-items: center;
@@ -232,14 +234,25 @@
       overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     }
 
-    .content { padding: 24px 26px 64px; display: flex; flex-direction: column; gap: 22px; }
+    .content { padding: 20px 24px 48px; display: flex; flex-direction: column; gap: 16px; }
 
     /* ---------- primitives ---------- */
-    .stack { display: flex; flex-direction: column; gap: 16px; }
+    .stack { display: flex; flex-direction: column; gap: 12px; }
     .stack-10 { display: flex; flex-direction: column; gap: 10px; }
     .stack-6 { display: flex; flex-direction: column; gap: 6px; }
     .row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
     .grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); gap: 18px; align-items: start; }
+    .grid-2.goals-pair { align-items: stretch; }
+    .grid-2.goals-pair > .card {
+      display: flex; flex-direction: column; height: 100%; min-height: 0;
+    }
+    .grid-2.goals-pair > .card > .card-body,
+    .grid-2.goals-pair > .card > .tbl-wrap,
+    .grid-2.goals-pair > .card > table {
+      flex: 1 1 auto;
+    }
+    .goals-leaderboard .tbl-wrap { flex: 1 1 auto; display: flex; flex-direction: column; }
+    .goals-leaderboard table { flex: 1 1 auto; }
 
     .card {
       background: var(--surface); border: 1px solid var(--line);
@@ -247,21 +260,44 @@
     }
     .card-head {
       display: flex; align-items: center; gap: 10px;
-      padding: 14px 16px; border-bottom: 1px solid var(--line-soft);
+      padding: 12px 14px; border-bottom: 1px solid var(--line-soft);
     }
     .card-title { font-size: 14.5px; font-weight: 650; letter-spacing: -.01em; }
     .card-sub { font-size: 12px; color: var(--ink-4); }
-    .card-body { padding: 16px; }
+    .card-body { padding: 14px; }
     .card-body.flush { padding: 0; }
     .card-icon {
       width: 30px; height: 30px; flex: none; border-radius: 9px; display: grid; place-items: center;
       background: var(--brand-soft); color: var(--brand);
+    }
+    .card-icon .ic {
+      display: block; vertical-align: initial; margin: 0;
     }
     .card-icon.success { background: var(--success-soft); color: var(--success); }
     .card-icon.danger  { background: var(--danger-soft);  color: var(--danger); }
     .card-icon.warning { background: var(--warning-soft); color: var(--warning); }
     .card-icon.info    { background: var(--info-soft);    color: var(--info); }
     .card-icon.neutral { background: var(--neutral-soft); color: var(--neutral); }
+    .card-icon.brand   { background: var(--brand-soft); color: var(--brand); }
+
+    /* Goals History — one collapsible dropdown per closed month */
+    .hist-month {
+      border: 1px solid var(--line); border-radius: var(--radius-sm);
+      background: var(--surface); overflow: hidden;
+    }
+    .hist-summary {
+      display: flex; align-items: center; gap: 9px;
+      padding: 9px 12px; cursor: pointer; list-style: none;
+      font-size: 13px; user-select: none;
+    }
+    .hist-summary::-webkit-details-marker { display: none; }
+    .hist-summary:hover { background: #FAFBFD; }
+    .hist-label { font-weight: 600; letter-spacing: -.01em; }
+    .hist-caret { display: inline-grid; place-items: center; color: var(--ink-4);
+      transition: transform .15s ease; }
+    .hist-month[open] .hist-caret { transform: rotate(90deg); }
+    .hist-quick { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .hist-detail { padding: 4px 12px 12px; border-top: 1px solid var(--line-soft); }
 
     /* gold accent line — one per card */
     .gold-top {
@@ -270,28 +306,34 @@
       border-top-right-radius: var(--radius);
     }
 
-    /* AM intro — compact salute at top of Morning Brief */
+    /* AM intro — salute at top of Morning Brief, aligned with metric bands */
     .am-intro {
-      padding: 10px 14px 11px;
+      padding: 16px 18px 17px;
       background: var(--surface);
       border: 1px solid var(--line);
-      border-left: 3px solid var(--brand);
+      border-left: 4px solid var(--brand);
       border-radius: var(--radius-sm);
     }
     .intro-salute {
-      font-size: 13px; font-weight: 620; color: var(--ink);
-      line-height: 1.35; margin-bottom: 3px;
+      font-size: 17px;
+      font-weight: 650;
+      color: var(--ink);
+      line-height: 1.35;
+      margin-bottom: 6px;
     }
     .intro-body {
-      font-size: 12px; line-height: 1.55; color: var(--ink-3);
+      font-size: 15px;
+      line-height: 1.55;
+      color: var(--ink-2);
     }
     .intro-body strong {
-      font-weight: 650; color: var(--brand-ink);
+      font-weight: 700;
+      color: var(--brand-ink);
     }
 
     /* segment hero KPI row */
     .segment-hero { overflow: hidden; }
-    .segment-hero .card-head, .segment-hero-head { padding: 14px 18px 10px; }
+    .segment-hero .card-head, .segment-hero-head { padding: 10px 16px 8px; }
     .segment-hero-body {
       display: grid;
       grid-template-columns: 1fr minmax(220px, 280px);
@@ -306,7 +348,7 @@
       gap: 0;
     }
     .segment-panel {
-      padding: 16px 18px;
+      padding: 12px 14px;
       border-right: 1px solid var(--line-soft);
     }
     .segment-panel:last-child { border-right: none; }
@@ -319,7 +361,7 @@
       .segment-hero-grid { grid-template-columns: 1fr; }
     }
     .segment-panel-head {
-      display: flex; align-items: center; gap: 10px; margin-bottom: 14px;
+      display: flex; align-items: center; gap: 10px; margin-bottom: 10px;
     }
     .segment-panel-title {
       font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
@@ -466,14 +508,14 @@
 
     /* reference-style KPI band — one card, metrics in a row */
     .metric-band { overflow: hidden; }
-    .metric-band-head { padding: 14px 18px 10px; border-bottom: 1px solid var(--line-soft); }
+    .metric-band-head { padding: 10px 14px 8px; border-bottom: 1px solid var(--line-soft); }
     .metric-band-grid {
       display: grid;
       grid-template-columns: repeat(var(--metric-cols, 4), minmax(0, 1fr));
     }
     .metric-cell {
       display: flex; flex-direction: column; gap: 4px;
-      padding: 16px 14px; text-align: left;
+      padding: 12px 12px; text-align: left;
       border: none; background: transparent; font: inherit;
       border-right: 1px solid var(--line-soft);
       min-width: 0;
@@ -651,12 +693,13 @@
     table.grid.top10-grid th:nth-child(1), table.grid.top10-grid td:nth-child(1) { width: 44px; }
     table.grid.top10-grid th:nth-child(2), table.grid.top10-grid td:nth-child(2) { width: 96px; }
     table.grid.top10-grid th:nth-child(3), table.grid.top10-grid td:nth-child(3) { width: 16%; }
-    table.grid.top10-grid th:nth-child(4), table.grid.top10-grid td:nth-child(4) { width: 10%; }
-    table.grid.top10-grid th:nth-child(5), table.grid.top10-grid td:nth-child(5) { width: 8%; }
-    table.grid.top10-grid th:nth-child(6), table.grid.top10-grid td:nth-child(6) { width: 20%; }
-    table.grid.top10-grid th:nth-child(7), table.grid.top10-grid td:nth-child(7) { width: 9%; }
+    table.grid.top10-grid th:nth-child(4), table.grid.top10-grid td:nth-child(4) { width: 9%; }
+    table.grid.top10-grid th:nth-child(5), table.grid.top10-grid td:nth-child(5) { width: 18%; }
+    table.grid.top10-grid th:nth-child(6), table.grid.top10-grid td:nth-child(6) { width: 8%; }
+    table.grid.top10-grid th:nth-child(7), table.grid.top10-grid td:nth-child(7) { width: 10%; }
     table.grid.top10-grid th:nth-child(8), table.grid.top10-grid td:nth-child(8) { width: 10%; }
-    table.grid.top10-grid th:nth-child(9), table.grid.top10-grid td:nth-child(9) { width: 11%; }
+    table.grid.top10-grid th:nth-child(9), table.grid.top10-grid td:nth-child(9) { width: 9%; }
+    table.grid.top10-grid th:nth-child(10), table.grid.top10-grid td:nth-child(10) { width: 8%; }
     .top10-offer, .top10-name {
       display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%;
     }
@@ -672,7 +715,7 @@
       position: sticky; top: 0; z-index: 2; white-space: nowrap;
       padding: 10px 14px; text-align: left;
       font-size: 10.5px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase;
-      color: var(--ink-3); background: #FAFBFD;
+      color: var(--ink); background: #F0EDF5;
       border-bottom: 1px solid var(--line);
     }
     table.grid td {
@@ -810,6 +853,15 @@
     .cal-day.today { outline: 2px solid var(--brand, #6366F1); outline-offset: -2px; }
     .cal-day.empty { visibility: hidden; }
     .cal-foot { margin-top: 9px; font-size: 11px; color: var(--ink-4); line-height: 1.5; }
+    .cal-recent { margin-bottom: 10px; padding-bottom: 10px; border-bottom: 1px solid var(--line-soft); }
+    .cal-recent-label { font-size: 9px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-4); margin-bottom: 6px; }
+    .cal-recent-row { display: flex; flex-wrap: wrap; gap: 4px; }
+    .cal-recent-btn {
+      border: 1px solid var(--line); background: var(--surface); border-radius: 6px;
+      padding: 3px 8px; font-size: 11px; font-weight: 600; color: var(--ink-2); cursor: pointer;
+    }
+    .cal-recent-btn:hover { border-color: var(--brand); color: var(--brand-ink); }
+    .cal-recent-btn.brand { border-color: var(--brand); background: var(--brand-soft); color: var(--brand-ink); font-weight: 650; }
 
     /* gate */
     .gate {
@@ -824,9 +876,10 @@
     .gate h2 { margin: 0 0 6px; font-size: 19px; font-weight: 660; letter-spacing: -.02em; }
     .gate p { margin: 0 0 20px; font-size: 13px; color: var(--ink-3); line-height: 1.6; }
     .gate input {
-      width: 100%; height: 40px; text-align: center; letter-spacing: .28em; font: inherit; font-size: 15px;
+      width: 100%; min-height: 48px; height: 48px; text-align: center; letter-spacing: .28em;
+      font: inherit; font-size: 16px; touch-action: manipulation;
       border: 1px solid var(--line); border-radius: var(--radius-sm); outline: none; color: var(--ink);
-      background: var(--surface);
+      background: var(--surface); position: relative; z-index: 1;
     }
     .gate input:focus { border-color: var(--brand); box-shadow: 0 0 0 3px rgba(79,70,229,.13); }
     .gate .err { color: var(--danger); font-size: 12.5px; margin-top: 10px; min-height: 17px; }
@@ -960,6 +1013,9 @@
   var AM_SHARES = DATA.amShares || [];
   var AM_ORDER = DATA.amOrder || [];
   var SINGLE_AM = !!DATA.singleAm;
+  var AUDIENCE_SLUG = String(
+    DATA.audienceSlug || (SINGLE_AM ? (DATA.singleAmName || "").trim().toLowerCase() : "")
+  );
   var TEAM_GOALS = DATA.teamGoals || null;
   var GATE_TOKEN = DATA.managerGate || "09dcfdd4";
   var day = REPORT.weekday || "";
@@ -972,92 +1028,6 @@
     lifetimeHold: "Lifetime Hold",
     favouriteGame7d: "Favourite Game (7D)"
   };
-
-  // src/state.ts
-  var GATE_KEY = "eliteAmBriefUnlocked";
-  function gateRemembered() {
-    try {
-      return sessionStorage.getItem(GATE_KEY) === GATE_TOKEN;
-    } catch (e) {
-      return false;
-    }
-  }
-  function rememberGate() {
-    try {
-      sessionStorage.setItem(GATE_KEY, GATE_TOKEN);
-    } catch (e) {
-    }
-  }
-  function gateToken(s) {
-    let h = 5381;
-    for (const ch of String(s)) h = (h * 33 >>> 0 ^ ch.codePointAt(0)) >>> 0;
-    return h.toString(16).padStart(8, "0");
-  }
-  var firstAgent = AGENTS[0] && AGENTS[0].agentName || AM_ORDER[0] || "";
-  var app = {
-    view: SINGLE_AM ? "home" : "dashboard",
-    agent: SINGLE_AM ? DATA.singleAmName || firstAgent : firstAgent,
-    unlocked: gateRemembered(),
-    gateError: "",
-    collapsed: false,
-    mobileOpen: false,
-    ticket: null,
-    calOpen: false,
-    calMonth: (REPORT.date || "").slice(0, 7)
-  };
-  var renderHook = () => {
-  };
-  function setRenderHook(fn) {
-    renderHook = fn;
-  }
-  function rerender() {
-    renderHook();
-  }
-  var tstate = {};
-  function getState(key, fallback) {
-    if (!(key in tstate)) tstate[key] = fallback;
-    return tstate[key];
-  }
-  function putState(key, value) {
-    tstate[key] = value;
-  }
-  var RESET_SUFFIXES = ["_q", "_search", "_sort", "_sortBy", "_agent", "_reason", "_size"];
-  var focusKey = null;
-  function setState(key, value) {
-    tstate[key] = value;
-    for (const suffix of RESET_SUFFIXES) {
-      if (key.endsWith(suffix)) {
-        tstate[key.slice(0, -suffix.length) + "_page"] = 1;
-        break;
-      }
-    }
-    focusKey = key;
-    rerender();
-  }
-  function setPage(key, page) {
-    tstate[key] = page;
-    focusKey = null;
-    rerender();
-  }
-  function takeFocusKey() {
-    const key = focusKey;
-    focusKey = null;
-    return key;
-  }
-  function go(view) {
-    app.view = view;
-    app.mobileOpen = false;
-    rerender();
-    window.scrollTo({ top: 0, behavior: "auto" });
-  }
-
-  // src/selectors.ts
-  function agentBlock() {
-    return AGENTS.find((a) => a.agentName === app.agent) || AGENTS[0] || {};
-  }
-  function rowsFor(key) {
-    return agentBlock()[key] || [];
-  }
 
   // src/format.ts
   function esc(s) {
@@ -1079,9 +1049,21 @@
   }
   function compactMoney(n) {
     const a = Math.abs(n);
-    if (a >= 1e6) return "$" + (n / 1e6).toFixed(a >= 1e7 ? 0 : 1) + "M";
+    if (a >= 1e6) {
+      const m = n / 1e6;
+      const absM = Math.abs(m);
+      const rounded = absM >= 10 ? Math.round(m) : Math.round(m * 10) / 10;
+      const body = Number.isInteger(rounded) ? String(rounded) : String(rounded);
+      return "$" + body.replace(/\.0$/, "") + "M";
+    }
     if (a >= 1e4) return "$" + Math.round(n / 1e3) + "K";
     return money(n);
+  }
+  function formatGoalPct(pct) {
+    if (!Number.isFinite(pct)) return "\u2014";
+    const rounded = Math.round(pct * 10) / 10;
+    const body = Number.isInteger(rounded) ? String(Math.round(rounded)) : rounded.toFixed(1).replace(/\.0$/, "");
+    return `${body}%`;
   }
   function initials(name) {
     return String(name || "?").trim().split(/\s+/).map((w) => w[0]).join("").slice(0, 2).toUpperCase();
@@ -1173,10 +1155,53 @@
         <span class="trk kpi"><span class="fill ${tone}" style="width:${kpiPct.toFixed(2)}%"></span></span>
       </div>`;
   }
-  function scoreLegendHtml(score, tone) {
-    return `<div class="score-legend">
-        <span><i class="lg-${tone}"></i>${esc(score.kpiPointsDisplay || "")} \xB7 Personal goals progress</span>
+  function goalsKpiPoints(goals) {
+    const score = goals.score || {};
+    if (score.kpiPoints != null) {
+      return {
+        points: Number(score.kpiPoints) || 0,
+        max: Number(score.kpiPointsMax) || 80
+      };
+    }
+    if (goals.kpiPoints != null) {
+      return {
+        points: Number(goals.kpiPoints) || 0,
+        max: Number(goals.kpiPointsMax) || 80
+      };
+    }
+    const weightUsed = Number(goals.weightUsed);
+    const pct = Number(goals.weightedTrackedPct);
+    const max = Number(goals.includedWeightTotal) || 80;
+    if (Number.isFinite(pct) && weightUsed > 0) {
+      return { points: pct / 100 * weightUsed, max };
+    }
+    return { points: 0, max: 80 };
+  }
+  function goalsScoreDisplay(goals) {
+    const { points, max } = goalsKpiPoints(goals);
+    const pct = max > 0 ? Math.max(0, Math.min(100, points / max * 100)) : 0;
+    return formatGoalPct(pct);
+  }
+  function goalsScoreTone(goals) {
+    const { points } = goalsKpiPoints(goals);
+    const outOf = Number(goals.includedWeightTotal) || 80;
+    return teamProgressTone(outOf > 0 ? points / outOf * 100 : 0);
+  }
+  function teamScoreDisplay(teamGoals) {
+    return goalsScoreDisplay(teamGoals);
+  }
+  function amScoreDisplay(goals) {
+    return goalsScoreDisplay(goals);
+  }
+  function teamProgressMeterHtml(teamGoals, tone) {
+    const { points, max } = goalsKpiPoints(teamGoals);
+    const pct = max > 0 ? Math.max(0, Math.min(100, points / max * 100)) : 0;
+    return `<div class="score-meter single">
+        <span class="trk kpi"><span class="fill ${tone}" style="width:${pct.toFixed(2)}%"></span></span>
       </div>`;
+  }
+  function teamProgressTone(pct) {
+    return pct >= 90 ? "success" : pct >= 70 ? "warning" : "danger";
   }
   function bigWinHtml(p) {
     const won = p.wonYesterday || "\u2014";
@@ -1300,18 +1325,14 @@
     const maxShare = Math.max(...barRows.map((sl) => Number(sl.share) || 0), 1);
     const bars = topNamed.map((sl, i) => geoBarRow(sl, i, maxShare)).join("");
     const otherBar = geo.other ? geoBarRow(geo.other, topNamed.length, maxShare, true) : "";
-    const otherFoot = geo.other ? `Other = ${geo.otherKnown.toLocaleString()} minor states` + (geo.otherUnknown ? ` + ${geo.otherUnknown.toLocaleString()} no sign-in state` : "") + ` (${geo.other.bettors.toLocaleString()} players, ${geo.other.share.toFixed(1)}%)` : "";
-    const period = chart.period ? `<div class="geo-period t-tertiary t-small">${esc(String(chart.period))}</div>` : "";
     return `<div class="segment-panel geo-panel">
         <div class="segment-panel-head">
           <span class="segment-panel-title">${esc(chart.title || "Elite Player by State")}</span>
-          ${period}
         </div>
         <div class="geo-bar-chart">
           <div class="geo-bar-head t-small t-tertiary"><span>State</span><span>Share</span><span>Players</span></div>
           ${bars}
           ${otherBar}
-          <div class="geo-bar-foot t-tertiary t-small">${geo.total.toLocaleString()} active Elite \xB7 last 30 days${otherFoot ? ` \xB7 ${otherFoot}` : ""}</div>
         </div>
       </div>`;
   }
@@ -1561,40 +1582,79 @@
         </div>
       </div>`;
   }
-  function eliteSnapshotCards() {
-    var _a;
-    const g = TEAM_GOALS;
-    if (!(g == null ? void 0 : g.available)) {
-      return [
-        { label: "Elite Portfolio", value: "\u2014", tone: "neutral" }
-      ];
-    }
+  function snapshotCardsFromGoals(goals, yesterday) {
+    var _a, _b, _c;
+    const kpi = (key) => (goals.kpis || []).find((k) => k.key === key);
+    const neutral = "neutral";
+    const portfolio = Number(goals.portfolioSize) || 0;
+    const purchasers = kpi("monthly_purchasers");
+    const purchaserCount = (purchasers == null ? void 0 : purchasers.actual) != null ? Number(purchasers.actual) : null;
+    const mtdActivePct = purchaserCount != null && portfolio > 0 ? Math.min(100, purchaserCount / portfolio * 100) : null;
+    const activeDisplay = mtdActivePct != null ? formatGoalPct(mtdActivePct) : String(((_a = kpi("pct_active")) == null ? void 0 : _a.actualDisplay) || "\u2014");
     return [
       {
-        label: "Elite Portfolio",
-        value: (g.portfolioSize || 0).toLocaleString(),
+        label: "Portfolio",
+        value: portfolio.toLocaleString(),
         icon: "list",
-        tone: "neutral"
+        tone: neutral
+      },
+      {
+        label: "Yesterday Purchase",
+        value: yesterday.purchase || "\u2014",
+        icon: "dollar",
+        tone: neutral
       },
       {
         label: "MTD Purchase",
-        value: compactMoney(g.mtdPurchase || 0),
+        value: money(Number(goals.mtdPurchase || 0)),
         icon: "dollar",
-        tone: "success"
+        tone: neutral
       },
       {
         label: "MTD Net Purchase",
-        value: compactMoney(g.mtdNetPurchase || 0),
+        value: money(Number(goals.mtdNetPurchase || 0)),
         icon: "banknote",
-        tone: "brand"
+        tone: neutral
       },
       {
         label: "MTD Purchasers",
-        value: String(((_a = (g.kpis || []).find((k) => k.key === "monthly_purchasers")) == null ? void 0 : _a.actualDisplay) || "\u2014"),
+        value: String((purchasers == null ? void 0 : purchasers.actualDisplay) || "\u2014"),
         icon: "users",
-        tone: "brand"
-      }
+        tone: neutral
+      },
+      {
+        label: "Daily Avg Purchase",
+        value: String(((_b = kpi("daily_avg_purchase")) == null ? void 0 : _b.actualDisplay) || "\u2014"),
+        icon: "trend-up",
+        tone: neutral
+      },
+      {
+        label: "Daily Avg Net",
+        value: String(((_c = kpi("daily_avg_net_purchase")) == null ? void 0 : _c.actualDisplay) || "\u2014"),
+        icon: "banknote",
+        tone: neutral
+      },
+      { label: "Active % of Portfolio", value: activeDisplay, icon: "pie", tone: neutral }
     ];
+  }
+  function personalSnapshotCards(agent) {
+    const goals = agent.goals;
+    if (!(goals == null ? void 0 : goals.available)) {
+      return [{ label: "Portfolio", value: "\u2014", tone: "neutral" }];
+    }
+    return snapshotCardsFromGoals(goals, {
+      purchase: agent.purchase
+    });
+  }
+  function eliteSnapshotCards() {
+    const g = TEAM_GOALS;
+    if (!(g == null ? void 0 : g.available)) {
+      return [{ label: "Portfolio", value: "\u2014", tone: "neutral" }];
+    }
+    const elite = segmentByLabel(REPORT.segments || [], "Elite");
+    return snapshotCardsFromGoals(g, {
+      purchase: (elite == null ? void 0 : elite.revThis) || "\u2014"
+    });
   }
   function dailyTriggerMetrics(f) {
     var _a, _b, _c, _d, _e, _f, _g, _h, _i;
@@ -1690,12 +1750,61 @@
         ${body ? `<div class="intro-body">${body}</div>` : ""}
       </div>`;
   }
+  function goalsHistoryCard(history) {
+    if (!history || !history.length) return "";
+    const kpiCell = (m, key) => {
+      const k = (m.kpis || []).find((x) => x.key === key);
+      return k && k.actualDisplay || "\u2014";
+    };
+    const items = history.map((m) => {
+      const pct = Number(m.kpiPct);
+      const tone = Number.isFinite(pct) ? teamProgressTone(pct) : "neutral";
+      const kpis = m.kpis || [];
+      const quick = [
+        kpiCell(m, "daily_avg_purchase") + "/day",
+        kpiCell(m, "monthly_purchasers") + " purchasers",
+        kpiCell(m, "pct_active") + " active"
+      ].join(" \xB7 ");
+      const rows = kpis.map((k) => [
+        esc(k.label),
+        esc(k.weightLabel || ""),
+        esc(k.goalDisplay || "\u2014"),
+        esc(k.actualDisplay || "\u2014"),
+        `<span class="badge ${k.statusTone || ""}">${esc(k.status || "")}</span>`
+      ]);
+      const table = tableHtml(
+        ["KPI", "Weight", "Goal", "Actual", "Status"],
+        rows,
+        ["left", "right", "right", "right", "left"],
+        kpis.map((k) => k.statusTone || "neutral"),
+        { markerCol: 0 }
+      );
+      return `<details class="hist-month">
+          <summary class="hist-summary">
+            <span class="hist-caret">${icon("chev-right", "ic-xs")}</span>
+            <span class="hist-label">${esc(m.monthLabel || m.monthKey || "")}</span>
+            <span class="badge ${tone}">${esc(formatGoalPct(pct))}</span>
+            <span class="spacer"></span>
+            <span class="hist-quick t-tertiary t-small">${esc(quick)}</span>
+          </summary>
+          <div class="hist-detail">${table}</div>
+        </details>`;
+    }).join("");
+    return `<div class="card">
+        <div class="card-head">
+          <span class="card-icon neutral">${icon("calendar", "ic-sm")}</span>
+          <div><div class="card-title">Goals History</div>
+          <div class="card-sub">Final results, prior months. Click a month for the full breakdown.</div></div>
+        </div>
+        <div class="card-body stack-10">${items}</div>
+      </div>`;
+  }
   function gateHtml() {
     return `<div class="gate gold-top">
         <div class="gate-mark">${logoImg("elite", 48, "Elite Club")}</div>
         <h2>Manager Dashboard</h2>
         <p>Cross-AM revenue, goals and risk roll-up. Enter the passcode to view.</p>
-        <input type="password" id="gateInput" placeholder="\u2022\u2022\u2022\u2022\u2022\u2022" autocomplete="off" spellcheck="false">
+        <input type="password" id="gateInput" placeholder="Passcode" autocomplete="off" spellcheck="false" inputmode="text" enterkeyhint="go">
         <div class="err">${esc(app.gateError)}</div>
         <button type="button" class="btn primary" id="gateSubmit" style="width:100%;justify-content:center">
           ${icon("unlock", "ic-sm")} Unlock
@@ -1709,20 +1818,23 @@
   }
   function teamGoalsCard() {
     if (!TEAM_GOALS || !TEAM_GOALS.available) return "";
-    const kpis = TEAM_GOALS.kpis || [];
-    const onTrack = kpis.filter((k) => k.statusTone === "success").length;
-    const behind = kpis.filter((k) => k.statusTone === "danger" || k.statusTone === "warning").length;
     const headline = ["daily_avg_purchase", "daily_avg_net_purchase", "monthly_purchasers"].map(teamKpi).filter(Boolean);
-    return `<div class="card gold-top">
+    const meterTone = goalsScoreTone(TEAM_GOALS);
+    return `<div class="card gold-top goals-team-card">
         <div class="card-head">
-          <span class="card-icon ${behind ? "warning" : "success"}">${icon("target", "ic-sm")}</span>
+          <span class="card-icon ${meterTone}">${icon("target", "ic-sm")}</span>
           <div><div class="card-title">Team Goals</div>
           <div class="card-sub">Your targets, Elite Portfolio \xB7 ${esc(TEAM_GOALS.monthLabel || "")}</div></div>
           <div class="spacer"></div>
           <button type="button" class="btn" data-go="team">Open ${icon("chev-right", "ic-xs")}</button>
         </div>
         <div class="card-body stack-10">
-          ${tableHtml(
+          <div class="goal-score">
+            <span class="goal-pct t-${meterTone}">${esc(teamScoreDisplay(TEAM_GOALS))}</span>
+          </div>
+          ${teamProgressMeterHtml(TEAM_GOALS, meterTone)}
+        </div>
+        ${tableHtml(
       ["KPI", "Goal", "Pace", "Status"],
       headline.map((k) => [
         esc(k.label),
@@ -1734,11 +1846,6 @@
       headline.map((k) => k.statusTone || "neutral"),
       { markerCol: 0 }
     )}
-          <div class="row">
-            <span class="badge success">${icon("check-circle", "ic-xs")}${onTrack} on track</span>
-            <span class="badge ${behind ? "danger" : ""}">${icon("alert", "ic-xs")}${behind} need attention</span>
-          </div>
-        </div>
       </div>`;
   }
   function viewTeamGoals() {
@@ -1764,7 +1871,7 @@
       g.asOf ? `as of ${g.asOf}` : "",
       g.elapsedDays && g.daysInMonth ? `day ${g.elapsedDays} of ${g.daysInMonth}` : ""
     ].filter(Boolean).join(" \xB7 ");
-    const cards = eliteSnapshotCards();
+    const meterTone = goalsScoreTone(g);
     const rows = kpis.map((k) => [
       esc(k.label),
       esc(k.weightLabel),
@@ -1777,14 +1884,19 @@
     return `<div class="stack">
         <div class="card gold-top">
           <div class="card-head">
-            <span class="card-icon">${icon("target", "ic-sm")}</span>
+            <span class="card-icon ${meterTone}">${icon("target", "ic-sm")}</span>
             <div><div class="card-title">Elite Goals \xB7 Team</div>
             <div class="card-sub">Your targets, Elite Portfolio \xB7 ${esc(g.monthLabel || "")}</div></div>
             <div class="spacer"></div>
             <span class="badge">${esc(subtitle)}</span>
           </div>
+          <div class="card-body stack-10">
+            <div class="goal-score">
+              <span class="goal-pct t-${meterTone}">${esc(teamScoreDisplay(g))}</span>
+            </div>
+            ${teamProgressMeterHtml(g, meterTone)}
+          </div>
         </div>
-        ${metricBand("Elite Snapshot", cards, { cols: 4 })}
         <div class="card gold-top">
           ${tableHtml(
       ["KPI", "Weight", "Goal", "Actual", "Pace", "Gap", "Status"],
@@ -1794,13 +1906,7 @@
       { markerCol: 0 }
     )}
         </div>
-        <div class="note">These are your own targets, loaded as given, never derived
-          from the AMs' targets. Progress is measured over the whole managed book,
-          Alon's portfolio included: Purchasers, Reactivation and % Active are counted
-          as distinct accounts across the book, and ARPPU and % Active are rebuilt from
-          the book totals rather than averaged across the AMs.</div>
-        <div class="note">${esc(g.definitionsNote || "")}</div>
-        <div class="note">${esc(g.achievementCapNote || "")}</div>
+        ${goalsHistoryCard(g.history)}
       </div>`;
   }
 
@@ -1820,34 +1926,28 @@
     const focus = aggregateFocus();
     const triggerMetrics = dailyTriggerMetrics(focus);
     const scored = AGENTS.filter((a) => a.goals && a.goals.available).map((a) => {
-      var _a;
-      const kpis = a.goals.kpis || [];
       const sc = a.goals.score || {};
+      const { points, max } = goalsKpiPoints(a.goals);
       return {
         name: a.agentName,
         score: sc,
-        pct: Number((_a = sc.totalPctOfMax) != null ? _a : a.goals.weightedTrackedPct),
-        kpiPct: Number(a.goals.weightedTrackedPct),
-        onTrack: kpis.filter((k) => k.statusTone === "success").length,
-        behind: kpis.filter((k) => k.statusTone === "danger" || k.statusTone === "warning").length,
-        total: kpis.length
+        scoreDisplay: amScoreDisplay(a.goals),
+        kpiPoints: points,
+        kpiMax: max
       };
-    }).sort((a, b) => (b.pct || 0) - (a.pct || 0));
+    }).sort((a, b) => (b.kpiPoints || 0) - (a.kpiPoints || 0));
     const leaderRows = scored.map((s, i) => {
-      const tone = s.kpiPct >= 90 ? "success" : s.kpiPct >= 70 ? "warning" : "danger";
+      const tone = goalsScoreTone({ score: s.score, kpiPoints: s.kpiPoints, kpiPointsMax: s.kpiMax });
       return [
         `<span class="badge ${i === 0 ? "brand" : ""}">${i + 1}</span>`,
         `<button type="button" class="chip" data-agent="${esc(s.name)}">${esc(s.name)}</button>`,
-        `<span class="w-semibold t-${tone}">${esc(s.score.kpiPointsDisplay || "\u2014")}</span>`,
-        `<div style="min-width:150px">${scoreMeterHtml(s.score, tone)}</div>`,
-        `<span class="t-success w-semibold">${s.onTrack}</span>`,
-        `<span class="${s.behind ? "t-danger w-semibold" : "t-quaternary"}">${s.behind}</span>`
+        `<span class="w-semibold t-${tone}">${esc(s.scoreDisplay)}</span>`,
+        `<div style="min-width:150px">${scoreMeterHtml(s.score, tone)}</div>`
       ];
     });
     const ovRows = OVERVIEW.map((r) => [
       `<button type="button" class="chip" data-agent="${esc(r.agentName)}">${esc(r.agentName)}</button>`,
       `<span class="t-success w-semibold">${esc(r.purchase)}</span>`,
-      esc(r.purchasedOfBook || r.purchasedPlayers),
       esc(r.openZd),
       esc(r.takeABreak),
       esc(r.locked),
@@ -1855,17 +1955,16 @@
       `<span class="t-success">${esc(r.birthdays)}</span>`,
       esc(r.declineCount)
     ]);
-    const leaderboard = scored.length ? `<div class="card gold-top">
+    const leaderboard = scored.length ? `<div class="card gold-top goals-leaderboard">
           <div class="card-head">
             <span class="card-icon">${icon("target", "ic-sm")}</span>
-            <div><div class="card-title">Goals Leaderboard</div>
-            <div class="card-sub">Personal goals progress \xB7 KPI out of 80</div></div>
+            <div><div class="card-title">Goals Leaderboard</div></div>
           </div>
           ${tableHtml(
-      ["#", "AM", "Score", "", "On track", "Needs attention"],
+      ["#", "AM", "Score", ""],
       leaderRows,
-      ["center", "left", "right", "left", "right", "right"],
-      scored.map((s) => s.kpiPct >= 90 ? "success" : s.kpiPct >= 70 ? "warning" : "danger"),
+      ["center", "left", "right", "left"],
+      scored.map((s) => goalsScoreTone({ score: s.score, kpiPoints: s.kpiPoints, kpiPointsMax: s.kpiMax })),
       { markerCol: 1 }
     )}
         </div>` : "";
@@ -1874,7 +1973,7 @@
         ${metricBand("Elite Snapshot", eliteSnapshotCards(), { cols: 4 })}
         ${metricBand("Daily Triggers", triggerMetrics, { subtitle: "Cross-AM roll-up \xB7 click a metric to open the section", cols: 7 })}
 
-        <div class="grid-2">
+        <div class="grid-2 goals-pair">
           ${teamGoalsCard()}
           ${leaderboard}
         </div>
@@ -1889,7 +1988,6 @@
       [
         "AM",
         "Purchase $",
-        "Purchased Of Portfolio",
         "Open Tickets",
         "Take A Break",
         "Locked",
@@ -1898,7 +1996,7 @@
         "Top 20 Decline"
       ],
       ovRows,
-      ["left", "right", "right", "right", "right", "right", "right", "right", "right"],
+      ["left", "right", "right", "right", "right", "right", "right", "right"],
       OVERVIEW.map(() => "success"),
       { markerCol: 1 }
     )}
@@ -1906,16 +2004,22 @@
       </div>`;
   }
 
+  // src/selectors.ts
+  function agentBlock() {
+    return AGENTS.find((a) => a.agentName === app.agent) || AGENTS[0] || {};
+  }
+  function rowsFor(key) {
+    return agentBlock()[key] || [];
+  }
+
   // src/views/goals.ts
+  function amScoreTone(goals) {
+    return goalsScoreTone(goals);
+  }
   function goalsSummaryCard(goals) {
-    var _a, _b;
     if (!goals || !goals.available) return "";
     const score = goals.score || {};
-    const pct = Number(goals.weightedTrackedPct);
-    const kpis = goals.kpis || [];
-    const onTrack = kpis.filter((k) => k.statusTone === "success").length;
-    const behind = kpis.filter((k) => k.statusTone === "danger" || k.statusTone === "warning").length;
-    const meterTone = pct >= 90 ? "success" : pct >= 70 ? "warning" : "danger";
+    const meterTone = amScoreTone(goals);
     return `<div class="card gold-top">
         <div class="card-head">
           <span class="card-icon ${meterTone}">${icon("target", "ic-sm")}</span>
@@ -1926,20 +2030,15 @@
         </div>
         <div class="card-body stack-10">
           <div class="goal-score">
-            <span class="goal-pct t-${meterTone}">${esc((_b = (_a = score.kpiPointsDisplay) != null ? _a : score.kpiPoints) != null ? _b : "\u2014")}</span>
-            <span class="t-tertiary">Personal goals progress</span>
+            <span class="goal-pct t-${meterTone}">${esc(amScoreDisplay(goals))}</span>
           </div>
           ${scoreMeterHtml(score, meterTone)}
-          ${scoreLegendHtml(score, meterTone)}
-          <div class="row">
-            <span class="badge success">${icon("check-circle", "ic-xs")}${onTrack} on track</span>
-            <span class="badge ${behind ? "danger" : ""}">${icon("alert", "ic-xs")}${behind} need attention</span>
-          </div>
         </div>
       </div>`;
   }
   function viewGoals() {
-    const goals = agentBlock().goals;
+    const agent = agentBlock();
+    const goals = agent.goals;
     if (!goals) {
       return emptyState(
         "target",
@@ -1952,8 +2051,7 @@
     }
     const kpis = goals.kpis || [];
     const score = goals.score || {};
-    const pct = Number(goals.weightedTrackedPct);
-    const meterTone = pct >= 90 ? "success" : pct >= 70 ? "warning" : "danger";
+    const meterTone = amScoreTone(goals);
     const subtitle = [
       goals.monthLabel || "",
       goals.asOf ? `as of ${goals.asOf}` : "",
@@ -1973,14 +2071,12 @@
           <div class="card-body stack-10">
             <div class="row">
               <div class="goal-score">
-                <span class="goal-pct t-${meterTone}">${esc(score.kpiPointsDisplay || "\u2014")}</span>
-                <span class="t-tertiary">Personal goals progress</span>
+                <span class="goal-pct t-${meterTone}">${esc(amScoreDisplay(goals))}</span>
               </div>
               <div class="spacer"></div>
               <span class="badge">${esc(subtitle)}</span>
             </div>
             ${scoreMeterHtml(score, meterTone)}
-            ${scoreLegendHtml(score, meterTone)}
           </div>
         </div>
         <div class="card">
@@ -1992,8 +2088,7 @@
       { markerCol: 0 }
     )}
         </div>
-        <div class="note">${esc(goals.definitionsNote || "")}</div>
-        <div class="note">${esc(goals.achievementCapNote || "")}</div>
+        ${goalsHistoryCard(goals.history)}
       </div>`;
   }
 
@@ -2005,6 +2100,7 @@
         ${amIntro(b.greetingLines || [])}
         ${segmentHero()}
         ${metricBand("Today's focus", dailyTriggerMetrics(f), { subtitle: "Click a metric to open the section", cols: 7 })}
+        ${metricBand("Personal Snapshot", personalSnapshotCards(b), { cols: 4 })}
         ${goalsSummaryCard(b.goals)}
       </div>`;
   }
@@ -2015,7 +2111,7 @@
     const title = String(p.offerTitle || "");
     if (code === "\u2014") return code;
     const qty = Number(p.offerQty || 0);
-    const qtyHint = qty > 1 ? `<span class="t-tertiary t-small"> \xD7${qty}</span>` : "";
+    const qtyHint = qty > 1 ? `<span class="t-tertiary t-small"> x${qty}</span>` : "";
     return `<span class="top10-offer" title="${esc(title || code)}">${esc(code)}</span>${qtyHint}`;
   }
   function priceCell(p) {
@@ -2041,13 +2137,14 @@
         "AID",
         "Name",
         "Purchased $",
-        "Purchases",
         "Top Offer",
         "Price",
         "Frequent 30d",
-        "Max Purchase 30D"
+        "Max Purchase 30D",
+        "LTP",
+        "Hold"
       ],
-      align: ["center", "left", "left", "right", "right", "left", "right", "right", "right"],
+      align: ["center", "left", "left", "right", "left", "right", "right", "right", "right", "right"],
       markerCol: 3,
       tableClass: "top10-grid",
       empty: "No purchasers yesterday.",
@@ -2056,11 +2153,12 @@
         aidHtml(p),
         `<span class="top10-name">${esc(p.name)}</span>`,
         `<span class="t-success w-semibold top10-money">${esc(p.purchased)}</span>`,
-        esc(p.orderCount),
         offerCell(p),
         priceCell(p),
         frequent30Cell(p),
-        `<span class="top10-money">${esc(p.maxPurchase30d || "\u2014")}</span>`
+        `<span class="top10-money">${esc(p.maxPurchase30d || "\u2014")}</span>`,
+        `<span class="top10-money">${esc(p.lifetimePurchase || "\u2014")}</span>`,
+        holdHtml(p.lifetimeHold)
       ]
     });
   }
@@ -2332,7 +2430,7 @@
       headers: ["AID", "Name", "RD ID", "Amount", "Status", "Created", "Won Yesterday", "Docs", "LTP", "Hold", "7D Purchase"],
       align: ["left", "left", "left", "right", "left", "left", "right", "left", "right", "right", "right"],
       markerCol: 3,
-      empty: "No pending redemptions.",
+      empty: "No locked redemptions \u2265 $5k, and no player win \u2265 $5k in the Last 3 Days.",
       renderRow: (p) => [
         aidHtml(p),
         esc(p.name),
@@ -2342,9 +2440,9 @@
         agingHtml(p.created, p.daysPending, p.agingFlag),
         bigWinHtml(p),
         docsHtml(p.docsStatus),
-        ltpHtml(p.lifetimePurchase || "\u2014", p.lifetimePurchasedNum),
-        holdHtml(p.lifetimeHold || "\u2014"),
-        purchaseMoneyHtml(p.purchase7d || "\u2014", p.purchase7dNum)
+        esc(p.lifetimePurchase || "\u2014"),
+        esc(p.lifetimeHold || "\u2014"),
+        esc(p.purchase7d || "\u2014")
       ]
     });
   }
@@ -2358,7 +2456,7 @@
       headers: ["AID", "Name", "RD ID", "Amount", "Status", "Created", "Ticket"],
       align: ["left", "left", "left", "right", "left", "left", "center"],
       markerCol: 3,
-      empty: "No first-time redemptions today.",
+      empty: "No first-time redemptions in the Last 3 Days.",
       renderRow: (p) => [
         aidHtml(p),
         esc(p.name),
@@ -2385,13 +2483,24 @@
     if (mult >= 1.2) return `<span class="badge info">${esc(label)}</span>`;
     return `<span class="badge neutral-soft">${esc(label)}</span>`;
   }
+  var TOPIC_MULT = {
+    "Redemption / Security": 2,
+    "Account / KYC / Promo": 1.5,
+    "Service Issue": 1.2,
+    General: 1
+  };
+  function topicMultForLabel(label, fallback) {
+    var _a;
+    return (_a = TOPIC_MULT[label]) != null ? _a : fallback;
+  }
   function topicCell(p) {
     var _a, _b;
-    const labels = Array.isArray(p.topicLabels) && p.topicLabels.length ? p.topicLabels.map(String) : [String((_a = p.topicLabel) != null ? _a : "General")];
+    let labels = Array.isArray(p.topicLabels) && p.topicLabels.length ? p.topicLabels.map(String) : [String((_a = p.topicLabel) != null ? _a : "General")];
+    const hasClassified = labels.some((l) => l !== "General");
+    if (hasClassified) labels = labels.filter((l) => l !== "General");
     const mult = Number((_b = p.topicMult) != null ? _b : 1);
-    const secondaryMult = Math.max(1, mult - 0.3);
     const unique = [...new Set(labels)].slice(0, 2);
-    return `<div class="topic-stack">${unique.map((label, i) => topicBadge(label, i === 0 ? mult : secondaryMult)).join("")}</div>`;
+    return `<div class="topic-stack">${unique.map((label) => topicBadge(label, topicMultForLabel(label, mult))).join("")}</div>`;
   }
   function viewTickets() {
     return tableCard({
@@ -2402,13 +2511,13 @@
         { value: "score", label: "Sort: Priority \u2193" },
         { value: "ltp", label: "Sort: LTP \u2193" },
         { value: "tickets", label: "Sort: Open Tickets \u2193" },
-        { value: "purchase7d", label: "Sort: 7D Purchase \u2193" },
+        { value: "purchase7d", label: "Sort: 7DP \u2193" },
         { value: "created", label: "Sort: Oldest created" },
         { value: "updated", label: "Sort: Stale updated" }
       ],
       defaultSort: "score",
       sortFn: (rows, s) => s === "tickets" ? sortByNumKey(rows, "openTickets", true) : s === "ltp" ? sortByNumKey(rows, "lifetimePurchasedNum", true) : s === "purchase7d" ? sortByNumKey(rows, "purchase7dNum", true) : s === "created" ? sortByNumKey(rows, "ticketAgeDays", true) : s === "updated" ? sortByNumKey(rows, "ticketUpdatedAgeDays", true) : sortByNumKey(rows, "priorityScore", true),
-      headers: ["AID", "Name", "Topic", "Created / Updated", "LTP", "Hold", "7D", "Open", "Ticket"],
+      headers: ["AID", "Name", "Topic", "Created / Updated", "LTP", "Hold", "7DP", "Open", "Ticket"],
       align: ["left", "left", "left", "left", "right", "right", "right", "center", "center"],
       markerCol: 3,
       empty: "No open tickets.",
@@ -2433,14 +2542,15 @@
       stateKey: `lk_${app.agent}`,
       showSearch: false,
       sortFn: (rows) => sortBySoonestUnlock(rows),
-      headers: ["AID", "Name", "Lock Reason", "Days Remaining / Unlock"],
-      align: ["left", "left", "left", "left"],
+      headers: ["AID", "Name", "Lock Reason", "Created", "Days Remaining / Unlock"],
+      align: ["left", "left", "left", "left", "left"],
       markerCol: 2,
-      empty: "No new locks and no breaks due to end.",
+      empty: "No new locks or breaks due in the Last 3 Days.",
       renderRow: (p) => [
         aidHtml(p),
         esc(p.name),
         `<span class="t-${p.tone || "warning"}">${esc(p.lockReason)}</span>`,
+        `<span class="t-small">${esc(p.created || p.lockedAt || "\u2014")}</span>`,
         unlockHtml(p.unlockDetail, p.unlockRemainingDays)
       ]
     });
@@ -2461,7 +2571,7 @@
       headers: ["AID", "Name", "Email", "DOB", "Age", "Ticket"],
       align: ["left", "left", "left", "left", "right", "center"],
       markerCol: 3,
-      empty: "No birthdays in the last 3 days.",
+      empty: "No birthdays in the Last 3 Days.",
       renderRow: (p) => {
         var _a;
         return [
@@ -2485,10 +2595,10 @@
       sortOptions: [{ value: "win", label: "Sort: Win \u2193" }],
       defaultSort: "win",
       sortFn: (rows) => sortByNumKey(rows, "winGgrNum", true),
-      headers: ["AID", "Name", "Elite / AM", "Win (GGR)", "SC Turnover", "SC Won", "Game", "Pending RD"],
-      align: ["left", "left", "left", "right", "right", "right", "left", "right"],
+      headers: ["AID", "Name", "Elite / AM", "Win (GGR)", "SC Turnover", "SC Won", "Game", "Created", "Pending RD"],
+      align: ["left", "left", "left", "right", "right", "right", "left", "left", "right"],
       markerCol: 3,
-      empty: "No big winners yesterday.",
+      empty: "No big winners in the Last 3 Days.",
       renderRow: (p) => [
         aidHtml(p),
         esc(p.name),
@@ -2497,53 +2607,37 @@
         `<span class="t-small">${esc(p.scTurnover)}</span>`,
         `<span class="t-small">${esc(p.scWon)}</span>`,
         `<span class="t-small t-tertiary">${esc(p.game || "\u2014")}</span>`,
+        `<span class="t-small">${esc(p.created || "\u2014")}</span>`,
         p.pendingRdNum ? `<span class="t-warning w-semibold">${esc(p.pendingRd)}</span>` : `<span class="t-quaternary">\u2014</span>`
       ]
     });
   }
 
   // src/views/bigLosers.ts
-  var demoRows = () => [{
-    aid: "000000000",
-    name: "Sample \xB7 layout only",
-    isElite: true,
-    agentName: app.agent,
-    lossGgr: "$8.2K",
-    lossGgrNum: 8200,
-    scTurnover: "$12K",
-    scWon: "$3.8K",
-    game: "Sample Game",
-    pendingRd: "\u2014",
-    pendingRdNum: 0,
-    demo: true
-  }];
   function viewBigLosers() {
-    const live = rowsFor("bigLosers");
-    const demo = live.length === 0;
-    const rows = demo ? demoRows() : live;
-    const banner = demo ? `<div class="note">No player lost \u2265 $5K to the house on the report date. Sample row below shows the layout.</div>` : "";
-    return `${banner}${tableCard({
-      rows,
+    return tableCard({
+      rows: rowsFor("bigLosers"),
       stateKey: `bl_${app.agent}`,
       showSearch: false,
       sortOptions: [{ value: "loss", label: "Sort: House win \u2193" }],
       defaultSort: "loss",
       sortFn: (r) => sortByNumKey(r, "lossGgrNum", true),
-      headers: ["AID", "Name", "AM", "House win (GGR)", "SC Turnover", "SC Won", "Game", "Pending RD"],
-      align: ["left", "left", "left", "right", "right", "right", "left", "right"],
+      headers: ["AID", "Name", "AM", "House win (GGR)", "SC Turnover", "SC Won", "Game", "Created", "Pending RD"],
+      align: ["left", "left", "left", "right", "right", "right", "left", "left", "right"],
       markerCol: 3,
-      empty: "No big losers yesterday.",
+      empty: "No big losers in the Last 3 Days.",
       renderRow: (p) => [
-        p.demo ? `<span class="t-quaternary">${esc(p.aid)}</span>` : aidHtml(p),
-        p.demo ? `<span class="badge neutral-soft">Sample</span> ${esc(p.name)}` : esc(p.name),
+        aidHtml(p),
+        esc(p.name),
         `<span class="t-small">${esc(p.agentName || app.agent)}</span>`,
         `<span class="t-danger w-semibold">${esc(p.lossGgr)}</span>`,
         `<span class="t-small">${esc(p.scTurnover)}</span>`,
         `<span class="t-small">${esc(p.scWon)}</span>`,
         `<span class="t-small t-tertiary">${esc(p.game || "\u2014")}</span>`,
+        `<span class="t-small">${esc(p.created || "\u2014")}</span>`,
         p.pendingRdNum ? `<span class="t-warning w-semibold">${esc(p.pendingRd)}</span>` : `<span class="t-quaternary">\u2014</span>`
       ]
-    })}`;
+    });
   }
 
   // src/data/crmOffers.ts
@@ -2921,7 +3015,7 @@
     {
       id: "games",
       label: "Games",
-      accent: "brand",
+      accent: "games",
       entries: [{ kind: "view", id: "gamesSticky" }, { kind: "view", id: "gamesNew" }]
     }
   ];
@@ -2970,31 +3064,31 @@
       sub: `Same-weekday drops vs last ${day}`
     },
     bigwinners: {
-      label: "Big Winners \xB7 \u2265$20K",
+      label: "Big Winners \xB7 \u2265$20K \xB7 Last 3 Days",
       short: "Big Winners",
       icon: "trend-up",
       group: "Daily Triggers",
       key: "bigWinners",
-      sub: "Players who won $20K+ yesterday"
+      sub: "Players who won $20K+ on their peak day in the window"
     },
     biglosers: {
-      label: "Big Losers \xB7 \u2265$5K",
+      label: "Big Losers \xB7 \u2265$5K \xB7 Last 3 Days",
       short: "Big Losers",
       icon: "trend-down",
       group: "Daily Triggers",
       key: "bigLosers",
-      sub: "Players who lost $5K+ to the house yesterday"
+      sub: "Players who lost $5K+ to the house on their peak day"
     },
     rd: {
-      label: "Pending Redemptions",
-      short: "Pending RD",
+      label: "Pending Redemptions \xB7 Last 3 Days",
+      short: "Pending Redemptions",
       icon: "banknote",
       group: "Daily Triggers",
       key: "rdOver5k",
       sub: "Locked withdrawals awaiting release"
     },
     rdfirst: {
-      label: "First-Time Locked RD",
+      label: "First-Time Locked RD \xB7 Last 3 Days",
       short: "First-Time RD",
       icon: "sparkles",
       group: "Daily Triggers",
@@ -3009,7 +3103,7 @@
       sub: "Open Zendesk tickets on your book"
     },
     locks: {
-      label: "Locked & Take A Break",
+      label: "Locked & Take A Break \xB7 Last 3 Days",
       short: "Lock & TAB",
       icon: "lock",
       group: "Daily Triggers",
@@ -3077,6 +3171,86 @@
   };
   var GROUP_ORDER = [...new Set(NAV_GROUPS.map((g) => g.label).filter(Boolean))];
 
+  // src/state.ts
+  var GATE_KEY = "eliteAmBriefUnlocked";
+  function gateRemembered() {
+    try {
+      return sessionStorage.getItem(GATE_KEY) === GATE_TOKEN;
+    } catch (e) {
+      return false;
+    }
+  }
+  function rememberGate() {
+    try {
+      sessionStorage.setItem(GATE_KEY, GATE_TOKEN);
+    } catch (e) {
+    }
+  }
+  function gateToken(s) {
+    let h = 5381;
+    for (const ch of String(s)) h = (h * 33 >>> 0 ^ ch.codePointAt(0)) >>> 0;
+    return h.toString(16).padStart(8, "0");
+  }
+  var firstAgent = AGENTS[0] && AGENTS[0].agentName || AM_ORDER[0] || "";
+  var app = {
+    view: SINGLE_AM ? "home" : "dashboard",
+    agent: SINGLE_AM ? DATA.singleAmName || firstAgent : firstAgent,
+    unlocked: SINGLE_AM || gateRemembered(),
+    gateError: "",
+    collapsed: false,
+    mobileOpen: false,
+    ticket: null,
+    calOpen: false,
+    calMonth: (REPORT.date || "").slice(0, 7)
+  };
+  var renderHook = () => {
+  };
+  function setRenderHook(fn) {
+    renderHook = fn;
+  }
+  function rerender() {
+    renderHook();
+  }
+  var tstate = {};
+  function getState(key, fallback) {
+    if (!(key in tstate)) tstate[key] = fallback;
+    return tstate[key];
+  }
+  function putState(key, value) {
+    tstate[key] = value;
+  }
+  var RESET_SUFFIXES = ["_q", "_search", "_sort", "_sortBy", "_agent", "_reason", "_size"];
+  var focusKey = null;
+  function setState(key, value) {
+    tstate[key] = value;
+    for (const suffix of RESET_SUFFIXES) {
+      if (key.endsWith(suffix)) {
+        tstate[key.slice(0, -suffix.length) + "_page"] = 1;
+        break;
+      }
+    }
+    focusKey = key;
+    rerender();
+  }
+  function setPage(key, page) {
+    tstate[key] = page;
+    focusKey = null;
+    rerender();
+  }
+  function takeFocusKey() {
+    const key = focusKey;
+    focusKey = null;
+    return key;
+  }
+  function go(view) {
+    var _a;
+    if (SINGLE_AM && ((_a = VIEWS[view]) == null ? void 0 : _a.managerOnly)) return;
+    app.view = view;
+    app.mobileOpen = false;
+    rerender();
+    window.scrollTo({ top: 0, behavior: "auto" });
+  }
+
   // src/sidebar.ts
   function navCount(viewId) {
     const v = VIEWS[viewId];
@@ -3127,7 +3301,7 @@
         <div class="brand">
           <span class="brand-mark">${logoImg("elite", 32, "Elite Club")}</span>
           <div class="brand-text">
-            <div class="brand-title">${esc(REPORT.title || "Elite AM Brief")}</div>
+            <div class="brand-title">${esc(REPORT.title || "Elite Dashboard")}</div>
             <div class="brand-sub">${esc(REPORT.subtitle || "")}</div>
           </div>
         </div>
@@ -3227,8 +3401,8 @@
     else if (app.view === "top10") {
       pack = genericRows(
         "top10",
-        ["#", "AID", "Name", "Purchased", "Orders", "Top Offer", "Price", "Frequent 30d", "Max Purchase 30D"],
-        ["rank", "aid", "name", "purchased", "orderCount", "offerCode", "offerPrice", "frequentLast30d", "maxPurchase30d"]
+        ["#", "AID", "Name", "Purchased", "Top Offer", "Price", "Frequent 30d", "Max Purchase 30D", "LTP", "Hold"],
+        ["rank", "aid", "name", "purchased", "offerCode", "offerPrice", "frequentLast30d", "maxPurchase30d", "lifetimePurchase", "lifetimeHold"]
       );
     } else if (app.view === "tickets") {
       pack = genericRows(
@@ -3278,6 +3452,18 @@
     "November",
     "December"
   ];
+  function datelessBriefFile() {
+    if (SINGLE_AM && AUDIENCE_SLUG) return `elite_am_brief_${AUDIENCE_SLUG}.html`;
+    return "elite_am_brief.html";
+  }
+  function archiveFileForDate(iso) {
+    const file = ARCHIVE_BY_DATE.get(iso);
+    if (!file) return void 0;
+    if (!SINGLE_AM || !AUDIENCE_SLUG) return file;
+    const suffix = `_${AUDIENCE_SLUG}.html`;
+    if (file.endsWith(suffix)) return file;
+    return `${iso}_elite_am_brief_${AUDIENCE_SLUG}.html`;
+  }
   function shiftMonth(ym, delta) {
     const y = Number(ym.slice(0, 4));
     const m = Number(ym.slice(5, 7)) + delta;
@@ -3292,32 +3478,63 @@
     const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
     const canPrev = ARCHIVE_MONTHS.some((m) => m < ym);
     const canNext = ARCHIVE_MONTHS.some((m) => m > ym);
+    const latestArchive = ARCHIVE.length ? ARCHIVE[ARCHIVE.length - 1] : null;
+    const recent = ARCHIVE.filter((a) => a.d !== REPORT.date).slice(-5).reverse();
     let cells = "";
     for (let i = 0; i < firstDow; i++) cells += `<span class="cal-day empty"></span>`;
     for (let d = 1; d <= daysInMonth; d++) {
       const iso = `${ym}-${String(d).padStart(2, "0")}`;
-      const file = ARCHIVE_BY_DATE.get(iso);
+      const file = archiveFileForDate(iso);
       const isCurrent = iso === REPORT.date;
       if (file) {
         cells += `<button type="button" class="cal-day has${isCurrent ? " today" : ""}"
+
             data-cal-open="${esc(file)}" title="Open the brief for ${esc(iso)}">${d}</button>`;
       } else {
         cells += `<span class="cal-day" title="No brief for ${esc(iso)}">${d}</span>`;
       }
     }
+    const latestHtml = latestArchive && latestArchive.d !== REPORT.date ? `<button type="button" class="cal-recent-btn brand" data-cal-open="${esc(datelessBriefFile())}"
+
+            title="Open latest brief (${esc(latestArchive.d)})">Latest \xB7 ${esc(latestArchive.d.slice(5))}</button>` : "";
+    const recentHtml = recent.length || latestHtml ? `<div class="cal-recent">
+
+        <div class="cal-recent-label">Recent</div>
+
+        <div class="cal-recent-row">${latestHtml}${recent.map((a) => {
+      const f = archiveFileForDate(a.d) || a.f;
+      return `<button type="button" class="cal-recent-btn" data-cal-open="${esc(f)}" title="${esc(a.d)}">${esc(a.d.slice(5))}</button>`;
+    }).join("")}</div>
+
+      </div>` : "";
     return `<div class="cal-pop" id="calPop">
+
+        ${recentHtml}
+
         <div class="cal-head">
+
           <button type="button" class="cal-nav" data-cal-month="${esc(shiftMonth(ym, -1))}"
+
             ${canPrev ? "" : "disabled"} title="Previous month">${icon("chev-left", "ic-xs")}</button>
+
           <div class="cal-title">${esc(MONTH_NAMES[month - 1])} ${year}</div>
+
           <button type="button" class="cal-nav" data-cal-month="${esc(shiftMonth(ym, 1))}"
+
             ${canNext ? "" : "disabled"} title="Next month">${icon("chev-right", "ic-xs")}</button>
+
         </div>
+
         <div class="cal-grid">
+
           ${["S", "M", "T", "W", "T", "F", "S"].map((d) => `<div class="cal-dow">${d}</div>`).join("")}
+
           ${cells}
+
         </div>
+
         <div class="cal-foot">${ARCHIVE.length ? `${ARCHIVE.length} brief${ARCHIVE.length === 1 ? "" : "s"} saved. Highlighted days have a report; the rest were not generated.` : "No other briefs saved yet. History starts from this one."}</div>
+
       </div>`;
   }
 
@@ -3329,63 +3546,34 @@
     const showHome = app.view !== "home";
     const showExport = viewSupportsCsvExport(app.view);
     return `<header class="topbar">
-
         <button type="button" class="icon-btn" id="toggleSidebar" title="Toggle menu">${icon("panel", "ic-sm")}</button>
-
         ${showHome ? `<button type="button" class="btn-ghost" data-go="home">${icon("sunrise", "ic-xs")} Morning Brief</button>` : ""}
-
         <div class="crumb">
-
           <div class="crumb-top g-${groupAccent(v.group)}">${esc(v.group)}</div>
-
           <div class="crumb-title">${icon(v.icon, "ic-lg")}${esc(v.label)}</div>
-
         </div>
-
         <div class="spacer"></div>
-
         <div class="topbar-trail">
-
           ${showExport ? `<button type="button" class="icon-btn export-btn" id="exportCsv" title="Download CSV">${icon("download", "ic-sm")}</button>` : ""}
-
           <div class="cal-wrap">
-
             <button type="button" class="cal-btn" id="calBtn" title="Switch report date">
-
               ${icon("calendar", "ic-sm")}
-
               <span class="cal-btn-text">
-
                 <span class="cal-btn-kicker">Report date</span>
-
                 <span class="cal-btn-value">${esc(REPORT.subtitle || REPORT.date || "")}</span>
-
               </span>
-
               ${icon("chev-down", "ic-xs cal-chev")}
-
             </button>
-
             ${app.calOpen ? calendarPopHtml() : ""}
-
           </div>
-
           <div class="who">
-
             <span class="who-dot">${esc(isManager ? "ALL" : initials(who))}</span>
-
             <div class="who-copy">
-
               <div class="who-name">${esc(who)}</div>
-
               ${v.sub ? `<div class="who-role" title="${esc(v.sub)}">${esc(v.sub)}</div>` : ""}
-
             </div>
-
           </div>
-
         </div>
-
       </header>`;
   }
   function groupAccent(group) {
@@ -3393,7 +3581,8 @@
     if (group === "Performance") return "performance";
     if (group === "Daily Triggers") return "operations";
     if (group === "Declining & Churn") return "gaps";
-    if (group === "CRM" || group === "Games") return "brand";
+    if (group === "CRM") return "brand";
+    if (group === "Games") return "games";
     if (group === "Anniversary") return "outreach";
     return "neutral";
   }
@@ -3404,7 +3593,7 @@
     if (calBtn) calBtn.onclick = (e) => {
       e.stopPropagation();
       app.calOpen = !app.calOpen;
-      if (app.calOpen) app.calMonth = (REPORT.date || "").slice(0, 7);
+      if (app.calOpen && !app.calMonth) app.calMonth = (REPORT.date || "").slice(0, 7);
       rerender();
     };
     document.querySelectorAll("[data-cal-month]").forEach((el) => {
@@ -3415,7 +3604,8 @@
       };
     });
     document.querySelectorAll("[data-cal-open]").forEach((el) => {
-      el.onclick = () => {
+      el.onclick = (e) => {
+        e.stopPropagation();
         window.location.href = el.getAttribute("data-cal-open");
       };
     });
@@ -3594,17 +3784,18 @@ ${val("tBody")}`, "Subject + message");
           <div class="content">${body}</div>
         </div>
       </div>`;
-    document.title = `${REPORT.title || "Elite AM Brief"} \xB7 ${REPORT.date || ""}`;
+    document.title = `${REPORT.title || "Elite Dashboard"} \xB7 ${REPORT.date || ""}`;
     bind();
     renderModal();
   }
 
   // src/main.ts
-  document.addEventListener("click", () => {
-    if (app.calOpen) {
-      app.calOpen = false;
-      render();
-    }
+  document.addEventListener("click", (e) => {
+    if (!app.calOpen) return;
+    const t = e.target;
+    if (t instanceof Element && t.closest(".cal-wrap")) return;
+    app.calOpen = false;
+    render();
   });
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape" && app.calOpen) {

@@ -37,7 +37,7 @@ export interface NavGroup {
   id: string;
   /** Omit for pinned Morning Brief (no group header). */
   label?: string;
-  accent?: "manager" | "performance" | "operations" | "gaps" | "brand" | "outreach";
+  accent?: "manager" | "performance" | "operations" | "gaps" | "brand" | "games" | "outreach";
   pinned?: boolean;
   entries: NavEntry[];
 }

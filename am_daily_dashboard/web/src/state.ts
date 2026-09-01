@@ -8,6 +8,7 @@
  */
 import type { AppState, Dict } from "./types";
 import { AGENTS, AM_ORDER, DATA, GATE_TOKEN, REPORT, SINGLE_AM } from "./payload";
+import { VIEWS } from "./registry";
 
 /* ---------------- manager gate ---------------- */
 
@@ -46,7 +47,7 @@ const firstAgent: string = (AGENTS[0] && AGENTS[0].agentName) || AM_ORDER[0] || 
 export const app: AppState = {
   view: SINGLE_AM ? "home" : "dashboard",
   agent: SINGLE_AM ? DATA.singleAmName || firstAgent : firstAgent,
-  unlocked: gateRemembered(),
+  unlocked: SINGLE_AM || gateRemembered(),
   gateError: "",
   collapsed: false,
   mobileOpen: false,
@@ -117,6 +118,7 @@ export function takeFocusKey(): string | null {
 }
 
 export function go(view: string): void {
+  if (SINGLE_AM && VIEWS[view]?.managerOnly) return;
   app.view = view;
   app.mobileOpen = false;
   rerender();

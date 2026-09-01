@@ -16,6 +16,7 @@ from config import (
     GOALS_REACTIVATION_GAP_DAYS,
     PENDING_RD_LOOKBACK_DAYS,
     PENDING_RD_MIN_AMOUNT,
+    TRIGGER_LOOKBACK_DAYS,
 )
 
 
@@ -232,20 +233,37 @@ ORDER BY t.agent, t.rn
 
 
 def locked_rd_over_5k_sql(report_date: date) -> str:
-    """Pending locked redemptions >= PENDING_RD_MIN_AMOUNT created within the
-    trailing PENDING_RD_LOOKBACK_DAYS ending report_date (config.py).
+    """Pending locked redemptions still open on report_date.
 
-    Also returns the player's **report-day win** so the Big Winner flag can be
-    raised on a pending redemption. GGR is house-side (`profit - loss`), so a
-    player win is a negative GGR day; `player_win_day` flips the sign to be
-    positive-when-the-player-won, and only a genuine win is reported (a losing
-    day comes back as 0, not a negative win).
+    Inclusion requires **created within the trailing PENDING_RD_LOOKBACK_DAYS**
+    ending on report_date (inclusive), plus either:
+    - Locked request amount >= PENDING_RD_MIN_AMOUNT, OR
+    - Any locked request for an account whose player win was >=
+      BIG_WINNER_MIN_PLAYER_WIN on at least one day in that same window
+      (GGR <= -threshold; house-side sign).
+
+    Big Winner flag uses report-day player win only (same day as Won Yesterday).
     """
     d = _iso(report_date)
     lookback_interval = PENDING_RD_LOOKBACK_DAYS - 1
     return f"""
 WITH
 {_elite_am_book_ctes()},
+lookback_daily AS (
+  SELECT
+    k.account_id,
+    k.date,
+    SUM(CAST(k.profit AS FLOAT64) - CAST(k.loss AS FLOAT64)) AS ggr_day
+  FROM `{PROJECT_ID}.jackpota_agg.daily_player_revenue_kpis` k
+  INNER JOIN elite_am e ON e.account_id = k.account_id
+  WHERE k.date BETWEEN DATE_SUB(DATE '{d}', INTERVAL {lookback_interval} DAY) AND DATE '{d}'
+  GROUP BY k.account_id, k.date
+),
+win_accounts AS (
+  SELECT DISTINCT account_id
+  FROM lookback_daily
+  WHERE ggr_day <= -{BIG_WINNER_MIN_PLAYER_WIN}
+),
 locked_rd AS (
   SELECT
     w.account_id,
@@ -257,8 +275,11 @@ locked_rd AS (
   FROM `{PROJECT_ID}.transactional_data.payment_withdraw_money_requests` w
   INNER JOIN elite_am e ON e.account_id = w.account_id
   WHERE w.status = 'locked'
-    AND CAST(w.amount AS FLOAT64) >= {PENDING_RD_MIN_AMOUNT}
-    AND DATE(w.created_at) BETWEEN DATE_SUB(DATE '{d}', INTERVAL {lookback_interval} DAY) AND DATE '{d}'
+    AND DATE(w.created_at) >= DATE_SUB(DATE '{d}', INTERVAL {lookback_interval} DAY)
+    AND (
+      CAST(w.amount AS FLOAT64) >= {PENDING_RD_MIN_AMOUNT}
+      OR w.account_id IN (SELECT account_id FROM win_accounts)
+    )
 ),
 day_ggr AS (
   SELECT
@@ -294,8 +315,11 @@ ORDER BY e.agent, r.amount DESC
 """.strip()
 
 
-def first_time_locked_rd_sql() -> str:
-    """Accounts whose first-ever withdraw request is currently status=locked."""
+def first_time_locked_rd_sql(report_date: date) -> str:
+    """Accounts whose first-ever withdraw request is locked, created within the
+    trailing TRIGGER_LOOKBACK_DAYS ending report_date."""
+    d = _iso(report_date)
+    lookback_interval = TRIGGER_LOOKBACK_DAYS - 1
     return f"""
 WITH
 {_elite_am_book_ctes()},
@@ -314,6 +338,7 @@ first_locked AS (
   SELECT *
   FROM ordered
   WHERE rn = 1 AND status = 'locked'
+    AND created_date BETWEEN DATE_SUB(DATE '{d}', INTERVAL {lookback_interval} DAY) AND DATE '{d}'
 )
 SELECT
   e.agent,
@@ -423,7 +448,18 @@ SELECT
   MIN(ticket_created_at) AS oldest_ticket_at,
   MAX(ticket_updated_at) AS latest_ticket_at,
   ARRAY_AGG(DISTINCT CAST(ticket_id AS STRING) ORDER BY CAST(ticket_id AS STRING) LIMIT 8) AS ticket_ids,
-  ARRAY_AGG(DISTINCT subject ORDER BY subject LIMIT 8) AS subjects
+  ARRAY_AGG(DISTINCT subject ORDER BY subject LIMIT 8) AS subjects,
+  (
+    SELECT ARRAY_AGG(DISTINCT LOWER(TRIM(CAST(cf.value AS STRING)))
+             ORDER BY LOWER(TRIM(CAST(cf.value AS STRING))) LIMIT 16)
+    FROM ticket_aid ta2
+    INNER JOIN `{PROJECT_ID}.zendesk.ticket` t ON t.id = ta2.ticket_id
+    CROSS JOIN UNNEST(COALESCE(t.custom_fields, [])) AS cf
+    WHERE ta2.account_id = ta.account_id
+      AND ta2.agent = ta.agent
+      AND cf.value IS NOT NULL
+      AND TRIM(CAST(cf.value AS STRING)) != ''
+  ) AS zendesk_fields
 FROM ticket_aid ta
 LEFT JOIN `{PROJECT_ID}.transactional_data.uam_accounts` ua ON ua.id = ta.account_id
 LEFT JOIN `{PROJECT_ID}.transactional_data.uam_persons` per ON per.id = ua.person_id
@@ -459,13 +495,14 @@ ORDER BY e.agent, name
 
 
 def big_winners_sql(report_date: date) -> str:
-    """Players whose net GGR was ≤ −BIG_WINNER_SECTION_MIN on report_date.
+    """Players whose net GGR was ≤ −BIG_WINNER_SECTION_MIN within the trailing
+    TRIGGER_LOOKBACK_DAYS ending report_date (one row per AID, biggest win day).
 
     GGR is house-side (`profit − loss`), so a player win is a *negative* GGR
     day — `SUM(profit - loss) <= -BIG_WINNER_SECTION_MIN` catches the big
     winners. Read the sign backwards and this selects the biggest losers.
 
-    Includes **all** accounts on that day (not just Elite), because the Big
+    Includes **all** accounts on qualifying days (not just Elite), because the Big
     Winners section deliberately reaches outside the Elite book. Elite rows
     carry their AM's agent tag; non-Elite rows have agent = NULL and
     is_elite = FALSE — every AM sees those rows in their own tab.
@@ -473,21 +510,37 @@ def big_winners_sql(report_date: date) -> str:
     Columns returned:
       agent, is_elite, AID, name, win_ggr, sc_turnover, sc_won, game,
       pending_rd_amount
+
+    sc_turnover / sc_won are for the peak qualifying day only (same day as Created).
     """
     d = _iso(report_date)
+    lookback_interval = TRIGGER_LOOKBACK_DAYS - 1
     return f"""
 WITH
 {_elite_am_book_ctes()},
-day_ggr AS (
+daily AS (
   SELECT
     k.account_id,
+    k.date AS activity_date,
     SUM(CAST(k.profit AS FLOAT64)) AS sc_turnover,
     SUM(CAST(k.loss AS FLOAT64)) AS sc_won,
     SUM(CAST(k.profit AS FLOAT64) - CAST(k.loss AS FLOAT64)) AS ggr_day
   FROM `{PROJECT_ID}.jackpota_agg.daily_player_revenue_kpis` k
-  WHERE k.date = DATE '{d}'
-  GROUP BY k.account_id
+  WHERE k.date BETWEEN DATE_SUB(DATE '{d}', INTERVAL {lookback_interval} DAY) AND DATE '{d}'
+  GROUP BY k.account_id, k.date
   HAVING SUM(CAST(k.profit AS FLOAT64) - CAST(k.loss AS FLOAT64)) <= -{BIG_WINNER_SECTION_MIN}
+),
+day_ggr AS (
+  SELECT * EXCEPT(rn)
+  FROM (
+    SELECT
+      daily.*,
+      ROW_NUMBER() OVER (
+        PARTITION BY account_id ORDER BY ggr_day ASC, activity_date DESC
+      ) AS rn
+    FROM daily
+  )
+  WHERE rn = 1
 ),
 top_game AS (
   SELECT account_id, product_title AS game
@@ -498,9 +551,8 @@ top_game AS (
         ORDER BY SUM(g.nrows) DESC, g.product_title
       ) AS rn
     FROM `{PROJECT_ID}.jackpota_agg.fact_gameplay_daily` g
-    INNER JOIN day_ggr dg ON dg.account_id = g.account_id
-    WHERE DATE(g.at) = DATE '{d}'
-      AND g.product_title IS NOT NULL AND g.product_title != 'Jackpot'
+    INNER JOIN day_ggr dg ON dg.account_id = g.account_id AND DATE(g.at) = dg.activity_date
+    WHERE g.product_title IS NOT NULL AND g.product_title != 'Jackpot'
     GROUP BY g.account_id, g.product_title
   )
   WHERE rn = 1
@@ -524,6 +576,7 @@ SELECT
     ua.email,
     CAST(g.account_id AS STRING)
   ) AS name,
+  g.activity_date,
   ROUND(-g.ggr_day, 2) AS win_ggr,
   ROUND(g.sc_turnover, 2) AS sc_turnover,
   ROUND(g.sc_won, 2) AS sc_won,
@@ -540,25 +593,42 @@ ORDER BY g.ggr_day ASC
 
 
 def big_losers_sql(report_date: date) -> str:
-    """Players whose net GGR was ≥ BIG_LOSER_SECTION_MIN on report_date (house win).
+    """Players whose net GGR was ≥ BIG_LOSER_SECTION_MIN within the trailing
+    TRIGGER_LOOKBACK_DAYS ending report_date (one row per AID, biggest loss day).
 
     Positive GGR is a player loss day. Default floor is $5,000, same as the
     Pending RD Big Winner flag threshold.
+
+    sc_turnover / sc_won are for the peak qualifying day only (same day as Created).
     """
     d = _iso(report_date)
+    lookback_interval = TRIGGER_LOOKBACK_DAYS - 1
     return f"""
 WITH
 {_elite_am_book_ctes()},
-day_ggr AS (
+daily AS (
   SELECT
     k.account_id,
+    k.date AS activity_date,
     SUM(CAST(k.profit AS FLOAT64)) AS sc_turnover,
     SUM(CAST(k.loss AS FLOAT64)) AS sc_won,
     SUM(CAST(k.profit AS FLOAT64) - CAST(k.loss AS FLOAT64)) AS ggr_day
   FROM `{PROJECT_ID}.jackpota_agg.daily_player_revenue_kpis` k
-  WHERE k.date = DATE '{d}'
-  GROUP BY k.account_id
+  WHERE k.date BETWEEN DATE_SUB(DATE '{d}', INTERVAL {lookback_interval} DAY) AND DATE '{d}'
+  GROUP BY k.account_id, k.date
   HAVING SUM(CAST(k.profit AS FLOAT64) - CAST(k.loss AS FLOAT64)) >= {BIG_LOSER_SECTION_MIN}
+),
+day_ggr AS (
+  SELECT * EXCEPT(rn)
+  FROM (
+    SELECT
+      daily.*,
+      ROW_NUMBER() OVER (
+        PARTITION BY account_id ORDER BY ggr_day DESC, activity_date DESC
+      ) AS rn
+    FROM daily
+  )
+  WHERE rn = 1
 ),
 top_game AS (
   SELECT account_id, product_title AS game
@@ -569,9 +639,8 @@ top_game AS (
         ORDER BY SUM(g.nrows) DESC, g.product_title
       ) AS rn
     FROM `{PROJECT_ID}.jackpota_agg.fact_gameplay_daily` g
-    INNER JOIN day_ggr dg ON dg.account_id = g.account_id
-    WHERE DATE(g.at) = DATE '{d}'
-      AND g.product_title IS NOT NULL AND g.product_title != 'Jackpot'
+    INNER JOIN day_ggr dg ON dg.account_id = g.account_id AND DATE(g.at) = dg.activity_date
+    WHERE g.product_title IS NOT NULL AND g.product_title != 'Jackpot'
     GROUP BY g.account_id, g.product_title
   )
   WHERE rn = 1
@@ -595,13 +664,14 @@ SELECT
     ua.email,
     CAST(g.account_id AS STRING)
   ) AS name,
+  g.activity_date,
   ROUND(g.ggr_day, 2) AS loss_ggr,
   ROUND(g.sc_turnover, 2) AS sc_turnover,
   ROUND(g.sc_won, 2) AS sc_won,
   tg.game,
   ROUND(COALESCE(rd.pending_rd_amount, 0), 2) AS pending_rd_amount
 FROM day_ggr g
-LEFT JOIN elite_am e ON e.account_id = g.account_id
+INNER JOIN elite_am e ON e.account_id = g.account_id
 LEFT JOIN `{PROJECT_ID}.transactional_data.uam_accounts` ua ON ua.id = g.account_id
 LEFT JOIN `{PROJECT_ID}.transactional_data.uam_persons` per ON per.id = ua.person_id
 LEFT JOIN top_game tg ON tg.account_id = g.account_id
@@ -830,8 +900,8 @@ reactivations AS (
 recent_buyers AS (
   SELECT DISTINCT account_id
   FROM tableau_purchase_days
-  WHERE purchase_date > DATE_SUB(DATE '{d}',
-                                 INTERVAL {GOALS_ACTIVE_LOOKBACK_DAYS} DAY)
+  WHERE purchase_date >= DATE_SUB(DATE '{d}',
+                                  INTERVAL {GOALS_ACTIVE_LOOKBACK_DAYS} DAY)
 ),
 active_players AS (
   SELECT

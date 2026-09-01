@@ -30,9 +30,37 @@ export function fmtCount(n: unknown): string {
 
 export function compactMoney(n: number): string {
   const a = Math.abs(n);
-  if (a >= 1e6) return "$" + (n / 1e6).toFixed(a >= 1e7 ? 0 : 1) + "M";
+  if (a >= 1e6) {
+    const m = n / 1e6;
+    const absM = Math.abs(m);
+    const rounded =
+      absM >= 10
+        ? Math.round(m)
+        : Math.round(m * 10) / 10;
+    const body = Number.isInteger(rounded) ? String(rounded) : String(rounded);
+    return "$" + body.replace(/\.0$/, "") + "M";
+  }
   if (a >= 1e4) return "$" + Math.round(n / 1e3) + "K";
   return money(n);
+}
+
+/** Goals points — one decimal when needed, never a trailing .0 */
+export function formatGoalPoints(n: number): string {
+  if (!Number.isFinite(n)) return "—";
+  const rounded = Math.round(n * 10) / 10;
+  return Number.isInteger(rounded)
+    ? String(Math.round(rounded))
+    : rounded.toFixed(1).replace(/\.0$/, "");
+}
+
+/** Goals headline % — one decimal when needed, never a trailing .0 */
+export function formatGoalPct(pct: number): string {
+  if (!Number.isFinite(pct)) return "—";
+  const rounded = Math.round(pct * 10) / 10;
+  const body = Number.isInteger(rounded)
+    ? String(Math.round(rounded))
+    : rounded.toFixed(1).replace(/\.0$/, "");
+  return `${body}%`;
 }
 
 export function initials(name: unknown): string {

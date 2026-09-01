@@ -1460,7 +1460,71 @@ Full plan and rollback: `am_daily_dashboard/AM_BRIEF_EXPANSION_PLAN.md`.
 
 **Routing table** updated in `SKILL.md` with planned rows for Phases C/D/E/F/G.
 
-**Build order:** Phase 0 (done) - B Goals history - C Anniversary - D Birthday Gift - E Responsiveness - F Peer mode - G Bonus Calculator - H Slack.
+**Build order:** Phase 0 (done) - B Goals history (done) - C Anniversary - D Birthday Gift - E Responsiveness - F Peer mode - G Bonus Calculator - H Slack.
+
+### Phase B - Goals history (done 2026-09-01)
+
+Final-month Goals are frozen once the calendar month ends, so a later board can
+show prior months' results as a trend.
+
+- **`goals_history.py`** owns it. `data/elite_goals_history.json` keys a compact
+  per-AM + team snapshot by `YYYY-MM` (KPI actuals, headline `kpiPct`, status).
+- **Close** happens automatically inside `write_outputs` on a full generate when
+  the report date is the last day of its month (idempotent; no-op otherwise).
+  Backfill / manual close reads the saved export as a script:
+  `python am_daily_dashboard/goals_history.py --close YYYY-MM-DD`.
+- **Attach**: `attach_history_to_payload` (called at the end of `build_payload`
+  and in `rebuild_html_from_json`) hangs prior completed months on each AM's own
+  `agents[].goals["history"]` and on the manager-only `teamGoals["history"]`.
+  Only months **before** the report month are shown, so the live in-progress
+  month is never duplicated in history.
+- **Isolation is automatic**: per-AM history rides inside that AM's goals block
+  (kept by `strip_payload_for_am`); team history rides inside `teamGoals`, which
+  no per-AM file carries. Confirmed in the jsdom suite.
+- **UI**: `components.goalsHistoryCard` renders a "Goals History" card under the
+  KPI table in `views/goals.ts` and `views/team.ts`. Each closed month is a
+  **collapsible dropdown** (native `<details>`, so a second click closes it and
+  no JS state is needed): the summary row is compact (Month · Result % · Daily
+  Avg / Purchasers / % Active) and expanding reveals that month's full KPI
+  breakdown (KPI · Weight · Goal · Actual · Status). Renders nothing until a
+  month has closed. `verify_brief.verify_goals_history` checks it and skips
+  gracefully when no month is closed.
+- **Backfill done:** Aug 2026 closed from the `2026-08-31` verified export.
+
+### Phase C - One-month anniversary (spec for the next chat)
+
+Replace the `comingSoon` placeholder with a real per-AM section.
+
+- **Definition (confirm with the user first - flagged OPEN in `SKILL.md` "Blocked"):**
+  a player hits the one-month anniversary when `agent_start_managed_date +
+  ANNIVERSARY_MANAGED_DAYS` (30) falls within `ANNIVERSARY_WINDOW_DAYS` (3) of
+  `report_date`, inclusive both sides. Source column
+  `dbt_aninditac.elite.agent_start_managed_date` (the same column the Goals book
+  pins through `as_of`); it is **not** yet referenced in `queries.py`. Mock the
+  row list + columns in chat before building (task-efficiency rule 5).
+- **SQL:** add `anniversary_sql(report_date)` in `queries.py`; route every date
+  through `queries._iso()`.
+- **Builder:** `build_anniversary_section` in `payload_builders.py` (pure, no BQ;
+  add tests in `test_payload_builders.py`). Rows must carry `aid`, `managedDate`,
+  `anniversaryDate` - `verify_brief.verify_anniversary` already asserts these.
+- **View:** create `web/src/views/anniversary.ts`; in `registry.ts` import
+  `viewAnniversary` from there (currently it comes from `views/comingSoon.ts`)
+  and drop `comingSoon: true` on the `anniversary` entry. Keep group
+  "Daily Triggers", icon `gift`.
+- **Wiring:** run the query in `build_payload`, pass rows through
+  `focus_for_agent`, attach as `agents[].anniversary`. Isolation is automatic
+  (rides in the agent block, like Birthdays) - no manager-only key, no
+  `strip_payload_for_am` change.
+- **Enrich:** reuse the shared `enrich_aids_sql` batch (LTP / Hold / 7D) already
+  fetched for Open Tickets - do not add a second enrich query.
+- **AID -> Looker link on every row** (elite-core). Optionally a Birthdays-style
+  Zendesk draft via `am_brief_ticket_drafts.py`, gated for locked/self-excluded.
+
+**Rollback caveat (both Phase B and C):** the working tree carries a large
+uncommitted UI refactor *beyond* Phase B, so do **not** run a blanket
+`git checkout main -- am_daily_dashboard/` - it would wipe unrelated in-flight
+work. Roll back single files only, or use `verify_brief.py --restore-verified`
+for report data.
 
 ---
 

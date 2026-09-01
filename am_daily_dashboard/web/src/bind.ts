@@ -16,7 +16,7 @@ export function bind(): void {
   if (calBtn) calBtn.onclick = (e) => {
     e.stopPropagation();
     app.calOpen = !app.calOpen;
-    if (app.calOpen) app.calMonth = (REPORT.date || "").slice(0, 7);
+    if (app.calOpen && !app.calMonth) app.calMonth = (REPORT.date || "").slice(0, 7);
     rerender();
   };
   document.querySelectorAll("[data-cal-month]").forEach((el) => {
@@ -29,7 +29,10 @@ export function bind(): void {
   /* Sibling file in the same folder, so the archive works from a network
      share or a copied folder with no server involved. */
   document.querySelectorAll("[data-cal-open]").forEach((el) => {
-    (el as HTMLElement).onclick = () => { window.location.href = el.getAttribute("data-cal-open")!; };
+    (el as HTMLElement).onclick = (e) => {
+      e.stopPropagation();
+      window.location.href = el.getAttribute("data-cal-open")!;
+    };
   });
   const calPop = document.getElementById("calPop");
   if (calPop) calPop.onclick = (e) => e.stopPropagation();

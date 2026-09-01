@@ -27,7 +27,7 @@ export function render(): void {
           <div class="content">${body}</div>
         </div>
       </div>`;
-  document.title = `${REPORT.title || "Elite AM Brief"} · ${REPORT.date || ""}`;
+  document.title = `${REPORT.title || "Elite Dashboard"} · ${REPORT.date || ""}`;
   bind();
   renderModal();
 }

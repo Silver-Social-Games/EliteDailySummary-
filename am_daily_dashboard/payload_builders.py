@@ -17,10 +17,13 @@ from typing import TYPE_CHECKING
 
 from config import (  # noqa: E402
     LOCKS_REVIEW_WINDOW_DAYS,
+    LOCKS_TAB_EXPIRE_DAYS,
     LOCKS_WINDOW_DAYS,
     TICKET_TOPIC_BASE_LABEL,
     TICKET_TOPIC_BASE_MULTIPLIER,
     TICKET_TOPIC_TIERS,
+    TICKET_ZENDESK_TIER1_FIELD_VALUES,
+    TICKET_ZENDESK_TIER2_FIELD_VALUES,
     TICKET_WEIGHT_30D_PURCHASE,
     TICKET_WEIGHT_LT_HOLD,
     TICKET_WEIGHT_LT_NGR,
@@ -42,6 +45,7 @@ from wow_drop_analysis.wow_drop_reason import (  # noqa: E402
 from am_brief_ticket_drafts import (  # noqa: E402
     build_birthday_ticket_draft,
     build_first_time_rd_ticket_draft,
+    outreach_lock_gate,
 )
 
 if TYPE_CHECKING:
@@ -167,6 +171,27 @@ def lock_bucket(lock_reason: str, lock_comment: str) -> tuple[str, str]:
     return "Other locked", "warning"
 
 
+def _birthday_row_excluded(
+    locked: bool, lock_reason: str = "", lock_reason_comment: str = ""
+) -> bool:
+    """Birthday outreach is skipped for locked, self-excluded, or TAB players."""
+    disabled, _ = outreach_lock_gate(locked, lock_reason, lock_reason_comment)
+    if disabled:
+        return True
+    reason = (lock_reason or "").strip()
+    comment = (lock_reason_comment or "").strip()
+    low = f"{reason} {comment}".lower()
+    if reason == "Exclusion" or "self_exclud" in low:
+        return True
+    if (
+        _take_a_break_days(reason)
+        or _take_a_break_days(comment)
+        or "take a break" in low
+    ):
+        return True
+    return False
+
+
 def unlock_info(
     lock_reason: str,
     lock_comment: str,
@@ -198,49 +223,63 @@ def unlock_info(
 # ---------------------------------------------------------------------------
 
 
-def build_top10_section(rows: list[dict]) -> list[dict]:
-    """Format raw Top 10 Purchasers BQ rows into payload dicts."""
+def build_top10_section(
+    rows: list[dict],
+    metrics_enrich: dict[int, dict] | None = None,
+) -> list[dict]:
+    """Format raw Top 10 Purchasers BQ rows into payload dicts.
+
+    metrics_enrich: when provided, adds lifetime purchase/hold from the shared
+    enrich_aids_sql batch (no extra query).
+    """
     out = []
     for r in rows:
         unit_min = r.get("offer_unit_min")
         unit_max = r.get("offer_unit_max")
-        out.append(
-            aid_row(
-                r.get("AID"),
-                r.get("name") or "n/a",
-                agent=r.get("agent") or "",
-                agentName=agent_display(r.get("agent") or ""),
-                rank=int(r.get("rank_in_agent") or 0),
-                purchased=fmt_money_short(r.get("purchased")),
-                purchasedNum=float(r.get("purchased") or 0),
-                orderCount=int(float(r.get("order_count") or 0)),
-                offerCode=r.get("offer_code") or "—",
-                offerTitle=r.get("offer_title") or "",
-                offerQty=int(float(r.get("offer_qty") or 0)),
-                offerAmount=fmt_money_short(r.get("offer_amount"))
-                if r.get("offer_amount") is not None
-                else "—",
-                offerPrice=fmt_price(r.get("offer_unit_amount")),
-                # True when the same offer was bought at more than one amount,
-                # so a single price is an average rather than the price paid.
-                offerPriceVaries=bool(
-                    unit_min is not None
-                    and unit_max is not None
-                    and float(unit_min) != float(unit_max)
-                ),
-                usualPrice=fmt_price(r.get("usual_price")),
-                usualPriceOrders=_safe_int(r.get("usual_price_orders")),
-                ceilingPrice=fmt_price(r.get("ceiling_price")),
-                frequentLast30d=fmt_price(r.get("usual_price")) if r.get("usual_price") is not None else "—",
-                maxPurchase30d=fmt_price(r.get("max_purchase_30d")) if r.get("max_purchase_30d") is not None else "—",
-                packageFit=build_package_fit(
-                    r.get("usual_price"),
-                    r.get("usual_price_orders"),
-                    r.get("ceiling_price"),
-                ),
-                tone="success",
-            )
+        row = aid_row(
+            r.get("AID"),
+            r.get("name") or "n/a",
+            agent=r.get("agent") or "",
+            agentName=agent_display(r.get("agent") or ""),
+            rank=int(r.get("rank_in_agent") or 0),
+            purchased=fmt_money_short(r.get("purchased")),
+            purchasedNum=float(r.get("purchased") or 0),
+            orderCount=int(float(r.get("order_count") or 0)),
+            offerCode=r.get("offer_code") or "—",
+            offerTitle=r.get("offer_title") or "",
+            offerQty=int(float(r.get("offer_qty") or 0)),
+            offerAmount=fmt_money_short(r.get("offer_amount"))
+            if r.get("offer_amount") is not None
+            else "—",
+            offerPrice=fmt_price(r.get("offer_unit_amount")),
+            # True when the same offer was bought at more than one amount,
+            # so a single price is an average rather than the price paid.
+            offerPriceVaries=bool(
+                unit_min is not None
+                and unit_max is not None
+                and float(unit_min) != float(unit_max)
+            ),
+            usualPrice=fmt_price(r.get("usual_price")),
+            usualPriceOrders=_safe_int(r.get("usual_price_orders")),
+            ceilingPrice=fmt_price(r.get("ceiling_price")),
+            frequentLast30d=fmt_price(r.get("usual_price")) if r.get("usual_price") is not None else "—",
+            maxPurchase30d=fmt_price(r.get("max_purchase_30d")) if r.get("max_purchase_30d") is not None else "—",
+            packageFit=build_package_fit(
+                r.get("usual_price"),
+                r.get("usual_price_orders"),
+                r.get("ceiling_price"),
+            ),
+            tone="success",
         )
+        if metrics_enrich is not None:
+            m = metrics_enrich.get(_safe_int(r.get("AID")), {})
+            ltp_num = float(m.get("lifetime_purchased") or 0)
+            row.update(
+                lifetimePurchase=format_lifetime_purchased(m) if m else fmt_money_short(0),
+                lifetimePurchasedNum=ltp_num,
+                lifetimeHold=format_lifetime_hold(m) if m else "n/a",
+            )
+        out.append(row)
     return out
 
 
@@ -336,10 +375,17 @@ def build_birthday_section(
     """Format raw Birthdays BQ rows into payload dicts.
 
     ticket_enrich: same locked/self-exclusion gate as build_rd_section,
-    applied via build_birthday_ticket_draft.
+    applied via build_birthday_ticket_draft. Locked, self-excluded, and TAB
+    players are omitted from the section entirely.
     """
     out = []
     for r in rows:
+        if _birthday_row_excluded(
+            bool(r.get("locked")),
+            r.get("lock_reason") or "",
+            r.get("lock_reason_comment") or "",
+        ):
+            continue
         age = r.get("age")
         try:
             age_i = int(age) if age is not None else None
@@ -400,12 +446,14 @@ def build_big_winners_section(
         sc_turnover = float(r.get("sc_turnover") or 0)
         sc_won = float(r.get("sc_won") or 0)
         pending_rd = float(r.get("pending_rd_amount") or 0)
+        activity_d = parse_date_val(r.get("activity_date"))
         row = aid_row(
             r.get("AID"),
             r.get("name") or "n/a",
             agent=agent_tag,
             agentName=agent_name,
             isElite=is_elite,
+            created=activity_d.isoformat() if activity_d else "",
             winGgr=fmt_money_short(win),
             winGgrNum=win,
             scTurnover=fmt_money_short(sc_turnover),
@@ -445,12 +493,14 @@ def build_big_losers_section(
         sc_turnover = float(r.get("sc_turnover") or 0)
         sc_won = float(r.get("sc_won") or 0)
         pending_rd = float(r.get("pending_rd_amount") or 0)
+        activity_d = parse_date_val(r.get("activity_date"))
         row = aid_row(
             r.get("AID"),
             r.get("name") or "n/a",
             agent=agent_tag,
             agentName=agent_name,
             isElite=is_elite,
+            created=activity_d.isoformat() if activity_d else "",
             lossGgr=fmt_money_short(loss),
             lossGgrNum=loss,
             scTurnover=fmt_money_short(sc_turnover),
@@ -474,37 +524,67 @@ def build_big_losers_section(
     return out
 
 
-def _classify_subject(subject: str) -> tuple[float, str]:
+def _classify_token(token: str) -> tuple[float, str]:
+    norm = token.strip().lower()
+    if norm in TICKET_ZENDESK_TIER1_FIELD_VALUES:
+        return 2.0, "Redemption / Security"
+    if norm in TICKET_ZENDESK_TIER2_FIELD_VALUES:
+        return 1.5, "Account / KYC / Promo"
     for multiplier, label, pattern in TICKET_TOPIC_TIERS:
-        if re.search(pattern, subject):
+        if re.search(pattern, norm):
             return multiplier, label
     return TICKET_TOPIC_BASE_MULTIPLIER, TICKET_TOPIC_BASE_LABEL
 
 
-def _ticket_topic(subjects: list[str]) -> tuple[float, str, list[str]]:
+def _label_multiplier(label: str) -> float:
+    if label == "Redemption / Security":
+        return 2.0
+    if label == "Account / KYC / Promo":
+        return 1.5
+    if label == "Service Issue":
+        return 1.2
+    return TICKET_TOPIC_BASE_MULTIPLIER
+
+
+def _ticket_topic(
+    subjects: list[str],
+    zendesk_fields: list[str] | None = None,
+) -> tuple[float, str, list[str]]:
     """Return (best_multiplier, primary_label, topic_labels) for a player.
 
-    Each distinct ticket subject is classified on its own. We keep at most two
-    unique labels for display, ordered by first appearance after deduping SQL
-    duplicates from the Zendesk join.
+    Classifies Zendesk custom-field values (the agent-set Topic) before subject
+    regex. Each distinct subject and field value is classified on its own.
     """
     unique_subjects = list(dict.fromkeys(s.strip() for s in subjects if s and str(s).strip()))
-    if not unique_subjects:
+    unique_fields = list(
+        dict.fromkeys(s.strip() for s in (zendesk_fields or []) if s and str(s).strip())
+    )
+    tokens = unique_fields + unique_subjects
+    if not tokens:
         return TICKET_TOPIC_BASE_MULTIPLIER, TICKET_TOPIC_BASE_LABEL, [TICKET_TOPIC_BASE_LABEL]
 
     labels: list[str] = []
     best_mult = TICKET_TOPIC_BASE_MULTIPLIER
     primary = TICKET_TOPIC_BASE_LABEL
 
-    for subject in unique_subjects:
-        mult, label = _classify_subject(subject)
+    for token in tokens:
+        mult, label = _classify_token(token)
         if mult > best_mult:
             best_mult = mult
             primary = label
         if label not in labels:
             labels.append(label)
 
-    return best_mult, primary, ([primary] + [l for l in labels if l != primary])[:2]
+    ordered = [primary] + [l for l in labels if l != primary]
+    if any(l != TICKET_TOPIC_BASE_LABEL for l in labels):
+        ordered = [l for l in ordered if l != TICKET_TOPIC_BASE_LABEL]
+    if not ordered:
+        ordered = [TICKET_TOPIC_BASE_LABEL]
+    # Do not show a lower-tier subject guess beside a security / self-exclusion topic.
+    if best_mult >= 2.0:
+        ordered = [l for l in ordered if _label_multiplier(l) >= 2.0] or [primary]
+
+    return best_mult, primary, ordered[:2]
 
 
 def build_zd_section(
@@ -535,7 +615,8 @@ def build_zd_section(
         p7_num = float(enrich.get("purchased_7d") or 0)
 
         subjects: list[str] = list(r.get("subjects") or [])
-        topic_mult, topic_label, topic_labels = _ticket_topic(subjects)
+        zendesk_fields: list[str] = list(r.get("zendesk_fields") or [])
+        topic_mult, topic_label, topic_labels = _ticket_topic(subjects, zendesk_fields)
         oldest = parse_date_val(r.get("oldest_ticket_at"))
         if isinstance(oldest, datetime):
             oldest = oldest.date()
@@ -624,6 +705,9 @@ def build_lock_section(rows: list[dict], report_date: date) -> list[dict]:
         due_for_review = (
             remaining_days is not None and remaining_days <= LOCKS_REVIEW_WINDOW_DAYS
         )
+        if bucket == "Take a break" and remaining_days is not None:
+            if remaining_days < -LOCKS_TAB_EXPIRE_DAYS:
+                continue
         if not (locked_today or due_for_review):
             continue
         # Emphasize take-a-break locks whose window has already ended (or ends
@@ -641,6 +725,7 @@ def build_lock_section(rows: list[dict], report_date: date) -> list[dict]:
                 unlockDetail=unlock,
                 unlockRemainingDays=remaining_days,
                 lockedAt=locked_at_d.isoformat() if locked_at_d else "",
+                created=locked_at_d.isoformat() if locked_at_d else "",
                 tone=tone,
             )
         )
@@ -727,6 +812,8 @@ def focus_for_agent(
     purchase_share = f"{(purch_num / elite_rev * 100):.1f}%" if elite_rev else "—"
     player_share = f"{(purch_ply / elite_ply * 100):.1f}%" if elite_ply else "—"
     book_rate = f"{(purch_ply / total_players * 100):.1f}%" if total_players else "—"
+    rd_a = filt(rd5k)
+    open_zd = sum(int(r.get("openTickets") or 0) for r in zd_a)
     return {
         "agentName": agent_name,
         "greetingLines": greeting_lines(
@@ -746,12 +833,12 @@ def focus_for_agent(
         "bookPurchaseRate": book_rate,
         "purchasedOfBook": f"{purch_ply} / {total_players}",
         "focus": {
-            "openZd": sum(int(r.get("openTickets") or 0) for r in zd_a),
+            "openZd": open_zd,
             "locked": len(locks_a),
             "takeABreak": tab,
             "selfExclusion": exclusion,
             "otherLocked": other,
-            "rdOver5k": len(filt(rd5k)),
+            "rdOver5k": len(rd_a),
             "birthdays": len(filt(birthdays)),
             "declineCount": len(decline_a),
             "bigWinners": len(bw_a),

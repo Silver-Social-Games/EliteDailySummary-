@@ -194,6 +194,34 @@ def _verify_pct_active(block: dict, label: str, report: Report) -> None:
     )
 
 
+def verify_goals_history(payload: dict, report: Report) -> None:
+    """Phase B: final-month Goals history — skip gracefully when none closed."""
+    agents = payload.get("agents") or []
+    team = payload.get("teamGoals") or {}
+    agent_hist = {
+        a.get("agentName"): (a.get("goals") or {}).get("history")
+        for a in agents
+        if (a.get("goals") or {}).get("history")
+    }
+    team_hist = team.get("history")
+    if not agent_hist and not team_hist:
+        return
+    print("\nGoals history (prior closed months)")
+    current_month = str((payload.get("report") or {}).get("date") or "")[:7]
+    for name, hist in agent_hist.items():
+        report.check(isinstance(hist, list), f"{name} history is a list")
+        for m in hist or []:
+            report.check("monthKey" in m, f"{name} history row has monthKey")
+            report.check(
+                str(m.get("monthKey")) < current_month,
+                f"{name} history month {m.get('monthKey')} precedes report month",
+                current_month,
+            )
+            report.check("kpiPct" in m, f"{name} history row has kpiPct")
+    if team_hist is not None:
+        report.check(isinstance(team_hist, list), "Team history is a list")
+
+
 def verify_responsiveness(payload: dict, report: Report) -> None:
     """Phase E: responsiveness section — skip gracefully when not yet built."""
     agents = payload.get("agents") or []
@@ -349,6 +377,7 @@ def main() -> None:
     verify_structure(payload, report)
     verify_agents(payload, report)
     verify_goals_math(payload, report)
+    verify_goals_history(payload, report)
     verify_responsiveness(payload, report)
     verify_birthday_gift(payload, report)
     verify_anniversary(payload, report)
