@@ -77,6 +77,7 @@ from wow_drop_analysis.wow_drop_reason import (  # noqa: E402
 from payload_builders import (  # noqa: E402
     agent_display,
     build_am_shares_and_overview,
+    build_anniversary_section,
     build_big_winners_section,
     build_big_losers_section,
     build_birthday_section,
@@ -250,6 +251,8 @@ def build_payload(report_date: date, client) -> dict:
     print(f"  First-time locked RD (3d): {len(rd_first_raw)}")
     bday_raw = run_query(client, am_queries.birthdays_last_3d_sql(report_date))
     print(f"  Birthdays (3d): {len(bday_raw)}")
+    anniv_raw = run_query(client, am_queries.anniversary_sql(report_date))
+    print(f"  One-month anniversaries (3d): {len(anniv_raw)}")
     zd_raw = run_query(client, am_queries.open_zendesk_sql())
     print(f"  Open ZD players: {len(zd_raw)}")
     bw_raw = run_query(client, am_queries.big_winners_sql(report_date))
@@ -268,7 +271,7 @@ def build_payload(report_date: date, client) -> dict:
             continue
     # rd5k_raw is in here for its missing-document status and account context,
     # not for a ticket draft — Pending RD stays view-only.
-    for r in (*top10_raw, *rd5k_raw, *rd_first_raw, *bday_raw, *bw_raw, *bl_raw):
+    for r in (*top10_raw, *rd5k_raw, *rd_first_raw, *bday_raw, *anniv_raw, *bw_raw, *bl_raw):
         try:
             ticket_aids.add(int(r["AID"]))
         except (TypeError, ValueError, KeyError):
@@ -334,6 +337,7 @@ def build_payload(report_date: date, client) -> dict:
     )
     rd_first = build_rd_section(rd_first_raw, ticket_enrich=shared_enrich)
     birthdays = build_birthday_section(bday_raw, ticket_enrich=shared_enrich)
+    anniversary = build_anniversary_section(anniv_raw, enrich_map=shared_enrich)
     locks = build_lock_section(locks_raw, report_date)
     print(f"  Locked after past-day window filter: {len(locks)}")
 
@@ -362,6 +366,7 @@ def build_payload(report_date: date, client) -> dict:
                 rd5k=rd5k,
                 rd_first=rd_first,
                 birthdays=birthdays,
+                anniversary=anniversary,
                 zd=zd,
                 locks=locks,
                 big_winners=big_winners,

@@ -1460,7 +1460,7 @@ Full plan and rollback: `am_daily_dashboard/AM_BRIEF_EXPANSION_PLAN.md`.
 
 **Routing table** updated in `SKILL.md` with planned rows for Phases C/D/E/F/G.
 
-**Build order:** Phase 0 (done) - B Goals history (done) - C Anniversary - D Birthday Gift - E Responsiveness - F Peer mode - G Bonus Calculator - H Slack.
+**Build order:** Phase 0 (done) - B Goals history (done) - C Anniversary (done) - D Birthday Gift - E Responsiveness - F Peer mode - G Bonus Calculator - H Slack.
 
 ### Phase B - Goals history (done 2026-09-01)
 
@@ -1490,12 +1490,57 @@ show prior months' results as a trend.
   month has closed. `verify_brief.verify_goals_history` checks it and skips
   gracefully when no month is closed.
 - **Backfill done:** Aug 2026 closed from the `2026-08-31` verified export.
+- **monthKey stamping (fixed 2026-09-01):** the stored snapshot keeps `monthKey`
+  only on the month **entry**, not on each per-AM/team snap. `agent_history` /
+  `team_history` now stamp `monthKey` (and fall back `monthLabel`) onto every
+  returned row. Before this, the first report in a month **after** a closed
+  month (e.g. Sep 1, with Aug closed) produced history rows with `monthKey` None
+  and failed `verify_goals_history`; it went unnoticed because on Aug 31 August
+  is the current month, so no prior-month history rendered. `--html-only`
+  re-attaches history for the HTML but does **not** re-save the JSON, so verify
+  (which reads the JSON) needs a full generate to see a history-shape change.
 
-### Phase C - One-month anniversary (spec for the next chat)
+### Phase C - One-month anniversary (done 2026-09-01)
 
-Replace the `comingSoon` placeholder with a real per-AM section.
+Real per-AM section replaced the `comingSoon` placeholder. Ships as
+`agents[].anniversary`, isolated automatically (rides in the agent block).
 
-- **Definition (confirm with the user first - flagged OPEN in `SKILL.md` "Blocked"):**
+- **Definition (locked with user 2026-09-01):** **trailing** window - a player
+  shows when `agent_start_managed_date + ANNIVERSARY_MANAGED_DAYS` (30) lands in
+  the last `ANNIVERSARY_WINDOW_DAYS` (3) days ending on `report_date`, i.e. the
+  30-day mark was just reached (same shape as Birthdays, not symmetric). The
+  user picked trailing over symmetric/leading. Managed date taken as
+  `MIN(agent_start_managed_date)` per account so a re-tag cannot reset the clock.
+- **Columns (locked 2026-09-01):** AID · Email · First Name · Last Name ·
+  Managed Since · Anniversary · LTP · Hold % · 7D Purchase · Ticket. Search box,
+  a sort dropdown (Anniversary soonest / LTP down / 7D down / Name A-Z), forced
+  pagination at 10/page (`tableCard` gained `forcePaginate` + `pageSize`), and a
+  **CSV download** button (registered in `exportCsv.ts` `viewSupportsCsvExport`).
+- **Draft:** review-only Zendesk draft added (`build_anniversary_ticket_draft`),
+  gated by `outreach_lock_gate` like Birthdays / First-Time RD. Copy (locked with
+  user 2026-09-01): subject `Your Elite Monthiversary 🎁`, singular first-person
+  body with a `YYY GC & XXX SC` bonus placeholder the AM fills in, sign-off
+  `The Elite Team`.
+- **Ticket click fix:** `bind.ts` ticket-resolve pool must include `anniversary`
+  (it lists `decline` / `rdFirstTime` / `birthdays`); a new drafted section is
+  not clickable until added there.
+- **Enrich:** reuses the shared `enrich_aids_sql` batch (LTP / Hold / 7D) - no
+  second query; anniversary AIDs folded into `ticket_aids`.
+- **Data note:** managed-start dates arrive in **batches**, so anniversaries
+  cluster on a few days and any given 3-day window can legitimately be empty
+  (2026-08-31 returned 0; 2026-09-01 returned 24, all one AM's Aug-2 cohort).
+  Zero rows is not a bug - check the daily distribution before suspecting the join.
+- **Verified:** 149 payload tests, `tsc --noEmit`, web build guard, jsdom
+  populated-render (fixture) + empty-render (`--render-check` on 2026-08-31),
+  isolation PASS; live query returns correct rows via the service account
+  (MCP's 1GB cap blocks the full book cross-join - use the generator's client).
+
+**Superseded spec (kept for history):** the original plan proposed the window
+could be symmetric ("both sides"); the user chose trailing. Source column
+`dbt_aninditac.elite.agent_start_managed_date` (the same column the Goals book
+pins through `as_of`). Original detail below.
+
+- **Definition (superseded):**
   a player hits the one-month anniversary when `agent_start_managed_date +
   ANNIVERSARY_MANAGED_DAYS` (30) falls within `ANNIVERSARY_WINDOW_DAYS` (3) of
   `report_date`, inclusive both sides. Source column

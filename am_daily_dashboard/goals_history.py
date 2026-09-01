@@ -199,7 +199,13 @@ def agent_history(
         entry = months.get(key) or {}
         snap = (entry.get("agents") or {}).get(agent_name)
         if snap:
-            out.append(snap)
+            # Stamp the month key/label from the entry so each history row is
+            # self-describing (older closes stored these only on the entry).
+            out.append({
+                **snap,
+                "monthKey": key,
+                "monthLabel": snap.get("monthLabel") or entry.get("monthLabel"),
+            })
     return out
 
 
@@ -210,9 +216,14 @@ def team_history(
     out: list[dict[str, Any]] = []
     months = history.get("months") or {}
     for key in _prior_months(history, report_date):
-        snap = (months.get(key) or {}).get("team")
+        entry = months.get(key) or {}
+        snap = entry.get("team")
         if snap:
-            out.append(snap)
+            out.append({
+                **snap,
+                "monthKey": key,
+                "monthLabel": snap.get("monthLabel") or entry.get("monthLabel"),
+            })
     return out
 
 

@@ -124,7 +124,10 @@ export function tableCard(opts: TableCardOpts): string {
 
   const searched = searchEnabled ? all.filter((r) => matchesAid(r, q, opts.extraKeys || [])) : all;
   const ordered = opts.sortFn ? opts.sortFn(searched, sortBy) : searched;
-  const { slice, pager, total } = paginate(ordered, opts.stateKey);
+  const { slice, pager, total } = paginate(ordered, opts.stateKey, {
+    forceOn: opts.forcePaginate,
+    defaultSize: opts.pageSize,
+  });
 
   const filtered = q.trim() !== "";
   const countBadge = filtered

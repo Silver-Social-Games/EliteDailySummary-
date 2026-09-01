@@ -238,7 +238,7 @@ Sidebar groups as built: **Command** (manager-only) · **Today** · **Performanc
 | **Open Tickets** (Operations) | `zendesk` | `open_zendesk_sql` (+ `subjects` array per player) + `enrich_aids_sql` (LTP / Hold / 7D / `lifetime_ngr` / `purchased_30d` batch) | `build_zd_section` → `_ticket_topic()` regex tier → `priorityScore` sort desc | `views/tickets.ts` | `sections.py` → `title="Open Tickets"` |
 | **Locked & Take A Break** (Operations) | `locks` | `locked_players_sql` | `build_lock_section` (buckets: Self-exclusion / Take a break / Other locked) | `views/locks.ts` | `sections.py` → `title="Locked And Take A Break"` |
 | **Birthdays · Last 3 Days** | `birthdays` | `birthdays_last_3d_sql` | `build_birthday_section` | `views/birthdays.ts` | `sections.py` → `title="Birthdays · Last 3 Days"` |
-| **One-Month Anniversary** *(Phase C — planned)* | `anniversary` | `anniversary_sql` (to be added) | `build_anniversary_section` (to be added) | `views/anniversary.ts` (to be added) | — |
+| **One-Month Anniversary** (Daily Triggers) | `agents[].anniversary` | `anniversary_sql` (source `dbt_aninditac.elite.agent_start_managed_date`; trailing `ANNIVERSARY_WINDOW_DAYS` window on `managed_date + ANNIVERSARY_MANAGED_DAYS`) | `build_anniversary_section` (drops locked/SE/TAB; reuses shared `enrich_aids_sql`; gated draft via `am_brief_ticket_drafts.build_anniversary_ticket_draft`) | `views/anniversary.ts` | — |
 | **Birthday Gift · Eligible** *(Phase D — planned)* | `birthdayGift` | `birthday_gift_sql` (to be added) | `build_birthday_gift_section` (to be added) | `views/birthdayGift.ts` (to be added) | — |
 | **Responsiveness** *(Phase E — planned)* | `responsiveness` | `ticket_inactivity_sql` (to be added) | `build_responsiveness_section` (to be added) | `views/responsiveness.ts` (to be added) | — |
 | **Peer Book Mode** *(Phase F — cross-cutting)* | n/a (flag) | — | `goals.strip_payload_for_am` extended + `PEER_BOOK_MODE` in `config.py` | all views (peer tab toggle) | — |
@@ -270,6 +270,7 @@ sources and output drift apart.** Canvas = `canvas_parts/`.
 | Click/input/pager wiring, manager gate submit | `bind.ts` — calls `state.rerender()`, never `render()`, so it stays free of an import cycle with `render.ts` |
 | The one function that redraws the page | `render.ts` |
 | Score out of 80 + 20, weights, pace, status thresholds | `goals.py` (+ targets in `data/elite_goals.tsv`) |
+| Final-month Goals history (prior months, month-end close) | `goals_history.py` (+ `data/elite_goals_history.json`); UI `components.goalsHistoryCard` in `views/goals.ts` + `views/team.ts`. Backfill/close: `python am_daily_dashboard/goals_history.py --close YYYY-MM-DD` |
 | An AM's own figures disagree with the board | `data/elite_goals_reference.tsv` then `--goals-only` — see above |
 | Which days are in the archive / which AM owns a file | `canvas_to_html.py` (`audience_slug`, `archive_entries`, `with_archive`) |
 | Zendesk draft wording | `am_brief_ticket_drafts.py` (WoW Gaps drafts: `wow_drop_analysis/ticket_draft.py`) |
@@ -633,8 +634,9 @@ Backlog with full intent and open questions: *Roadmap / Backlog* in
   outstanding. The canvas and Streamlit implementations
   have no sidebar, so they have drifted from the HTML.
 - **Blocked:** Zendesk auto-create — agreed as **internal notes only, AM Brief
-  only**, waiting on API credentials. The "one month since AM assignment" rule needs
-  its definition settled; `agent_start_managed_date` is the column it should use.
+  only**, waiting on API credentials. (The "one month since AM assignment" rule
+  is settled and shipped — Phase C, trailing 30-day window on
+  `agent_start_managed_date`; see `AM_DAILY_DASHBOARD.md` Phase C.)
 - **GGR sign:** a player big win is a **negative** GGR day (`Elite.MD`: `profit −
   loss`). Both big-winner asks invert if this is read backwards.
 

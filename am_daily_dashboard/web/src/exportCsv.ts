@@ -81,6 +81,10 @@ export function exportCurrentViewCsv(): void {
   } else if (app.view === "birthdays") {
     pack = genericRows("birthdays", ["AID", "Name", "Birthday", "Age"],
       ["aid", "name", "birthday", "age"]);
+  } else if (app.view === "anniversary") {
+    pack = genericRows("anniversary",
+      ["AID", "Email", "First Name", "Last Name", "Managed Since", "Anniversary", "LTP", "Hold %", "7D Purchase"],
+      ["aid", "email", "firstName", "lastName", "managedDate", "anniversaryDate", "lifetimePurchase", "lifetimeHold", "purchase7d"]);
   }
 
   if (!pack || !pack.rows.length) {
@@ -92,5 +96,5 @@ export function exportCurrentViewCsv(): void {
 }
 
 export function viewSupportsCsvExport(viewId: string): boolean {
-  return ["top20", "top10", "tickets", "rd", "birthdays"].includes(viewId);
+  return ["top20", "top10", "tickets", "rd", "birthdays", "anniversary"].includes(viewId);
 }

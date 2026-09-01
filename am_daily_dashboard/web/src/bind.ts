@@ -65,7 +65,7 @@ export function bind(): void {
     (el as HTMLElement).onclick = () => {
       const aid = el.getAttribute("data-ticket-aid");
       const b = agentBlock();
-      const pool = [...(b.decline || []), ...(b.rdFirstTime || []), ...(b.birthdays || [])];
+      const pool = [...(b.decline || []), ...(b.rdFirstTime || []), ...(b.birthdays || []), ...(b.anniversary || [])];
       const p = pool.find((x) => String(x.aid) === aid);
       if (p) { app.ticket = p; rerender(); }
     };

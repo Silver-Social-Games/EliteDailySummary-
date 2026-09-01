@@ -8,6 +8,8 @@ from datetime import date, timedelta
 from elite_lib.bigquery import PROJECT_ID, dashboard_elite_ctes
 from goals import TEAM_AGENT_TAG
 from config import (
+    ANNIVERSARY_MANAGED_DAYS,
+    ANNIVERSARY_WINDOW_DAYS,
     BIG_LOSER_SECTION_MIN,
     BIG_WINNER_MIN_PLAYER_WIN,
     BIG_WINNER_SECTION_MIN,
@@ -410,6 +412,69 @@ INNER JOIN days dy ON FORMAT_DATE('%m-%d', b.date_of_birth) = FORMAT_DATE('%m-%d
 LEFT JOIN `{PROJECT_ID}.transactional_data.uam_accounts` ua ON ua.id = e.account_id
 LEFT JOIN `{PROJECT_ID}.transactional_data.uam_persons` per ON per.id = ua.person_id
 ORDER BY e.agent, b.date_of_birth, name
+""".strip()
+
+
+def anniversary_sql(report_date: date) -> str:
+    """Elite players who crossed their one-month managed anniversary in the
+    trailing ANNIVERSARY_WINDOW_DAYS ending on report_date.
+
+    Anniversary = agent_start_managed_date + ANNIVERSARY_MANAGED_DAYS (30). A
+    row shows when that date falls in [report_date - (window - 1), report_date],
+    i.e. the milestone was just reached (trailing window, like Birthdays). The
+    managed date is taken as the earliest recorded start per account so a later
+    re-tag cannot reset the clock. Locked / self-excluded / TAB players are
+    filtered downstream in build_anniversary_section (elite-core outreach rule).
+    All thresholds live in config.py.
+    """
+    d = _iso(report_date)
+    trailing = ANNIVERSARY_WINDOW_DAYS - 1
+    return f"""
+WITH
+{_elite_am_book_ctes()},
+params AS (
+  SELECT DATE '{d}' AS report_date
+),
+managed AS (
+  SELECT
+    account_id,
+    MIN(agent_start_managed_date) AS managed_date
+  FROM `{PROJECT_ID}.dbt_aninditac.elite`
+  WHERE agent_start_managed_date IS NOT NULL
+  GROUP BY account_id
+),
+anniv AS (
+  SELECT
+    m.account_id,
+    m.managed_date,
+    DATE_ADD(m.managed_date, INTERVAL {ANNIVERSARY_MANAGED_DAYS} DAY) AS anniversary_date
+  FROM managed m
+)
+SELECT
+  e.agent,
+  e.account_id AS AID,
+  COALESCE(
+    NULLIF(TRIM(CONCAT(IFNULL(per.first_name, ''), ' ', IFNULL(per.last_name, ''))), ''),
+    ua.name,
+    ua.email,
+    CAST(e.account_id AS STRING)
+  ) AS name,
+  per.first_name,
+  per.last_name,
+  ua.email,
+  a.managed_date,
+  a.anniversary_date,
+  COALESCE(ua.locked, FALSE) AS locked,
+  COALESCE(ua.lock_reason, '') AS lock_reason,
+  COALESCE(ua.lock_reason_comment, '') AS lock_reason_comment
+FROM anniv a
+INNER JOIN elite_am e ON e.account_id = a.account_id
+CROSS JOIN params p
+LEFT JOIN `{PROJECT_ID}.transactional_data.uam_accounts` ua ON ua.id = e.account_id
+LEFT JOIN `{PROJECT_ID}.transactional_data.uam_persons` per ON per.id = ua.person_id
+WHERE a.anniversary_date BETWEEN DATE_SUB(p.report_date, INTERVAL {trailing} DAY)
+                             AND p.report_date
+ORDER BY e.agent, a.anniversary_date, name
 """.strip()
 
 

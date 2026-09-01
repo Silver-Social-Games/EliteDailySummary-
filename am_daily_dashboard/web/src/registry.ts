@@ -15,8 +15,8 @@ import { viewBirthdays } from "./views/birthdays";
 import { viewBigWinners } from "./views/bigWinners";
 import { viewBigLosers } from "./views/bigLosers";
 import { viewCrmCalendar } from "./views/crmCalendar";
+import { viewAnniversary } from "./views/anniversary";
 import {
-  viewAnniversary,
   viewGamesNew,
   viewGamesSticky,
 } from "./views/comingSoon";
@@ -115,7 +115,7 @@ export const VIEWS: Record<string, ViewDef> = {
   gamesNew:    { label: "New Games", icon: "sparkles", group: "Games",
                  comingSoon: true, sub: "Titles gaining traction" },
   anniversary: { label: "1 Month Anniversary", short: "1M Anniversary", icon: "gift",
-                 group: "Daily Triggers", comingSoon: true,
+                 group: "Daily Triggers", key: "anniversary",
                  sub: "30-day managed milestone outreach" },
 };
 

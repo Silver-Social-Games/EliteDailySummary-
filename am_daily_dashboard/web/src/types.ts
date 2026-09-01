@@ -97,4 +97,8 @@ export interface TableCardOpts {
   sortOptions?: SortOption[];
   sortFn?: (rows: Dict[], sortBy: string) => Dict[];
   defaultSort?: string;
+  /** Always show the pager (page-size dropdown + nav), even below the auto threshold. */
+  forcePaginate?: boolean;
+  /** Initial page size when paginating. */
+  pageSize?: number;
 }

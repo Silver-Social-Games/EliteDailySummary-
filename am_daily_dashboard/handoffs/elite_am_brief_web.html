@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <!-- am-brief-build sources sha256:99920699997ab8a3cb1cf296e4ee2ddac71d4608c2948dff5afce58570247b4f output sha256:573171534b2250116d3a715657fb9e2d010163202ee37cc1e108db7f63d593df -->
+  <!-- am-brief-build sources sha256:a564e122d253d65ed27543ab5e3cf74496263400bc6dbb2a008a31abf74c6820 output sha256:c4eadb5d6d30eb19109630b6a7459bcc6afdc9fbd6fa978cfdc826f09db09ef0 -->
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Elite Dashboard</title>
   <style>
@@ -1496,7 +1496,10 @@
     );
     const searched = searchEnabled ? all.filter((r) => matchesAid(r, q, opts.extraKeys || [])) : all;
     const ordered = opts.sortFn ? opts.sortFn(searched, sortBy) : searched;
-    const { slice, pager, total } = paginate(ordered, opts.stateKey);
+    const { slice, pager, total } = paginate(ordered, opts.stateKey, {
+      forceOn: opts.forcePaginate,
+      defaultSize: opts.pageSize
+    });
     const filtered = q.trim() !== "";
     const countBadge = filtered ? `<span class="badge brand">${ordered.length} of ${all.length}</span>` : `<span class="badge">${all.length} ${all.length === 1 ? "player" : "players"}</span>`;
     const toolbar = searchEnabled || sortEnabled ? `<div class="toolbar">
@@ -2938,6 +2941,63 @@
       </div>`;
   }
 
+  // src/views/anniversary.ts
+  function sortAnniversary(rows, mode) {
+    const copy = [...rows];
+    if (mode === "ltpHigh")
+      return copy.sort((a, b) => (b.lifetimePurchasedNum || 0) - (a.lifetimePurchasedNum || 0));
+    if (mode === "p7dHigh")
+      return copy.sort((a, b) => (b.purchase7dNum || 0) - (a.purchase7dNum || 0));
+    if (mode === "name")
+      return copy.sort((a, b) => String(a.lastName || a.name).localeCompare(String(b.lastName || b.name)));
+    return copy;
+  }
+  function viewAnniversary() {
+    return tableCard({
+      rows: rowsFor("anniversary"),
+      stateKey: `anniv_${app.agent}`,
+      showSearch: true,
+      extraKeys: ["email", "firstName", "lastName"],
+      forcePaginate: true,
+      pageSize: 10,
+      sortOptions: [
+        { value: "date", label: "Sort: Anniversary (soonest)" },
+        { value: "ltpHigh", label: "Lifetime purchase \u2193" },
+        { value: "p7dHigh", label: "7D purchase \u2193" },
+        { value: "name", label: "Name (A\u2013Z)" }
+      ],
+      defaultSort: "date",
+      sortFn: sortAnniversary,
+      headers: [
+        "AID",
+        "Email",
+        "First Name",
+        "Last Name",
+        "Managed Since",
+        "Anniversary",
+        "LTP",
+        "Hold %",
+        "7D Purchase",
+        "Ticket"
+      ],
+      align: ["left", "left", "left", "left", "left", "left", "right", "right", "right", "center"],
+      markerCol: 5,
+      empty: "No one-month anniversaries in the Last 3 Days.",
+      renderRow: (p) => [
+        aidHtml(p),
+        esc(p.email),
+        esc(p.firstName),
+        esc(p.lastName),
+        esc(p.managedDate),
+        `<span class="t-success w-semibold">${esc(p.anniversaryDate)}</span>`,
+        ltpHtml(p.lifetimePurchase, p.lifetimePurchasedNum),
+        holdHtml(p.lifetimeHold),
+        moneyHtml(p.purchase7d),
+        ticketHtml(p)
+      ]
+    });
+  }
+
   // src/views/comingSoon.ts
   function comingSoonView() {
     return `<div class="coming-soon card">
@@ -2960,9 +3020,6 @@
     return comingSoonView();
   }
   function viewGamesNew() {
-    return comingSoonView();
-  }
-  function viewAnniversary() {
     return comingSoonView();
   }
 
@@ -3143,7 +3200,7 @@
       short: "1M Anniversary",
       icon: "gift",
       group: "Daily Triggers",
-      comingSoon: true,
+      key: "anniversary",
       sub: "30-day managed milestone outreach"
     }
   };
@@ -3422,6 +3479,12 @@
         ["AID", "Name", "Birthday", "Age"],
         ["aid", "name", "birthday", "age"]
       );
+    } else if (app.view === "anniversary") {
+      pack = genericRows(
+        "anniversary",
+        ["AID", "Email", "First Name", "Last Name", "Managed Since", "Anniversary", "LTP", "Hold %", "7D Purchase"],
+        ["aid", "email", "firstName", "lastName", "managedDate", "anniversaryDate", "lifetimePurchase", "lifetimeHold", "purchase7d"]
+      );
     }
     if (!pack || !pack.rows.length) {
       toast("Nothing to export on this view");
@@ -3431,7 +3494,7 @@
     toast("CSV downloaded");
   }
   function viewSupportsCsvExport(viewId) {
-    return ["top20", "top10", "tickets", "rd", "birthdays"].includes(viewId);
+    return ["top20", "top10", "tickets", "rd", "birthdays", "anniversary"].includes(viewId);
   }
 
   // src/calendar.ts
@@ -3640,7 +3703,7 @@
       el.onclick = () => {
         const aid = el.getAttribute("data-ticket-aid");
         const b = agentBlock();
-        const pool = [...b.decline || [], ...b.rdFirstTime || [], ...b.birthdays || []];
+        const pool = [...b.decline || [], ...b.rdFirstTime || [], ...b.birthdays || [], ...b.anniversary || []];
         const p = pool.find((x) => String(x.aid) === aid);
         if (p) {
           app.ticket = p;

@@ -25,7 +25,3 @@ export function viewGamesSticky(): string {
 export function viewGamesNew(): string {
   return comingSoonView();
 }
-
-export function viewAnniversary(): string {
-  return comingSoonView();
-}

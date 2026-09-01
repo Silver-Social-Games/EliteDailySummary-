@@ -83,6 +83,40 @@ def build_first_time_rd_ticket_draft(
     }
 
 
+def build_anniversary_ticket_draft(
+    row: dict,
+    *,
+    locked: bool = False,
+    lock_reason: str = "",
+    lock_reason_comment: str = "",
+    zendesk_user_id: object = None,
+) -> dict:
+    """Draft for a player reaching their one-month managed anniversary. Same
+    shape/keys as wow_drop_analysis.ticket_draft's output so it slots into the
+    existing TicketDraftCell / TicketDraftModal."""
+    disabled, lock_label = outreach_lock_gate(locked, lock_reason, lock_reason_comment)
+    enabled = not disabled
+    first_name = _first_name(row.get("name") or "")
+    subject = _sanitize_ticket_copy("Your Elite Monthiversary 🎁") if enabled else ""
+    body = ""
+    if enabled:
+        body = _sanitize_ticket_copy(
+            f"Hi {first_name},\n\n"
+            "A whole month with Elite already, and I'm thrilled to have you! 🎉\n\n"
+            "To celebrate, I've added YYY GC & XXX SC to your account, it's all yours "
+            "to enjoy.\n\n"
+            "Good luck, and here's to many more wins together!\n\n"
+            "The Elite Team"
+        )
+    return {
+        "ticketEnabled": enabled,
+        "ticketSubject": subject,
+        "ticketBody": body,
+        "ticketDisabledReason": lock_label,
+        "zendeskUrl": zendesk_new_ticket_url(zendesk_user_id) if enabled else "",
+    }
+
+
 def build_birthday_ticket_draft(
     row: dict,
     *,

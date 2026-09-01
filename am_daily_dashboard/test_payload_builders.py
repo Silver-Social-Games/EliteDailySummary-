@@ -29,6 +29,7 @@ from payload_builders import (  # noqa: E402
     agent_display,
     aid_row,
     build_am_shares_and_overview,
+    build_anniversary_section,
     build_big_winners_section,
     build_birthday_section,
     build_lock_section,
@@ -546,6 +547,82 @@ class BuildBirthdaySectionTests(unittest.TestCase):
         self.assertEqual(build_birthday_section([]), [])
 
 
+def _anniversary_row(
+    aid: int = 401,
+    agent: str = "coral_s",
+    *,
+    locked: bool = False,
+    lock_reason: str = "",
+    lock_reason_comment: str = "",
+) -> dict:
+    return {
+        "AID": aid, "name": "Anniversary Player", "agent": agent,
+        "first_name": "Anniversary", "last_name": "Player",
+        "email": "anniv@example.com",
+        "managed_date": "2026-08-02", "anniversary_date": "2026-09-01",
+        "locked": locked, "lock_reason": lock_reason,
+        "lock_reason_comment": lock_reason_comment,
+    }
+
+
+class BuildAnniversarySectionTests(unittest.TestCase):
+    def test_happy_path(self) -> None:
+        out = build_anniversary_section([_anniversary_row()])
+        self.assertEqual(len(out), 1)
+        row = out[0]
+        # verify_brief.verify_anniversary asserts these three keys.
+        self.assertIn("aid", row)
+        self.assertIn("managedDate", row)
+        self.assertIn("anniversaryDate", row)
+        self.assertEqual(row["managedDate"], "2 Aug 2026")
+        self.assertEqual(row["anniversaryDate"], "1 Sep 2026")
+        self.assertEqual(row["firstName"], "Anniversary")
+        self.assertEqual(row["lastName"], "Player")
+        self.assertEqual(row["email"], "anniv@example.com")
+
+    def test_tone_is_success(self) -> None:
+        out = build_anniversary_section([_anniversary_row()])
+        self.assertEqual(out[0]["tone"], "success")
+
+    def test_aid_links_to_looker(self) -> None:
+        out = build_anniversary_section([_anniversary_row(aid=123456)])
+        self.assertIn("123456", out[0]["aidUrl"])
+
+    def test_enrich_none_skips_draft_and_metrics(self) -> None:
+        out = build_anniversary_section([_anniversary_row()])
+        self.assertNotIn("ticketEnabled", out[0])
+        self.assertNotIn("lifetimePurchase", out[0])
+
+    def test_enrich_empty_dict_attaches_keys(self) -> None:
+        out = build_anniversary_section([_anniversary_row()], enrich_map={})
+        row = out[0]
+        self.assertIn("ticketEnabled", row)
+        self.assertIn("lifetimePurchase", row)
+        self.assertIn("lifetimeHold", row)
+        self.assertIn("purchase7d", row)
+
+    def test_enrich_populates_ltp_and_7d(self) -> None:
+        enrich = {401: {"lifetime_purchased": 12480.0, "purchased_7d": 340.0}}
+        out = build_anniversary_section([_anniversary_row()], enrich_map=enrich)
+        self.assertEqual(out[0]["lifetimePurchasedNum"], 12480.0)
+        self.assertEqual(out[0]["purchase7dNum"], 340.0)
+
+    def test_locked_player_excluded(self) -> None:
+        out = build_anniversary_section(
+            [_anniversary_row(locked=True, lock_reason="Exclusion")], enrich_map={}
+        )
+        self.assertEqual(out, [])
+
+    def test_take_a_break_excluded(self) -> None:
+        out = build_anniversary_section(
+            [_anniversary_row(locked=True, lock_reason_comment="take a break 7")]
+        )
+        self.assertEqual(out, [])
+
+    def test_empty_rows(self) -> None:
+        self.assertEqual(build_anniversary_section([]), [])
+
+
 def _zd_row(
     aid: int = 401,
     agent: str = "coral_s",
@@ -899,7 +976,7 @@ class FocusForAgentTests(unittest.TestCase):
     def _minimal_focus(self, agent_name: str = "Coral") -> dict:
         return focus_for_agent(
             agent_name, "Monday",
-            top10=[], decline=[], rd5k=[], rd_first=[], birthdays=[],
+            top10=[], decline=[], rd5k=[], rd_first=[], birthdays=[], anniversary=[],
             zd=[], locks=[], big_winners=[], big_losers=[],
             purchase={"purchased": 12000.0, "purchased_players": 40},
             total_players=560,
@@ -931,7 +1008,7 @@ class FocusForAgentTests(unittest.TestCase):
     def test_no_purchase_data_gives_zero(self) -> None:
         result = focus_for_agent(
             "Alon", "Monday",
-            top10=[], decline=[], rd5k=[], rd_first=[], birthdays=[],
+            top10=[], decline=[], rd5k=[], rd_first=[], birthdays=[], anniversary=[],
             zd=[], locks=[], big_winners=[], big_losers=[], purchase=None, total_players=0,
             elite_rev=40000.0, elite_ply=130,
         )
@@ -951,7 +1028,7 @@ class FocusForAgentTests(unittest.TestCase):
         }
         result = focus_for_agent(
             "Coral", "Monday",
-            top10=[], decline=[], rd5k=[], rd_first=[], birthdays=[],
+            top10=[], decline=[], rd5k=[], rd_first=[], birthdays=[], anniversary=[],
             zd=[coral_row, gabriel_row], locks=[], big_winners=[], big_losers=[],
             purchase={"purchased": 0, "purchased_players": 0},
             total_players=0, elite_rev=0, elite_ply=0,
@@ -971,7 +1048,7 @@ class FocusForAgentTests(unittest.TestCase):
         }
         result = focus_for_agent(
             "Coral", "Monday",
-            top10=[], decline=[], rd5k=[], rd_first=[], birthdays=[],
+            top10=[], decline=[], rd5k=[], rd_first=[], birthdays=[], anniversary=[],
             zd=[], locks=[], big_winners=[], big_losers=[elite_coral, non_elite],
             purchase={"purchased": 0, "purchased_players": 0},
             total_players=0, elite_rev=0, elite_ply=0,
