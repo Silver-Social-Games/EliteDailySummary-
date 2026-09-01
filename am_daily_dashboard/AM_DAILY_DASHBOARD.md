@@ -440,6 +440,23 @@ python am_daily_dashboard/generate_am_daily_dashboard.py --date 2026-07-27
 python am_daily_dashboard/generate_am_daily_dashboard.py --date 2026-07-27 --html-only
 ```
 
+### Daily catch-up and month backfill
+
+Use `generate_am_brief_range.py` when building or extending the archive calendar
+(more than one report date on disk). Each day still runs the same pipeline as a
+single `--date` generate; archive refresh runs after each day automatically.
+
+| Use | Command |
+|---|---|
+| **Daily** (after first single-day run) | `python am_daily_dashboard/generate_am_brief_range.py --catch-up --verify` — **`--verify` only** (~5s); add `--render-check` after UI/shell edits, not every morning (locked 2026-08-24) |
+| Backfill August | `python am_daily_dashboard/generate_am_brief_range.py --from 2026-08-01 --to 2026-08-31 --skip-existing` |
+| Preview dates | add `--dry-run` |
+| Re-skin saved month | `--from … --to … --html-only` |
+
+`--catch-up` generates from the day **after** the newest saved manager JSON through
+yesterday, skipping dates that already exist. First run ever still needs one
+single-day generate to seed the archive.
+
 Default report date = **yesterday**. The brief is **manual by design** — it is not
 part of the Sun–Thu 10:00 scheduled task (settled 2026-08-18).
 
@@ -475,6 +492,65 @@ python am_daily_dashboard/canvas_to_html.py am_daily_dashboard/exports/YYYY-MM-D
 
 ---
 
+## Delivery to AMs (not git, not GitHub Pages)
+
+AM Brief is **private HTML**. Coral and the other AMs do **not** get it from git or
+the Elite Daily Summary site. Two paths:
+
+### Planned daily path: Slack DM (Sun–Thu 10:00 IL)
+
+Each morning the scheduled task generates yesterday's brief, then `post_am_brief_slack.py`
+builds a **stripped per-AM HTML** and DMs it as a file attachment to each AM's Slack
+user id.
+
+Setup (once):
+
+1. Copy `am_daily_dashboard/data/am_slack_recipients.local.json.example` →
+   `am_slack_recipients.local.json` and fill real Slack user IDs.
+2. Add `SLACK_BOT_TOKEN` to `_local_credentials.py` (gitignored).
+3. Register Task Scheduler: `am_daily_dashboard/run_am_brief_scheduled.ps1 -EnableAmBriefSlack`
+
+Dry-run before go-live:
+
+```powershell
+$env:AM_BRIEF_SLACK_ENABLED='1'
+python am_daily_dashboard/post_am_brief_slack.py --dry-run
+```
+
+Go-live send (after catch-up):
+
+```bash
+python am_daily_dashboard/generate_am_brief_range.py --catch-up --verify
+python am_daily_dashboard/post_am_brief_slack.py --skip-catch-up
+```
+
+See `@elite-am-brief` **Slack go-live** for the Sunday 2026-08-31 kickoff schedule.
+
+### Ad hoc / review today: send Coral the file manually
+
+Generate Coral's isolated copy:
+
+```bash
+python am_daily_dashboard/generate_am_daily_dashboard.py --date YYYY-MM-DD --html-only --cursor-audience coral
+```
+
+That writes **`elite_am_brief.html`** under Elite_Cursor (Coral-only payload, no other
+AMs). Attach or share:
+
+| Method | File |
+|--------|------|
+| Slack DM (one-off) | Run `post_am_brief_slack.py --date YYYY-MM-DD` with only Coral's id filled |
+| Email / Teams | Attach `VIP\Elite_Cursor\AM Brief\elite_am_brief.html` after `--cursor-audience coral` |
+| OneDrive link | Share the file or folder if Coral has access to `VIP\Elite_Cursor\AM Brief` |
+
+**Preview locally (you):** use `elite_am_brief_coral.html` in the same folder — same
+content, slugged filename for your archive.
+
+Coral opens the HTML in a browser (double-click or drag into Chrome/Edge). No server
+required; calendar links work as sibling files in the same folder.
+
+---
+
 ## Sections
 
 ### Overview
@@ -498,7 +574,7 @@ python am_daily_dashboard/canvas_to_html.py am_daily_dashboard/exports/YYYY-MM-D
 8. **First-Time Locked RD** — section always shown (empty when none). Ticket column offers a Zendesk draft (review-only), gated by the account's own locked/self-exclusion status
 9. **Birthdays · Last 3 Days** — DOB as D/M/Y + Age. Ticket column offers a Zendesk birthday-message draft (review-only), same lock gate
 10. **Open Tickets** — LTP, Hold, 7D Purchase + Ticket TIDs link to Zendesk. Sort: LTP ↓ (default), Open Tickets ↓, or 7D Purchase ↓
-11. **Locked And Take A Break** — two ways in (`LOCKS_WINDOW_DAYS` / `LOCKS_REVIEW_WINDOW_DAYS`, config.py): still locked **and** (`DATE(locked_at) = report_date`, any reason — the "just happened" feed) **or** (Take a break only, unlock date within 3 days or already passed — regardless of how long ago it started, so a stale overdue break is never missed just because it's no longer "new"). Rows sort by soonest unlock automatically; today/overdue take-a-break rows render in danger tone
+11. **Locked And Take A Break** — two ways in (`LOCKS_WINDOW_DAYS` / `LOCKS_REVIEW_WINDOW_DAYS`, config.py): still locked **and** (`DATE(locked_at) = report_date`, any reason — the "just happened" feed) **or** (Take a break only, unlock date within 3 days or already passed — regardless of how long ago it started, so a stale overdue break is never missed just because it's no longer "new"). Rows sort by soonest unlock automatically; today/overdue take-a-break rows render in danger tone. **A take-a-break row stays on the board on every subsequent report while the account is still locked and the unlock date is within 3 days or overdue** (e.g. Kristi Couch, unlock 25 Aug, shows 22–25 Aug with countdown). It drops off only after UAM unlocks the account, not on the unlock calendar date alone.
 
 ---
 
@@ -510,8 +586,12 @@ reproducibility). Year/month selected from `report_date`.
 
 **Weights (locked, sum = 80%):** Daily Avg Purchase 15%, Daily Avg Net Purchase 15%,
 Monthly Purchasers 15%, ARPPU 15%, Reactivation 8%, Upgrade to Elite 5%,
-% Active from portfolio 7%. Remaining 20% (manager eval) is **out of scope** — the
-board shows “% of included 80% weight,” not a 100% corporate score.
+% Active from portfolio 7%. Remaining 20% (manager eval) is **out of scope** for the
+headline score.
+
+**Headline display (locked 2026-08-25):** personal AM, Team Goals, and Goals
+Leaderboard show **KPI points ÷ 80 × 100** as `%` only (e.g. 78/80 → `97.5%`).
+No raw `NN / 80`, no `/100`. Full spec: [`GOALS_DISPLAY.md`](GOALS_DISPLAY.md).
 
 **AMs with Goals:** Coral (`coral_s`), Gabriel (`gabriel_e`), Lee (`lee_t`),
 Rachel (`rachel_a`). **Alon:** no Goals section / no Goals-bearing per-AM export.
@@ -1202,6 +1282,91 @@ diagnose.
 
 ---
 
+## Verified exports and new-chat continuity
+
+**Why a new Cursor chat can overwrite a good report.** Exports live under
+`am_daily_dashboard/exports/` and `VIP\Elite_Cursor\AM Brief\`. They are **not
+in git**. A new chat that runs `generate_am_daily_dashboard.py --date YYYY-MM-DD`
+without context will fetch BigQuery again and replace the working JSON/HTML for
+that date. The UI code **is** in git (`48f8ffe` and later); the **payload for a
+report date is not**.
+
+**This doc + `@elite-am-brief` are the handoff.** Paste at the top of a new chat:
+
+```
+@elite-am-brief — continue from verified state.
+
+Last good: YYYY-MM-DD, verify_brief PASS.
+Open: VIP\Elite_Cursor\AM Brief\YYYY-MM-DD_elite_am_brief.html
+UI baseline: commit 48f8ffe (or latest on main).
+Daily default: catch-up --verify only (not --render-check unless UI changed).
+
+Do not full-regen unless I ask. Use --html-only for UI work.
+Do not read exports/ JSON or HTML — use verify_brief.py only.
+Do not commit unless I ask.
+```
+
+**Automatic verified snapshot (2026-08-24).** After every `verify_brief.py` PASS,
+dated JSON copies land in `exports/verified/` (manager + per-AM files). HTML is
+always rebuilt from JSON; the snapshot is the recovery point.
+
+```bash
+# After a good run (snapshot happens automatically on PASS):
+python am_daily_dashboard/verify_brief.py --date 2026-08-22 --render-check
+
+# Restore a day you know was good, then rebuild HTML only (~3s, no query):
+python am_daily_dashboard/verify_brief.py --date 2026-08-22 --restore-verified
+python am_daily_dashboard/generate_am_daily_dashboard.py --date 2026-08-22 --html-only
+```
+
+OneDrive version history on `VIP\Elite_Cursor\AM Brief\*.json` is a second backup
+if the workshop copy was overwritten before a verify snapshot existed.
+
+**Agent rule:** In a new chat, do **not** run a full generate for a date the user
+already verified unless they explicitly ask. Prefer `--html-only` or
+`--restore-verified` first.
+
+### Agent token discipline (never read exports in chat)
+
+Exports are 0.3–1.1 MB per day. Loading one manager JSON into Cursor chat costs
+**~300k+ tokens** — more than most fixes.
+
+| Do | Do not |
+|---|---|
+| `python am_daily_dashboard/verify_brief.py --date YYYY-MM-DD` | Ask the agent to open `exports/*_elite_am_brief.json` |
+| Add an assertion to `verify_brief.py` when a new check is needed | Un-ignore `exports/` in `.cursorignore` to "peek" |
+| Grep one AID/TID if the user names it | Paste export JSON/HTML into chat |
+| User runs `generate_am_brief_range.py --catch-up --verify` themselves | Agent reads HTML to confirm a section rendered |
+
+`exports/` is in `.cursorignore` on purpose. Scripts read those paths normally;
+only **agent file tools** are blocked. **`verify_brief.py` is the inspection
+surface** — extend it, do not read the payload.
+
+### Archive refresh (`refresh_all_brief_archives`)
+
+When a **new** report date is added, older dated HTML files still embed a frozen
+`report.archive` list from when they were written. Without a refresh, opening
+2026-08-17 and using the calendar cannot jump to 2026-08-22.
+
+After each generate or `--html-only` run, `refresh_all_brief_archives()`:
+
+1. Lists every dated `*_elite_am_brief*.json` in `exports/`
+2. Recomputes `report.archive` from files on disk (per audience slug)
+3. **Skips** files whose archive list is already current
+4. Rewrites JSON + HTML only for files that changed
+
+**Not complicated** — one folder scan, one field patch, conditional HTML rewrite.
+
+| Risk | Mitigation |
+|---|---|
+| Overwrites historical HTML when a new day appears | Only files whose archive list changed are rewritten; payload data is untouched |
+| OneDrive churn | Skip-if-unchanged avoids rewriting all 21 exports on every run |
+| Elite_Cursor overwrite | Archive refresh no longer mirrors every historical file; only the current run is mirrored |
+| Cursor token burn | **Never read `exports/` in agent tools** — use `verify_brief.py` (~45 lines). Extend verify for new checks. Snapshots are for **restore**, not for agents to open |
+| Stale shell on old dates | `--html-only` after a web build refreshes HTML for one date; full archive refresh picks up shell changes when archive changes |
+
+---
+
 ## Pending Redemptions big winner and docs
 
 Built 2026-08-18 (Batch 8 item 2). Five columns after Created:
@@ -1209,7 +1374,7 @@ Built 2026-08-18 (Batch 8 item 2). Five columns after Created:
 | Column | Definition |
 |---|---|
 | Won Yesterday | The player's report-day win, `−(profit − loss)` on `daily_player_revenue_kpis`. GGR is house-side, so a player win is a **negative** GGR day and this flips the sign. A losing day reads `—`, never a negative win. At ≥ `BIG_WINNER_MIN_PLAYER_WIN` ($5,000) the cell adds a danger-tone `· Big Winner` label |
-| Docs | `_zendesk_missing_doc_tag` from `wow_drop_analysis/wow_drop_reason.py` — the same wording the WoW handoff uses ("Needs Recent Acceptable POA", "Needs KYC / Verification Document"). Blank when nothing is flagged |
+| Docs | `_zendesk_missing_doc_tag` from `wow_drop_analysis/wow_drop_reason.py`. Bank-statement asks name the card when Zendesk does (e.g. `PDF bank statement with JPA/CC2519 transactions`). POA uses the existing POA labels. Blank when nothing is flagged |
 | LTP / Hold / 7D Purchase | Account context for judging a held withdrawal, same formatters as Open Tickets |
 
 **The all-clear is blank on purpose, and this is not a cosmetic choice.** The
@@ -1271,6 +1436,31 @@ Standalone HTML uses the same interactive shell as the canvas (Overview + AM pil
 **Known architecture gap.** The canvas (`am_brief_canvas.py` + `canvas_parts/`) and the standalone HTML (`handoffs/elite_am_brief_web.html`) are two independently hand-written implementations of the same UI (TSX vs. template-literal JS). Any future section, column, or filter change must currently be applied in **both** places by hand — there is no shared rendering layer. Not addressed in Batch 1 (would need a larger unification); tracked in the Roadmap below.
 
 **Ticket drafts, review-only.** Three families now offer a Zendesk ticket draft — Top 20 · WoW Purchase Gaps (`wow_drop_analysis/ticket_draft.py`), and First-Time Locked RD + Birthdays (`am_daily_dashboard/am_brief_ticket_drafts.py`). All three: agent edits Subject/Message in the modal, copies, opens Zendesk, sends manually — nothing is auto-created or auto-sent. All three are gated by the elite-core rule "never recommend retention outreach for a locked or self-excluded account" — checked via `uam_accounts.locked` / `lock_reason` before the draft is offered (`outreach_lock_gate` in `am_brief_ticket_drafts.py`; WoW Gaps has its own equivalent check baked into its reason-code classification). When disabled for this reason, the Ticket column shows the lock label (e.g. "Locked — Self-exclusion") instead of a blank `—`, so the agent can see why. WoW Gaps drafts additionally get the row's literal Reason + Recommendation text appended as an internal, agent-only note below a separator in the message body — not sent to the player.
+
+---
+
+## 7-Feature Expansion — Phase 0 foundations (2026-09-01)
+
+**Branch:** `am-brief-expansion`. **Baseline commit:** `8e5f8fd`. **Verify PASS:** `2026-08-31`.
+Full plan and rollback: `am_daily_dashboard/AM_BRIEF_EXPANSION_PLAN.md`.
+
+**Config keys added (Phase 0):**
+
+| Key | Value | Feature |
+|---|---|---|
+| `TICKET_INACTIVITY_DAYS` | `90` | Phase E - Responsiveness |
+| `BIRTHDAY_GIFT_MIN_HOLD_PCT` | `0.50` | Phase D - Birthday Gift |
+| `BIRTHDAY_GIFT_MIN_30D_PURCHASE` | `4 000` | Phase D - Birthday Gift |
+| `BIRTHDAY_GIFT_REFRESH_DOW` | `6` (Sunday) | Phase D - Birthday Gift |
+| `ANNIVERSARY_MANAGED_DAYS` | `30` | Phase C - Anniversary |
+| `ANNIVERSARY_WINDOW_DAYS` | `3` | Phase C - Anniversary |
+| `PEER_BOOK_MODE` | `False` | Phase F - Peer tabs |
+
+**`verify_brief.py` stubs added:** `verify_responsiveness`, `verify_birthday_gift`, `verify_anniversary` — each skips gracefully when its payload key is absent; activates automatically once the section is built.
+
+**Routing table** updated in `SKILL.md` with planned rows for Phases C/D/E/F/G.
+
+**Build order:** Phase 0 (done) - B Goals history - C Anniversary - D Birthday Gift - E Responsiveness - F Peer mode - G Bonus Calculator - H Slack.
 
 ---
 

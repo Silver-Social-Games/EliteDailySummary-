@@ -7,6 +7,8 @@ description: Generates the Elite AM Brief morning board for Coral, Gabriel, Lee,
 
 **Canonical workflow:** [`am_daily_dashboard/AM_DAILY_DASHBOARD.md`](../../../am_daily_dashboard/AM_DAILY_DASHBOARD.md)
 
+**Goals headline display (locked):** [`am_daily_dashboard/GOALS_DISPLAY.md`](../../../am_daily_dashboard/GOALS_DISPLAY.md)
+
 **Definitions:** [`Elite.MD`](../../../Elite.MD) — **Terminology**, **Elite
 managed book**, **Revenue and Purchased players**, **Account status and
 decline reasons**. Decline reasons: `wow_drop_analysis/wow_drop_reason.py`.
@@ -19,7 +21,68 @@ python am_daily_dashboard/generate_am_daily_dashboard.py
 python am_daily_dashboard/generate_am_daily_dashboard.py --date YYYY-MM-DD
 python am_daily_dashboard/generate_am_daily_dashboard.py --date YYYY-MM-DD --goals-only
 python am_daily_dashboard/generate_am_daily_dashboard.py --date YYYY-MM-DD --html-only
+python am_daily_dashboard/generate_am_daily_dashboard.py --cursor-audience manager
+python am_daily_dashboard/generate_am_daily_dashboard.py --cursor-audience coral --html-only
 ```
+
+**Elite_Cursor privacy (Option A):** one filename (`elite_am_brief.html`), true
+isolation via stripped payload per recipient. Workshop keeps the full dated set.
+
+| Audience | Command | Elite_Cursor file |
+|---|---|---|
+| Manager (you) | `--cursor-audience manager` | `elite_am_brief.html` (all AMs) |
+| Send to Coral | `--cursor-audience coral --html-only` | `elite_am_brief.html` (Coral only) |
+
+**Daily archive (catch up missing days through yesterday):**
+
+**Daily catch-up (locked 2026-08-24): `--verify` only (~5s).** Add
+`--render-check` after `web/` or shell edits, or when you want a full visual pass —
+not every morning by default.
+
+```bash
+python am_daily_dashboard/generate_am_brief_range.py --catch-up --verify
+```
+
+**Backfill a month (skip days that already have JSON):**
+
+```bash
+python am_daily_dashboard/generate_am_brief_range.py --from 2026-08-01 --to 2026-08-31 --skip-existing
+```
+
+See `generate_am_brief_range.py --help` for `--dry-run`, `--html-only`, and `--force`.
+
+## Slack go-live (locked 2026-08-25)
+
+**Kickoff: Sunday 2026-08-31** — first live AM Slack DMs. **Setup: Thursday 2026-08-28**
+(one-time creds + dry-run; task registered but can stay disabled until Sunday).
+
+When the user says "Slack go-live", "Sunday send", or paste the handoff block
+below, assume this schedule unless they say otherwise.
+
+| Step | When | Action |
+|---|---|---|
+| Setup | Thu 2026-08-28 | `am_slack_recipients.local.json` + `SLACK_BOT_TOKEN` in `_local_credentials.py` |
+| Dry-run | Thu | `$env:AM_BRIEF_SLACK_ENABLED='1'; python am_daily_dashboard/post_am_brief_slack.py --dry-run` |
+| Register task | Thu | `am_daily_dashboard/run_am_brief_scheduled.ps1 -EnableAmBriefSlack` in Task Scheduler (Sun–Thu 10:00 IL) |
+| Go live | Sun 2026-08-31 | Enable task, or run catch-up then Slack manually |
+
+**Sunday first run:** catch-up generates **Thu, Fri, Sat** archives; Slack DMs
+**Saturday's** brief only (yesterday rule). Not GitHub Pages — private HTML per AM.
+
+```bash
+python am_daily_dashboard/generate_am_brief_range.py --catch-up --verify
+python am_daily_dashboard/post_am_brief_slack.py --skip-catch-up
+```
+
+**New-chat reminder (paste at top):**
+
+```
+@elite-am-brief — Slack go-live Sunday 2026-08-31.
+Thursday setup done: [yes/no]. Enable task + first live send.
+Last verify PASS: YYYY-MM-DD. Do not read exports/ JSON.
+```
+
+Or: `python am_daily_dashboard/print_handoff.py` plus the Slack go-live line.
 
 `--goals-only` runs the single Goals query, prints the Goal / MTD / Pace / Status
 audit plus that run's month-shape divisors, and writes nothing (~6s vs ~110s).
@@ -31,12 +94,40 @@ BigQuery query** (~3s vs ~90s) and mirrors them. Use it after any edit to
 template change. Per-AM files are re-derived through `strip_payload_for_am`, so the
 output matches a real run.
 
+**After any `web/src/` edit**, rebuild then html-only (one pass). **Run
+`npx tsc --noEmit` in `web/` first** — a TS error ships a board where nothing
+clicks (Aug 2026: undefined `purchasers` in snapshot).
+
+```bash
+npx tsc --noEmit
+node am_daily_dashboard/web/build.mjs
+python am_daily_dashboard/generate_am_daily_dashboard.py --date YYYY-MM-DD --html-only --cursor-audience manager
+```
+
+Open `VIP\Elite_Cursor\AM Brief\elite_am_brief.html` to confirm. Skip full BQ regen
+unless payload logic changed (`payload_builders.py`, `queries.py`, `goals.py`).
+**`--html-only` does not re-run Open Tickets topic logic** — after ticket-classification
+or SQL edits, run a full generate for that date before sending to AMs.
+
+**Send to an AM (no Cursor):** attach `elite_am_brief_{slug}.html` or OneDrive `https://`
+share link. Never send `file:///` — it only works on your machine. Not GitHub Pages.
+See [`GOALS_DISPLAY.md`](../../../am_daily_dashboard/GOALS_DISPLAY.md) and
+[`AM_DAILY_DASHBOARD.md` Delivery to AMs](../../../am_daily_dashboard/AM_DAILY_DASHBOARD.md).
+
 **Before reconciling by hand, use the reference file.** Paste the AM's own figures
 into `am_daily_dashboard/data/elite_goals_reference.tsv` (same columns as
 `elite_goals.tsv` plus `day`, which must equal the report date) and the audit adds
 `Yours` and `Gap` columns per KPI. A **`team`** row is accepted too, so the
 manager's own sheet diffs against the Team Goals view instead of being decomposed
 by hand.
+
+**Board vs AM sheet (locked 2026-08-25):** when daily purchase/net look "wrong"
+but `verify_brief.py` Goals math PASS, parse the embedded payload in
+`elite_am_brief_<slug>.html` (script `#am-brief-payload`) before chasing SQL.
+A lower sheet total with ~499 vs ~527 purchasers is almost always **book roster
+timing** (report-date pin includes assignments after mid-month), not a missing
+net formula. Personal Snapshot shows **full MTD $** and **Daily Avg Net** so
+MTD ÷ elapsed matches the Goals table (no `$1.4M` rounding trap).
 
 **Default when their figures and the board disagree (confirmed 2026-08-18): ask
 for their sheet first, paste it in, and only investigate what the audit flags.**
@@ -48,13 +139,31 @@ rounds of reading numbers back and forth, which is how a 32-account roster leak
 survived two days in Aug 2026.
 
 Default report date = **yesterday**. Do **not** publish AM Brief to GitHub
-Pages, and do **not** add it to the Sun–Thu 10:00 scheduled task — it is
-deliberately manual (settled 2026-08-18). Open the HTML from
+Pages. AM Brief is **not** on the daily summary scheduled task (that one posts
+Pages links only). It has its **own** Sun–Thu 10:00 IL task for catch-up and
+optional Slack DMs — see **Slack go-live** below. Open the HTML from
 `VIP\Elite_Cursor\AM Brief` (also written under `am_daily_dashboard/exports/`).
 Point people at the dateless `elite_am_brief.html` / `elite_am_brief_<slug>.html`,
 not a dated file: the bookmark survives and the calendar reaches the history.
 **Dated files are never pruned** — a deleted day cannot be faithfully recreated,
 because a re-run can return different numbers.
+
+### Verified snapshot and new-chat handoff (do not lose a good run)
+
+Exports are **not in git**. A new Cursor chat that full-regenerates a date
+**overwrites** the working JSON even when the UI code in git is unchanged.
+
+| Step | Command |
+|---|---|
+| After a good run (daily) | `verify_brief.py --date YYYY-MM-DD` (auto-snapshot on PASS; no `--render-check` unless UI changed) |
+| After UI / shell edit | add `--render-check` to verify, or `generate … --html-only` then verify with `--render-check` |
+| Restore a verified day | `python am_daily_dashboard/verify_brief.py --date YYYY-MM-DD --restore-verified` then `--html-only` |
+| UI-only work | `--html-only` — never full regen unless the user asks |
+| New chat | Paste handoff block (see `AM_DAILY_DASHBOARD.md` **Verified exports and new-chat continuity**) |
+| **7-feature expansion** | Read [`am_daily_dashboard/AM_BRIEF_EXPANSION_PLAN.md`](../../../am_daily_dashboard/AM_BRIEF_EXPANSION_PLAN.md) — **in-repo**; do not use `.cursor/plans/` paths in new chats |
+
+**Never read export JSON/HTML in agent tools** — see **Cost discipline** below.
+Need a new check? Extend `verify_brief.py`.
 
 Standalone HTML refresh from existing JSON:
 
@@ -65,6 +174,13 @@ python am_daily_dashboard/canvas_to_html.py am_daily_dashboard/exports/YYYY-MM-D
 **In Cursor:** `@elite-am-brief` or "run AM Brief" / "morning AM board".
 
 ## Cost discipline
+
+**Agent rule (locked 2026-08-24): never read `exports/` JSON or HTML in Cursor
+agent tools to inspect a run.** One manager JSON is ~300k+ tokens in chat. Use
+`verify_brief.py` (~45 lines of PASS/FAIL). Need a new check? **Extend
+`verify_brief.py`** — do not open the payload, do not un-ignore `exports/`, do
+not paste export text into chat. For one AID/TID, grep or a one-line Python
+filter — never `Read` the whole file.
 
 The exports are 0.3–1.1 MB each, so **never read a generated `.json` or `.html`
 to check a run** — one read of a dated manager JSON is ~300k tokens, more than
@@ -122,6 +238,11 @@ Sidebar groups as built: **Command** (manager-only) · **Today** · **Performanc
 | **Open Tickets** (Operations) | `zendesk` | `open_zendesk_sql` (+ `subjects` array per player) + `enrich_aids_sql` (LTP / Hold / 7D / `lifetime_ngr` / `purchased_30d` batch) | `build_zd_section` → `_ticket_topic()` regex tier → `priorityScore` sort desc | `views/tickets.ts` | `sections.py` → `title="Open Tickets"` |
 | **Locked & Take A Break** (Operations) | `locks` | `locked_players_sql` | `build_lock_section` (buckets: Self-exclusion / Take a break / Other locked) | `views/locks.ts` | `sections.py` → `title="Locked And Take A Break"` |
 | **Birthdays · Last 3 Days** | `birthdays` | `birthdays_last_3d_sql` | `build_birthday_section` | `views/birthdays.ts` | `sections.py` → `title="Birthdays · Last 3 Days"` |
+| **One-Month Anniversary** *(Phase C — planned)* | `anniversary` | `anniversary_sql` (to be added) | `build_anniversary_section` (to be added) | `views/anniversary.ts` (to be added) | — |
+| **Birthday Gift · Eligible** *(Phase D — planned)* | `birthdayGift` | `birthday_gift_sql` (to be added) | `build_birthday_gift_section` (to be added) | `views/birthdayGift.ts` (to be added) | — |
+| **Responsiveness** *(Phase E — planned)* | `responsiveness` | `ticket_inactivity_sql` (to be added) | `build_responsiveness_section` (to be added) | `views/responsiveness.ts` (to be added) | — |
+| **Peer Book Mode** *(Phase F — cross-cutting)* | n/a (flag) | — | `goals.strip_payload_for_am` extended + `PEER_BOOK_MODE` in `config.py` | all views (peer tab toggle) | — |
+| **Bonus Calculator** *(Phase G — planned)* | `bonusCalc` | daily lookup JSON + `bonus_calculator.py` | `build_bonus_calc_section` (to be added) | `views/bonusCalc.ts` (to be added) | — |
 
 SQL = `am_daily_dashboard/queries.py` (dates validated through `_iso()` — never raw strings). Rows built by = `am_daily_dashboard/payload_builders.py` (Phase 3,
 2026-08-19) — pure functions, no BQ, testable directly; `generate_am_daily_dashboard.py`
@@ -183,9 +304,33 @@ then `npm test` (rebuilds the shell and fixtures itself via `pretest`). See
 
 After running, open the dated canvas beside chat and/or the HTML export.
 
+### C-level presentation
+
+Build the six-slide AM Brief and Cursor presentation from the approved corporate
+template:
+
+```bash
+python am_daily_dashboard/generate_am_brief_clevel_presentation.py
+```
+
+Open it from `VIP\Elite_Cursor\AM Brief`. Keep the approved format: Title Case,
+single gold titles, a simple opening slide, full manager-dashboard image,
+premium black and gold icons, one merged gold-beam workflow slide running
+Connect, Choose, Plan, Build, Improve, Scale with a caption under each ring and
+the gold ask bar below, speaker notes, and separate Q&A and Thank You slides.
+
+**Deck shape (locked):** 6 slides total. Do not bring back a separate ladder or
+pilot slide; method and ask live on the merged workflow slide (slide 4).
+
+**Workflow visual:** Use the ring-free beam asset
+`assets/luxury_beam_clean.png`. The older workflow image had baked-in gold
+rings, which blocks changing step count or spacing.
+
+**Slide 4 title (locked):** `Start Small. Prove Value. Scale.`
+
 ## Locked product decisions
 
-- Title **Elite AM Brief**; subtitle date only (`{Weekday} {DD Mon YYYY}`)
+- Title **Elite Dashboard**; subtitle date only (`{Weekday} {DD Mon YYYY}`)
 - **Elite Goals** — Coral / Gabriel / Lee / Rachel only, Alon omitted. Targets from
   `am_daily_dashboard/data/elite_goals.tsv`, year/month by `report_date`. MTD runs
   through `report_date` **inclusive**. Reconciled against the AMs' own table for
@@ -200,7 +345,12 @@ After running, open the dated canvas beside chat and/or the HTML export.
   | ARPPU | 15% | derived from paced components | never paced directly |
   | Reactivation | 8% | purchase after a **≥20-day** gap, once per AID in month | `(MTD/d)*D` linear |
   | Upgrade to Elite | 5% | **unreconciled — do not trust** | month-shape divisor |
-  | % Active from portfolio | 7% | last purchase **within 30 days** ÷ whole tagged book | not paced, point-in-time |
+  | % Active from portfolio | 7% | **MTD purchasers** ÷ whole tagged book | shaped purchasers ÷ book |
+
+  **% Active (locked 2026-08-25):** MTD distinct purchasers ÷ portfolio — same
+  numerator as Monthly Purchasers, not a 30-day rolling window. Team Aug 24:
+  2,003 ÷ 2,513 = 79.7%. Snapshot tile: **Active % of Portfolio** shows the
+  percent only. `verify_brief.py` asserts purchasers/portfolio = % Active.
 
   Weights total **80%**; the manager's 20% is out of scope, so the weighted score is
   a share of included weight, not a corporate 100%. Achievement caps at 100% of goal
@@ -230,17 +380,10 @@ After running, open the dated canvas beside chat and/or the HTML export.
   Two denominators already tried and rejected: unlocked-only (Coral 594), and an
   invented "eligible" subset that inflated % Active by 4–5 points.
 
-  **Reactivation and % Active must match the AMs' Tableau report** — that is what
-  the team is measured on. Source of truth
-  `elite_reference/Daily_Agg_Per_Player_Query_v1.sql`; read it before changing
-  either definition. Purchases come from `payment_payment_orders` WHERE `success`,
-  not the KPI view. The 20-day gap is that query's `params.churn_period_days` — its
-  inline comments saying 10 are **stale, trust the param**. Both windows live in
-  `config.py` as `GOALS_REACTIVATION_GAP_DAYS` / `GOALS_ACTIVE_LOOKBACK_DAYS`;
-  verified for Coral Aug 2026 (55 reactivations, 85.5% active). Show **one** number
-  per KPI — the user rejected a dual MTD/trailing display. Note the two windows
-  differ on purpose: Reactivation counts crossings inside the month, while % Active
-  is a rolling point-in-time rate.
+  **Reactivation must match the AMs' Tableau report** — source
+  `elite_reference/Daily_Agg_Per_Player_Query_v1.sql`; 20-day gap in
+  `GOALS_REACTIVATION_GAP_DAYS`. **% Active is MTD purchasers / portfolio**
+  (user-locked 2026-08-25), not the Tableau 30-day rolling rate.
 
   **The book is pinned to the report date** via `dashboard_elite_ctes(as_of=...)`,
   because tags re-snapshot daily and books move (Rachel 557 → 589 tagged in two
@@ -316,6 +459,9 @@ After running, open the dated canvas beside chat and/or the HTML export.
   `theme.stroke.primary` (`theme.border.default` does not exist in the SDK). The
   manager leaderboard ranks on `totalPctOfMax`, not raw points, since a scored AM is
   out of 100 and an unscored one out of 80. Streamlit does not render Goals at all.
+  **HTML display (locked 2026-08-25):** see [`GOALS_DISPLAY.md`](../../../am_daily_dashboard/GOALS_DISPLAY.md).
+  Personal AM headline, Team Goals headline, and Goals Leaderboard: **KPI points ÷ 80 × 100**
+  as `%` only (78/80 → `97.5%`). No raw `NN / 80`, no `/100`.
   The scored branch is verified (violet fill sized to the award, points clamped so an
   input of 26 renders `20.0 / 20`). **Mixed-state ranking is settled, not a bug:** the
   user was shown that an unscored AM at 94.8% of 80 outranks a scored AM at 93.1/100 —
@@ -329,8 +475,9 @@ After running, open the dated canvas beside chat and/or the HTML export.
   $210,000/day against 4 × $51,000, 2,250 purchasers against 2,184. Same seven
   KPIs, weights, pace and thresholds, so `build_team_goals_block` is a thin wrapper
   over the per-AM builder. **No 80 + 20 score meter** (user's call): `include_score
-  =False` drops the `score` key entirely, so there is no `/80`, no violet track and
-  no `Manager Pending`. **No per-AM breakdown either** — one was built, shown and
+  =False` drops the `score` key entirely, so there is no violet track and
+  no `Manager Pending`. Headline: [`GOALS_DISPLAY.md`](../../../am_daily_dashboard/GOALS_DISPLAY.md).
+  **No per-AM breakdown either** — one was built, shown and
   dropped for the same reason; the Leaderboard already covers it. Actuals come from
   `GROUP BY ROLLUP(agent)` on the five Goals aggregates — the team row is the
   **union of the whole managed book** computed in the same query at no extra cost,
@@ -440,9 +587,11 @@ Backlog with full intent and open questions: *Roadmap / Backlog* in
   a **calendar-less** file, a per-AM refresh **overwrote the manager brief**, and one
   unguarded `sessionStorage` read could **blank the whole board**. Nothing in Batch 10
   is outstanding. Three standing questions were closed the same day — **do not
-  re-ask**: the brief stays **manual** (not on the Sun–Thu 10:00 task), **every dated
-  file is kept** (no pruning), and the leaderboard **keeps ranking on
-  `totalPctOfMax`** across mixed scored/unscored states.
+  re-ask**: every dated file is kept (no pruning), and the leaderboard **keeps
+  ranking on `totalPctOfMax`** across mixed scored/unscored states. **Scheduling
+  update (2026-08-25):** Slack DMs go live Sun 2026-08-31 via
+  `run_am_brief_scheduled.ps1` (separate from daily summary Pages task) — see
+  **Slack go-live** above.
 - **Check this board by rendering it, not by grepping the HTML.** The legend, score
   meter and calendar are built at runtime from the payload, so `Manager Pending`
   appears nowhere in the file and searching for it proves nothing. Load the output
@@ -465,11 +614,13 @@ Backlog with full intent and open questions: *Roadmap / Backlog* in
   favourite game flag on Top 20 WoW Gaps (player's all-time favourite game, not
   played in 7 days, net loss on that game). **Explain plan before building both.**
 - **UI pass (Aug 2026) — committed (`48f8ffe`, verified 2026-08-17 `--render-check`).** Edit `web/src/` only;
-  never hand-edit `handoffs/elite_am_brief_web.html`. After each slice: `node am_daily_dashboard/web/build.mjs` → full regen
-  or `--html-only --date YYYY-MM-DD` (on Windows set
-  `$env:PYTHONIOENCODING='utf-8'` if console Unicode fails) →
-  `verify_brief.py --date YYYY-MM-DD --render-check` → Elite_Cursor path in chat.
+  never hand-edit `handoffs/elite_am_brief_web.html`. After each slice: `node am_daily_dashboard/web/build.mjs` →
+  `--html-only --date YYYY-MM-DD --cursor-audience manager` (full BQ regen only when payload logic changed;
+  on Windows set `$env:PYTHONIOENCODING='utf-8'` if console Unicode fails) →
+  `verify_brief.py --date YYYY-MM-DD --render-check` when UI changed → Elite_Cursor path in chat.
   **Settled UI:** band title **Elite Snapshot** (not MTD); **Elite Portfolio** label; no metric footnotes;
+  personal goals **`/80`**, team goals **`/100`**, Goals Leaderboard **`/80`**; card-header icons use
+  `.card-icon .ic { display: block }` (inline-block breaks CRM Calendar centering);
   Top 10 = Price · **Frequent 30d** · **Max Purchase 30D** (no Usual → Ceiling column); Open Tickets Created/Updated side by side;
   state chart with Other breakdown; topbar trail (date + AM badge); Big Losers **Elite-only** (non-Elite on Big Winners only).
   **After any table column add:** grep `app.css` for that table's `nth-child` rules before shipping.
