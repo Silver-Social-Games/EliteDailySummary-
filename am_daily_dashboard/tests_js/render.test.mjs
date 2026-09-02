@@ -152,6 +152,65 @@ describe("per-AM file isolation", () => {
   });
 });
 
+describe("peer coverage board (PEER_BOOK_MODE)", () => {
+  test("a peer file carries every AM tab but hides the manager Dashboard", () => {
+    const { dom, meta, errors } = loadBoard("peer_am_coral");
+    assert.equal(meta.peerMode, true, "fixture should be a peer coverage board");
+    assert.equal(meta.homeAm, "Coral");
+    // Goals live only on the home AM in the payload.
+    assert.deepEqual(meta.goalsAms, ["Coral"],
+      "only the home AM should carry a goals block on a coverage board");
+
+    const ids = visibleNavIds(dom);
+    assert.ok(!ids.includes("dashboard"),
+      "a coverage board must not expose the Manager Dashboard");
+    assert.ok(!ids.includes("team"),
+      "a coverage board must not expose Team Goals");
+
+    // Every peer tab is switchable and renders without a blank view or error.
+    const chips = [...dom.window.document.querySelectorAll("[data-agent]")].map((b) =>
+      b.getAttribute("data-agent")
+    );
+    assert.deepEqual(chips, meta.amOrder,
+      "the AM switcher should list every AM in board order");
+    assert.ok(chips.length > 1, "a coverage board needs more than one AM tab");
+    for (const name of chips) {
+      const chip = [...dom.window.document.querySelectorAll("[data-agent]")].find(
+        (b) => b.getAttribute("data-agent") === name
+      );
+      chip.onclick();
+      for (const id of visibleNavIds(dom)) {
+        clickNav(dom, id);
+        assert.ok(content(dom).innerHTML.trim().length > 0,
+          `view "${id}" rendered blank for peer tab ${name}`);
+      }
+    }
+    assert.deepEqual(errors, [], "uncaught JS error(s) during peer render");
+  });
+
+  test("Goals is offered on the home AM and hidden on peer AMs", () => {
+    const { dom } = loadBoard("peer_am_coral");
+    // Default agent is the home AM (Coral), who is scored → Goals visible.
+    assert.ok(visibleNavIds(dom).includes("goals"),
+      "the home AM should still see their personal Goals tab");
+    const gabriel = [...dom.window.document.querySelectorAll("[data-agent]")].find(
+      (b) => b.getAttribute("data-agent") === "Gabriel"
+    );
+    assert.ok(gabriel, "expected a peer chip for Gabriel");
+    gabriel.onclick();
+    assert.ok(!visibleNavIds(dom).includes("goals"),
+      "Goals must be hidden while covering a peer AM (no goals block)");
+  });
+
+  test("a peer file still withholds manager-only keys", () => {
+    const { html } = readFixture("peer_am_coral");
+    assert.ok(!html.includes('"managerGate"'),
+      "managerGate must never reach a coverage board");
+    assert.ok(!html.includes('"teamGoals"'),
+      "teamGoals must never reach a coverage board");
+  });
+});
+
 describe("manager dashboard gate", () => {
   test("Dashboard is locked without the passcode", () => {
     const { dom } = loadBoard("manager");

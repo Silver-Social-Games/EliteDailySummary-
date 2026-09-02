@@ -222,24 +222,6 @@ def verify_goals_history(payload: dict, report: Report) -> None:
         report.check(isinstance(team_hist, list), "Team history is a list")
 
 
-def verify_responsiveness(payload: dict, report: Report) -> None:
-    """Phase E: responsiveness section — skip gracefully when not yet built."""
-    agents = payload.get("agents") or []
-    has_any = any(a.get("responsiveness") is not None for a in agents)
-    if not has_any:
-        return
-    print("\nResponsiveness (90-day no-ticket)")
-    for agent in agents:
-        name = agent.get("agentName", "?")
-        rows = agent.get("responsiveness")
-        if rows is None:
-            continue
-        report.check(isinstance(rows, list), f"{name} responsiveness is a list")
-        for row in rows:
-            report.check("aid" in row, f"{name} responsiveness row has 'aid'")
-            report.check("daysSinceTicket" in row, f"{name} responsiveness row has 'daysSinceTicket'")
-
-
 def verify_birthday_gift(payload: dict, report: Report) -> None:
     """Phase D: birthday gift eligible section — skip gracefully when not yet built."""
     agents = payload.get("agents") or []
@@ -286,12 +268,30 @@ def verify_isolation(date_str: str, report: Report) -> None:
         if not report.check(path.exists(), f"{slug} export exists"):
             continue
         data = load(path)
-        others = [
-            a.get("agentName")
-            for a in data.get("agents") or []
-            if a.get("agentName") != name
-        ]
-        report.check(not others, f"{slug} file holds only {name}", str(others))
+        agent_names = [a.get("agentName") for a in data.get("agents") or []]
+        if data.get("peerMode"):
+            # Coverage board: every AM tab is present on purpose, but Goals
+            # must stay on the home AM only, and manager-only data must still
+            # be absent.
+            report.check(
+                data.get("homeAm") == name,
+                f"{slug} coverage board home AM is {name}",
+                str(data.get("homeAm")),
+            )
+            report.check(
+                len(agent_names) > 1,
+                f"{slug} coverage board carries every AM tab",
+                str(agent_names),
+            )
+            goals_ams = [a.get("agentName") for a in data.get("agents") or [] if a.get("goals")]
+            report.check(
+                goals_ams == [name],
+                f"{slug} coverage board shows Goals for {name} only",
+                str(goals_ams),
+            )
+        else:
+            others = [n for n in agent_names if n != name]
+            report.check(not others, f"{slug} file holds only {name}", str(others))
         leaked = [k for k in MANAGER_ONLY if data.get(k)]
         report.check(not leaked, f"{slug} file has no manager-only keys", str(leaked))
         html = EXPORTS / f"{date_str}_elite_am_brief_{slug}.html"
@@ -378,7 +378,6 @@ def main() -> None:
     verify_agents(payload, report)
     verify_goals_math(payload, report)
     verify_goals_history(payload, report)
-    verify_responsiveness(payload, report)
     verify_birthday_gift(payload, report)
     verify_anniversary(payload, report)
     verify_isolation(date_str, report)

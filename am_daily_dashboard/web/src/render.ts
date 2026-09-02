@@ -5,7 +5,7 @@
  * once, at bootstrap. Importing `render.ts` from either of them would make an
  * import cycle whose evaluation order depends on esbuild.
  */
-import { REPORT, SINGLE_AM } from "./payload";
+import { HIDE_MANAGER, REPORT } from "./payload";
 import { agentBlock } from "./selectors";
 import { app } from "./state";
 import { VIEWS, VIEW_FN } from "./registry";
@@ -17,7 +17,7 @@ import { renderModal } from "./modal";
 export function render(): void {
   /* An AM with no goals (Alon) must not sit on a Goals view. */
   if (app.view === "goals" && !agentBlock().goals) app.view = "home";
-  if (VIEWS[app.view] && VIEWS[app.view].managerOnly && SINGLE_AM) app.view = "home";
+  if (VIEWS[app.view] && VIEWS[app.view].managerOnly && HIDE_MANAGER) app.view = "home";
 
   const body = (VIEW_FN[app.view] || VIEW_FN.home)();
   document.getElementById("root")!.innerHTML = `<div class="app${app.collapsed ? " collapsed" : ""}${app.mobileOpen ? " mobile-open" : ""}">

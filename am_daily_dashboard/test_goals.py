@@ -449,7 +449,7 @@ class TeamGoalsTests(unittest.TestCase):
             "teamGoals": {"available": True, "agent": TEAM_AGENT_TAG},
             "managerGate": "secret",
         }
-        stripped = strip_payload_for_am(payload, "Coral")
+        stripped = strip_payload_for_am(payload, "Coral", peer_mode=False)
         self.assertNotIn("teamGoals", stripped)
         self.assertNotIn("managerGate", stripped)
         self.assertNotIn("archive", stripped["report"])
@@ -573,7 +573,7 @@ class IsolationTests(unittest.TestCase):
                 "goalsAmOrder": ["Coral", "Gabriel", "Lee", "Rachel"],
             },
         }
-        coral = strip_payload_for_am(payload, "Coral")
+        coral = strip_payload_for_am(payload, "Coral", peer_mode=False)
         self.assertEqual(coral["amOrder"], ["Coral"])
         self.assertEqual(coral["goalsMeta"]["goalsAmOrder"], ["Coral"])
         self.assertEqual(coral["goalsMeta"]["includedWeightTotal"], 80)
@@ -583,6 +583,60 @@ class IsolationTests(unittest.TestCase):
         self.assertEqual(coral["amShares"], [])
         self.assertTrue(coral["singleAm"])
         self.assertEqual([a["agentName"] for a in coral["agents"]], ["Coral"])
+
+    def _peer_source_payload(self) -> dict:
+        return {
+            "report": {"date": "2026-08-16", "title": "Elite AM Brief", "subtitle": "x",
+                       "archive": [{"d": "2026-08-16", "f": "x.html"}]},
+            "amShares": [{"agentName": "Coral"}, {"agentName": "Lee"}],
+            "overview": [{"agentName": "Coral"}, {"agentName": "Lee"}],
+            "agents": [
+                {"agentName": "Coral", "goals": {"available": True}, "top10": [{"aid": "1"}]},
+                {"agentName": "Lee", "goals": {"available": True}, "top10": [{"aid": "2"}]},
+                {"agentName": "Alon", "goals": None, "top10": [{"aid": "3"}]},
+            ],
+            "amOrder": ["Coral", "Lee", "Alon"],
+            "goalsMeta": {"includedWeightTotal": 80,
+                          "goalsAmOrder": ["Coral", "Gabriel", "Lee", "Rachel"]},
+            "teamGoals": {"available": True},
+            "managerGate": "deadbeef",
+        }
+
+    def test_peer_mode_keeps_briefed_tabs_but_goals_home_only(self) -> None:
+        payload = self._peer_source_payload()
+        coral = strip_payload_for_am(payload, "Coral", peer_mode=True)
+        # A tab for every AM with a brief of their own (a goals block), plus the
+        # home AM. Alon has no goals => no snapshot => dropped from the switcher.
+        self.assertEqual([a["agentName"] for a in coral["agents"]], ["Coral", "Lee"])
+        self.assertEqual(coral["amOrder"], ["Coral", "Lee"])
+        self.assertNotIn("Alon", [a["agentName"] for a in coral["agents"]])
+        # Goals live only on the home AM; peers are stripped.
+        goals_by_am = {a["agentName"]: a.get("goals") for a in coral["agents"]}
+        self.assertIsNotNone(goals_by_am["Coral"])
+        self.assertIsNone(goals_by_am["Lee"])
+        # Coverage-board flags and audience.
+        self.assertFalse(coral["singleAm"])
+        self.assertTrue(coral["peerMode"])
+        self.assertEqual(coral["homeAm"], "Coral")
+        self.assertEqual(coral["audienceSlug"], "coral")
+
+    def test_peer_mode_still_withholds_manager_only_data(self) -> None:
+        payload = self._peer_source_payload()
+        coral = strip_payload_for_am(payload, "Coral", peer_mode=True)
+        self.assertEqual(coral["overview"], [])
+        self.assertEqual(coral["amShares"], [])
+        self.assertNotIn("teamGoals", coral)
+        self.assertNotIn("managerGate", coral)
+        self.assertNotIn("archive", coral["report"])
+        self.assertEqual(coral["goalsMeta"]["goalsAmOrder"], ["Coral"])
+
+    def test_peer_mode_does_not_mutate_source_agents(self) -> None:
+        payload = self._peer_source_payload()
+        strip_payload_for_am(payload, "Coral", peer_mode=True)
+        # The shared manager payload's Lee block must keep its goals — the peer
+        # strip works on copies, so a later manager render is untouched.
+        lee = next(a for a in payload["agents"] if a["agentName"] == "Lee")
+        self.assertIsNotNone(lee.get("goals"))
 
 
 class ArchiveCalendarTests(unittest.TestCase):

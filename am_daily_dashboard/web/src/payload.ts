@@ -16,8 +16,17 @@ export const AGENTS: Dict[] = DATA.agents || [];
 export const AM_SHARES: Dict[] = DATA.amShares || [];
 export const AM_ORDER: string[] = DATA.amOrder || [];
 export const SINGLE_AM: boolean = !!DATA.singleAm;
+/* Peer coverage board: every AM tab present so an AM can cover a colleague,
+   but no manager Dashboard/Overview and Goals only on the home AM. */
+export const PEER_MODE: boolean = !!DATA.peerMode;
+export const HOME_AM: string = String(DATA.homeAm || "");
+/* Any per-AM audience (isolated single-AM or peer coverage) hides the manager
+   Dashboard, Team Goals and the gate. Only the true manager file keeps them. */
+export const HIDE_MANAGER: boolean = SINGLE_AM || PEER_MODE;
 export const AUDIENCE_SLUG: string = String(
-  DATA.audienceSlug || (SINGLE_AM ? (DATA.singleAmName || "").trim().toLowerCase() : "")
+  DATA.audienceSlug ||
+    (SINGLE_AM ? (DATA.singleAmName || "").trim().toLowerCase() : "") ||
+    (PEER_MODE ? HOME_AM.trim().toLowerCase() : "")
 );
 /* Manager-only: the four books measured as one against the manager's own
    targets. Absent from every per-AM payload by construction. */

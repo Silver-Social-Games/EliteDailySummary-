@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <!-- am-brief-build sources sha256:80ee2e7e56389fb8a4e1e17b81a4dd752abb4345141c001ebfad931a42bdfec5 output sha256:225a008924f3740398a154938bb6a5800256d159493f49445d4feb5e3aa8d2ab -->
+  <!-- am-brief-build sources sha256:066d1849ee5281d9c25a9002ce7e67e1a7f669a8655bdc6406f84797759658b3 output sha256:d6d233c4653cdd8e381d9a76b93812d1b86d52785cf2a607cbfae18da06ad756 -->
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Elite Dashboard</title>
   <style>
@@ -1014,8 +1014,11 @@
   var AM_SHARES = DATA.amShares || [];
   var AM_ORDER = DATA.amOrder || [];
   var SINGLE_AM = !!DATA.singleAm;
+  var PEER_MODE = !!DATA.peerMode;
+  var HOME_AM = String(DATA.homeAm || "");
+  var HIDE_MANAGER = SINGLE_AM || PEER_MODE;
   var AUDIENCE_SLUG = String(
-    DATA.audienceSlug || (SINGLE_AM ? (DATA.singleAmName || "").trim().toLowerCase() : "")
+    DATA.audienceSlug || (SINGLE_AM ? (DATA.singleAmName || "").trim().toLowerCase() : "") || (PEER_MODE ? HOME_AM.trim().toLowerCase() : "")
   );
   var TEAM_GOALS = DATA.teamGoals || null;
   var GATE_TOKEN = DATA.managerGate || "09dcfdd4";
@@ -3064,65 +3067,6 @@
     });
   }
 
-  // src/views/responsiveness.ts
-  function sortResponsiveness(rows, mode) {
-    const copy = [...rows];
-    if (mode === "ltpHigh")
-      return copy.sort((a, b) => (b.lifetimePurchasedNum || 0) - (a.lifetimePurchasedNum || 0));
-    if (mode === "holdHigh")
-      return copy.sort((a, b) => (b.holdPctNum || 0) - (a.holdPctNum || 0));
-    if (mode === "name")
-      return copy.sort((a, b) => String(a.lastName || a.name).localeCompare(String(b.lastName || b.name)));
-    return copy;
-  }
-  function viewResponsiveness() {
-    return tableCard({
-      rows: rowsFor("responsiveness"),
-      stateKey: `resp_${app.agent}`,
-      pagerNote: "No support ticket activity in 90+ days",
-      showSearch: true,
-      extraKeys: ["email", "firstName", "lastName"],
-      forcePaginate: true,
-      pageSize: 10,
-      sortOptions: [
-        { value: "silentHigh", label: "Sort: Days Silent \u2193" },
-        { value: "ltpHigh", label: "Lifetime purchase \u2193" },
-        { value: "holdHigh", label: "Hold % \u2193" },
-        { value: "name", label: "Name (A\u2013Z)" }
-      ],
-      defaultSort: "silentHigh",
-      sortFn: sortResponsiveness,
-      headers: [
-        "AID",
-        "Email",
-        "First Name",
-        "Last Name",
-        "Last Contact",
-        "Days Silent",
-        "Hold %",
-        "30D Purchase",
-        "LTP"
-      ],
-      align: ["left", "left", "left", "left", "left", "right", "right", "right", "right"],
-      markerCol: 0,
-      empty: "No silent players. Everyone has had a support ticket within 90 days.",
-      renderRow: (p) => {
-        var _a;
-        return [
-          aidHtml(p),
-          esc(p.email),
-          esc(p.firstName),
-          esc(p.lastName),
-          esc(p.lastContact || "\u2014"),
-          `<span class="w-semibold">${esc((_a = p.daysSinceTicket) != null ? _a : "\u2014")}${p.daysSinceTicket != null ? "d" : ""}</span>`,
-          holdHtml(p.holdPct),
-          purchaseMoneyHtml(p.purchase30d, p.purchase30dNum),
-          ltpHtml(p.lifetimePurchase, p.lifetimePurchasedNum)
-        ];
-      }
-    });
-  }
-
   // src/views/comingSoon.ts
   function comingSoonView() {
     return `<div class="coming-soon card">
@@ -3180,8 +3124,7 @@
         { kind: "view", id: "locks" },
         { kind: "view", id: "birthdays" },
         { kind: "view", id: "anniversary" },
-        { kind: "view", id: "birthdayGift" },
-        { kind: "view", id: "responsiveness" }
+        { kind: "view", id: "birthdayGift" }
       ]
     },
     {
@@ -3337,13 +3280,6 @@
       group: "Daily Triggers",
       key: "birthdayGift",
       sub: "This month's birthdays, high hold and spend"
-    },
-    responsiveness: {
-      label: "Responsiveness",
-      icon: "message",
-      group: "Daily Triggers",
-      key: "responsiveness",
-      sub: "Silent 90+ days, no support ticket"
     }
   };
   var NAV_ORDER = NAV_GROUPS.flatMap(
@@ -3367,8 +3303,7 @@
     gamesSticky: viewGamesSticky,
     gamesNew: viewGamesNew,
     anniversary: viewAnniversary,
-    birthdayGift: viewBirthdayGift,
-    responsiveness: viewResponsiveness
+    birthdayGift: viewBirthdayGift
   };
   var GROUP_ORDER = [...new Set(NAV_GROUPS.map((g) => g.label).filter(Boolean))];
 
@@ -3394,9 +3329,9 @@
   }
   var firstAgent = AGENTS[0] && AGENTS[0].agentName || AM_ORDER[0] || "";
   var app = {
-    view: SINGLE_AM ? "home" : "dashboard",
-    agent: SINGLE_AM ? DATA.singleAmName || firstAgent : firstAgent,
-    unlocked: SINGLE_AM || gateRemembered(),
+    view: HIDE_MANAGER ? "home" : "dashboard",
+    agent: PEER_MODE ? HOME_AM || firstAgent : DATA.singleAmName || firstAgent,
+    unlocked: HIDE_MANAGER || gateRemembered(),
     gateError: "",
     collapsed: false,
     mobileOpen: false,
@@ -3445,7 +3380,7 @@
   }
   function go(view) {
     var _a;
-    if (SINGLE_AM && ((_a = VIEWS[view]) == null ? void 0 : _a.managerOnly)) return;
+    if (HIDE_MANAGER && ((_a = VIEWS[view]) == null ? void 0 : _a.managerOnly)) return;
     app.view = view;
     app.mobileOpen = false;
     rerender();
@@ -3476,10 +3411,14 @@
   }
   function sidebar() {
     let nav = "";
+    const hasGoals = !!agentBlock().goals;
     for (const group of NAV_GROUPS) {
-      const entries = group.entries.filter(
-        (e) => e.kind !== "view" || !(VIEWS[e.id].managerOnly && SINGLE_AM)
-      );
+      const entries = group.entries.filter((e) => {
+        if (e.kind !== "view") return true;
+        if (VIEWS[e.id].managerOnly && HIDE_MANAGER) return false;
+        if (e.id === "goals" && !hasGoals) return false;
+        return true;
+      });
       if (!entries.length) continue;
       if (group.label) {
         nav += `<div class="side-group-title g-${group.accent || "neutral"}">${esc(group.label)}</div>`;
@@ -3510,7 +3449,7 @@
         ${amSwitch}
         <nav class="side-nav">${nav}</nav>
         <div class="side-foot">
-          ${SINGLE_AM ? esc(app.agent) + " \xB7 personal board" : "Manager view \xB7 all AMs"}<br>
+          ${SINGLE_AM ? esc(app.agent) + " \xB7 personal board" : PEER_MODE ? esc(HOME_AM) + " \xB7 coverage board" : "Manager view \xB7 all AMs"}<br>
           Report date ${esc(REPORT.date || "")}
         </div>
       </aside>`;
@@ -3635,12 +3574,6 @@
         ["AID", "Email", "First Name", "Last Name", "Birthday", "Age", "Hold %", "30D Purchase", "LTP"],
         ["aid", "email", "firstName", "lastName", "birthday", "age", "holdPct", "purchase30d", "lifetimePurchase"]
       );
-    } else if (app.view === "responsiveness") {
-      pack = genericRows(
-        "responsiveness",
-        ["AID", "Email", "First Name", "Last Name", "Last Contact", "Days Silent", "Hold %", "30D Purchase", "LTP"],
-        ["aid", "email", "firstName", "lastName", "lastContact", "daysSinceTicket", "holdPct", "purchase30d", "lifetimePurchase"]
-      );
     }
     if (!pack || !pack.rows.length) {
       toast("Nothing to export on this view");
@@ -3650,7 +3583,7 @@
     toast("CSV downloaded");
   }
   function viewSupportsCsvExport(viewId) {
-    return ["top20", "top10", "tickets", "rd", "birthdays", "anniversary", "birthdayGift", "responsiveness"].includes(viewId);
+    return ["top20", "top10", "tickets", "rd", "birthdays", "anniversary", "birthdayGift"].includes(viewId);
   }
 
   // src/calendar.ts
@@ -3672,13 +3605,13 @@
     "December"
   ];
   function datelessBriefFile() {
-    if (SINGLE_AM && AUDIENCE_SLUG) return `elite_am_brief_${AUDIENCE_SLUG}.html`;
+    if (AUDIENCE_SLUG) return `elite_am_brief_${AUDIENCE_SLUG}.html`;
     return "elite_am_brief.html";
   }
   function archiveFileForDate(iso) {
     const file = ARCHIVE_BY_DATE.get(iso);
     if (!file) return void 0;
-    if (!SINGLE_AM || !AUDIENCE_SLUG) return file;
+    if (!AUDIENCE_SLUG) return file;
     const suffix = `_${AUDIENCE_SLUG}.html`;
     if (file.endsWith(suffix)) return file;
     return `${iso}_elite_am_brief_${AUDIENCE_SLUG}.html`;
@@ -3994,7 +3927,7 @@ ${val("tBody")}`, "Subject + message");
   // src/render.ts
   function render() {
     if (app.view === "goals" && !agentBlock().goals) app.view = "home";
-    if (VIEWS[app.view] && VIEWS[app.view].managerOnly && SINGLE_AM) app.view = "home";
+    if (VIEWS[app.view] && VIEWS[app.view].managerOnly && HIDE_MANAGER) app.view = "home";
     const body = (VIEW_FN[app.view] || VIEW_FN.home)();
     document.getElementById("root").innerHTML = `<div class="app${app.collapsed ? " collapsed" : ""}${app.mobileOpen ? " mobile-open" : ""}">
         ${sidebar()}

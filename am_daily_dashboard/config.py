@@ -201,9 +201,12 @@ ANNIVERSARY_MANAGED_DAYS: int = 30
 ANNIVERSARY_WINDOW_DAYS: int = 3
 
 # ---------------------------------------------------------------------------
-# Peer book mode — Phase F (ship last before Slack go-live)
+# Peer book mode — Phase F (coverage board, live default 2026-09-01)
 # ---------------------------------------------------------------------------
-# When True, strip_payload_for_am includes all four AM tabs instead of only
-# the recipient's own tab. Goals block is only present for the home AM.
-# Keep False until Phase F QA passes.
-PEER_BOOK_MODE: bool = False
+# When True, strip_payload_for_am builds a coverage board: a tab for every AM
+# who has a brief of their own (the measured AMs), so each AM can see all
+# colleagues' triggers, past and present. Goals is present only for the home AM
+# (personal). Overflow AMs with no snapshot of their own are left off the tabs.
+# Set live so saved daily history accumulates as coverage boards. Pass
+# --no-peer-mode to fall back to the isolated single-AM shape for one run.
+PEER_BOOK_MODE: bool = True

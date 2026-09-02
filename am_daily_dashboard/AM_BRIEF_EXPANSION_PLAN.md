@@ -7,8 +7,10 @@ may not resolve in new chats).
 
 **Status todos:** Phase 0 ✅ → B ✅ (Goals history, 2026-09-01) → C ✅ (Anniversary,
 2026-09-01, trailing window) → D ✅ (Birthday Gift, this-month birthdays +
-criteria, 2026-09-01) → E ✅ (Responsiveness, 90d no ticket activity,
-2026-09-01) → F → G → H (check off in chat as you go).
+criteria, 2026-09-01) → E ⛔ DROPPED from board (Responsiveness parked
+2026-09-01; dormant helpers kept for re-add) → F ✅ (Coverage board LIVE default
+`PEER_BOOK_MODE = True`, tabs = AMs with own brief so Alon drops, per-AM archive
+history, 2026-09-01) → G → H (check off in chat as you go).
 
 ---
 

@@ -1448,21 +1448,91 @@ Full plan and rollback: `am_daily_dashboard/AM_BRIEF_EXPANSION_PLAN.md`.
 
 | Key | Value | Feature |
 |---|---|---|
-| `TICKET_INACTIVITY_DAYS` | `90` | Phase E - Responsiveness |
+| `TICKET_INACTIVITY_DAYS` | `90` | Phase E - Responsiveness (dropped from board, parked) |
 | `BIRTHDAY_GIFT_MIN_HOLD_PCT` | `0.50` | Phase D - Birthday Gift |
 | `BIRTHDAY_GIFT_MIN_30D_PURCHASE` | `4 000` | Phase D - Birthday Gift |
 | `BIRTHDAY_GIFT_REFRESH_DOW` | `6` (Sunday) | Phase D - Birthday Gift |
 | `ANNIVERSARY_MANAGED_DAYS` | `30` | Phase C - Anniversary |
 | `ANNIVERSARY_WINDOW_DAYS` | `3` | Phase C - Anniversary |
-| `PEER_BOOK_MODE` | `False` | Phase F - Peer tabs |
+| `PEER_BOOK_MODE` | `True` | Phase F - Coverage board (live default) |
 
-**`verify_brief.py` stubs added:** `verify_responsiveness`, `verify_birthday_gift`, `verify_anniversary` — each skips gracefully when its payload key is absent; activates automatically once the section is built.
+**`verify_brief.py`:** `verify_birthday_gift`, `verify_anniversary` — each skips gracefully when its payload key is absent; activates automatically once the section is built. (`verify_responsiveness` removed with the dropped Responsiveness section.)
 
 **Routing table** updated in `SKILL.md` with planned rows for Phases C/D/E/F/G.
 
-**Build order:** Phase 0 (done) - B Goals history (done) - C Anniversary (done) - D Birthday Gift (done) - E Responsiveness (done) - F Peer mode - G Bonus Calculator - H Slack.
+**Build order:** Phase 0 (done) - B Goals history (done) - C Anniversary (done) - D Birthday Gift (done) - E Responsiveness (DROPPED from board 2026-09-01, code parked) - F Coverage board (LIVE default 2026-09-01) - G Bonus Calculator - H Slack.
 
-### Phase E - Responsiveness / silent book (done 2026-09-01)
+### Phase F - Peer coverage board (LIVE default 2026-09-01, `PEER_BOOK_MODE = True`)
+
+Every AM's per-AM file is a coverage board: it carries a tab for **each AM who
+has a brief of their own** instead of just the recipient, so an AM can see all
+colleagues' triggers (present and, via the archive, past days). The Goals
+section stays personal (home AM only) and no manager Dashboard / Overview / Team
+Goals / gate is ever present.
+
+- **Tab set (fix, 2026-09-01):** one tab per AM with a snapshot of their own,
+  i.e. a `goals` block in the manager payload (the measured AMs = the AMs that
+  get a per-AM file), plus the home AM. Overflow AMs with **no brief of their
+  own - e.g. Alon - are left off the switcher.** Determined per board from the
+  payload, no hardcoded list.
+- **Live default (fix, 2026-09-01):** `config.PEER_BOOK_MODE = True`, so the
+  daily scheduled run and every `--html-only` regen save coverage boards.
+  History therefore accumulates as coverage from this date forward - each AM can
+  open a past day from their own archive calendar and still see everyone's
+  triggers (goals personal). Pass `--no-peer-mode` for a one-off isolated
+  single-AM rebuild.
+
+- **Two file shapes, one function.** `strip_payload_for_am(payload, name,
+  peer_mode=...)` now branches. `peer_mode` defaults to `config.PEER_BOOK_MODE`
+  read at call time, so `write_outputs`, the `--html-only` regen and the Cursor
+  audience writer all honour the flag - or a `--peer-mode` / `--no-peer-mode`
+  CLI override - with no extra plumbing. Both shapes rebuild the payload from a
+  fixed key list, so `teamGoals` / `managerGate` can never leak into either.
+  - **Isolated (flag off, unchanged):** one agent block, `amOrder=[name]`,
+    `singleAm=True`.
+  - **Coverage (flag on):** all agent blocks in board order, `singleAm=False`,
+    `peerMode=True`, `homeAm=name`; every non-home agent has `goals` set to
+    `None` (built on copies - the shared manager payload is not mutated).
+- **Web gating.** `payload.ts` adds `PEER_MODE`, `HOME_AM`, and
+  `HIDE_MANAGER = SINGLE_AM || PEER_MODE`. The manager Dashboard / Team Goals
+  nav + routing now gate on `HIDE_MANAGER` (state/render/sidebar), so a coverage
+  board hides them exactly like a single-AM file while the AM switcher (already
+  shown when `!SINGLE_AM`) lists every tab. The default tab and agent are the
+  home AM. Goals is hidden in the sidebar for any selected AM with no goals block
+  (peer AM or Alon); `render.ts` already bounces a goals-less agent off the Goals
+  view, so this is display-only. `calendar.ts` file naming switched from
+  `SINGLE_AM` to `AUDIENCE_SLUG` so a coverage file resolves its own per-AM
+  archive. `refresh_all_brief_archives` re-attaches `report.archive` to each
+  coverage file (dropped by the strip, rebuilt per slug), so every AM's board
+  gets a working history calendar to past coverage days.
+- **Verified:** 3 new `IsolationTests` (all tabs kept, Goals home-only, manager
+  keys withheld, source not mutated); a `peer_am_coral` jsdom fixture + 3 render
+  tests (every peer tab renders with no JS error, Dashboard/Team hidden, Goals
+  offered on home AM and hidden on a peer AM, manager keys absent); `tsc
+  --noEmit` + web build guard clean. `verify_brief.verify_isolation` detects
+  `peerMode` and asserts the coverage-board shape instead of single-AM. Two
+  pre-existing jsdom failures (Gabriel score meter, archive-calendar day count)
+  are environment/fixture drift, not Phase F.
+- **QA a coverage board:** `python am_daily_dashboard/generate_am_daily_dashboard.py
+  --date <d> --html-only` rebuilds the per-AM files (coverage is the default now)
+  from saved JSON (no BigQuery), then `verify_brief.py --date <d>`.
+- **Files:** `goals.strip_payload_for_am`, `generate_am_daily_dashboard.py`
+  (`--peer-mode` flag, `import config`), `web/src/{payload,state,render,sidebar,
+  calendar}.ts`, `testing/{payload_fixtures,build_fixtures}.py`,
+  `tests_js/render.test.mjs`, `test_goals.py`, `verify_brief.verify_isolation`.
+
+### Phase E - Responsiveness / silent book (DROPPED from board 2026-09-01)
+
+**Dropped for now.** The Responsiveness section was removed from the board and
+payload wiring on 2026-09-01 (nav, `views/responsiveness.ts`, `exportCsv`,
+`focus_for_agent` key, generator query/build, `verify_responsiveness`, fixtures).
+The definition was being reworked (see plan / prior chat) and is parked. The
+dormant building blocks are kept for a clean re-add: `queries.ticket_inactivity_sql`,
+`payload_builders.build_responsiveness_section` (+ `BuildResponsivenessSectionTests`),
+and `config.TICKET_INACTIVITY_DAYS`. The historical build notes below are retained
+for reference.
+
+
 
 Per-AM list of players who have gone quiet on support: no Zendesk ticket
 activity in the trailing `TICKET_INACTIVITY_DAYS` (90). Ships as

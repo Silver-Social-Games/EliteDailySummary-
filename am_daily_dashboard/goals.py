@@ -15,6 +15,7 @@ from datetime import date
 from pathlib import Path
 from typing import Any
 
+import config
 from config import PRODUCT_TITLE
 
 DATA_DIR = Path(__file__).resolve().parent / "data"
@@ -749,10 +750,31 @@ def build_team_goals_block(
     )
 
 
-def strip_payload_for_am(payload: dict, agent_name: str) -> dict:
-    """File-level isolation: one AM's sections only — no Overview, no other AMs."""
-    agents = [a for a in payload.get("agents") or [] if a.get("agentName") == agent_name]
-    if not agents:
+def strip_payload_for_am(
+    payload: dict, agent_name: str, *, peer_mode: bool | None = None
+) -> dict:
+    """Per-AM file. Two shapes, both free of manager-only data by construction.
+
+    Default (peer_mode False): file-level isolation - one AM's sections only,
+    no Overview, no other AMs.
+
+    peer_mode True (config.PEER_BOOK_MODE): coverage board - every AM tab is
+    present so an AM can cover a colleague's book while they are out, but the
+    Goals section stays only on the home AM (agent_name); every other AM block
+    has its goals stripped. The manager Dashboard, Overview, amShares,
+    teamGoals and the gate token are still absent - the payload is rebuilt from
+    a fixed key list either way, so a new manager key has to be opted in here
+    before it can ever reach a per-AM file.
+
+    peer_mode defaults to config.PEER_BOOK_MODE, read at call time so every
+    caller (write_outputs, the html-only regen, the Cursor audience writer)
+    honours the flag - or a --peer-mode CLI override - with no extra plumbing.
+    """
+    if peer_mode is None:
+        peer_mode = config.PEER_BOOK_MODE
+    all_agents = payload.get("agents") or []
+    home = [a for a in all_agents if a.get("agentName") == agent_name]
+    if not home:
         raise ValueError(f"No agent block for {agent_name}")
     report = dict(payload.get("report") or {})
     report["title"] = f"{PRODUCT_TITLE} · {agent_name}"
@@ -760,22 +782,49 @@ def strip_payload_for_am(payload: dict, agent_name: str) -> dict:
     # Manager archive lists point at full-book HTML; never carry them forward.
     report.pop("archive", None)
     # goalsAmOrder names every AM on the board, so narrow it too — an AM's own
-    # file should not even carry the roster of who else is measured.
+    # file should not even carry the roster of who else is measured. Goals live
+    # only on the home AM in both shapes.
     goals_meta = dict(payload.get("goalsMeta") or {})
     if goals_meta.get("goalsAmOrder"):
         goals_meta["goalsAmOrder"] = [agent_name]
-    # Drop multi-AM overview / share tables entirely. Rebuilding from a fixed
-    # key list rather than deleting keys is what keeps manager-only data —
-    # `teamGoals`, `managerGate` — out of an AM's file by construction: a new
-    # manager key has to be opted in here before it can ever leak.
+
+    if not peer_mode:
+        return {
+            "report": report,
+            "amShares": [],
+            "overview": [],
+            "agents": home,
+            "amOrder": [agent_name],
+            "goalsMeta": goals_meta,
+            "singleAm": True,
+            "singleAmName": agent_name,
+            "audienceSlug": agent_name.strip().lower(),
+        }
+
+    # Peer coverage board: one tab per AM who has a brief of their own, plus
+    # the home AM. "Has a brief" == carries a goals block in the manager payload
+    # (goals are built only for the measured AMs, who are exactly the ones that
+    # get a per-AM file). Overflow AMs with no snapshot of their own - e.g.
+    # Alon - are left off the switcher entirely. Goals is stripped from every AM
+    # other than the home AM so the Goals view stays personal.
+    agents: list[dict] = []
+    for a in all_agents:
+        name = a.get("agentName")
+        if name == agent_name:
+            agents.append(a)
+        elif a.get("goals") is not None:
+            peer = dict(a)
+            peer["goals"] = None
+            agents.append(peer)
     return {
         "report": report,
         "amShares": [],
         "overview": [],
         "agents": agents,
-        "amOrder": [agent_name],
+        "amOrder": [a.get("agentName") for a in agents],
         "goalsMeta": goals_meta,
-        "singleAm": True,
-        "singleAmName": agent_name,
+        "singleAm": False,
+        "peerMode": True,
+        "homeAm": agent_name,
         "audienceSlug": agent_name.strip().lower(),
     }

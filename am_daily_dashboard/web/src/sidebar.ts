@@ -1,7 +1,7 @@
 /** Left navigation rail — groups, nav badges, and the AM switcher. */
-import { AM_ORDER, REPORT, SINGLE_AM } from "./payload";
+import { AM_ORDER, HIDE_MANAGER, HOME_AM, PEER_MODE, REPORT, SINGLE_AM } from "./payload";
 import { esc, icon } from "./format";
-import { rowsFor } from "./selectors";
+import { agentBlock, rowsFor } from "./selectors";
 import { app } from "./state";
 import { NAV_GROUPS, VIEWS } from "./registry";
 import { logoImg } from "./logos";
@@ -33,10 +33,17 @@ function navItem(id: string): string {
 
 export function sidebar(): string {
   let nav = "";
+  const hasGoals = !!agentBlock().goals;
   for (const group of NAV_GROUPS) {
-    const entries = group.entries.filter(
-      (e) => e.kind !== "view" || !(VIEWS[e.id].managerOnly && SINGLE_AM)
-    );
+    const entries = group.entries.filter((e) => {
+      if (e.kind !== "view") return true;
+      // Manager Dashboard / Team Goals: only on the true manager file.
+      if (VIEWS[e.id].managerOnly && HIDE_MANAGER) return false;
+      // Goals is personal: hide it on any AM tab that carries no goals block
+      // (Alon, or a peer AM on a coverage board).
+      if (e.id === "goals" && !hasGoals) return false;
+      return true;
+    });
     if (!entries.length) continue;
     if (group.label) {
       nav += `<div class="side-group-title g-${group.accent || "neutral"}">${esc(group.label)}</div>`;
@@ -68,7 +75,11 @@ export function sidebar(): string {
         ${amSwitch}
         <nav class="side-nav">${nav}</nav>
         <div class="side-foot">
-          ${SINGLE_AM ? esc(app.agent) + " · personal board" : "Manager view · all AMs"}<br>
+          ${SINGLE_AM
+            ? esc(app.agent) + " · personal board"
+            : PEER_MODE
+              ? esc(HOME_AM) + " · coverage board"
+              : "Manager view · all AMs"}<br>
           Report date ${esc(REPORT.date || "")}
         </div>
       </aside>`;

@@ -32,6 +32,7 @@ from testing.payload_fixtures import (  # noqa: E402
     build_empty_sections_payload,
     build_large_tickets_payload,
     build_manager_payload,
+    build_peer_am_payload,
     build_single_am_payload,
 )
 
@@ -44,10 +45,15 @@ def _meta(payload: dict) -> dict:
         "managerGate": payload.get("managerGate"),
         "singleAm": bool(payload.get("singleAm")),
         "singleAmName": payload.get("singleAmName"),
+        "peerMode": bool(payload.get("peerMode")),
+        "homeAm": payload.get("homeAm"),
         "amOrder": payload.get("amOrder") or [],
         "archiveDates": [a["d"] for a in report.get("archive") or []],
         "reportDate": report.get("date"),
         "hasTeamGoals": bool(payload.get("teamGoals")),
+        "goalsAms": [
+            a.get("agentName") for a in (payload.get("agents") or []) if a.get("goals")
+        ],
     }
 
 
@@ -65,6 +71,7 @@ def main() -> None:
     print(f"Building AM Brief render-test fixtures into {OUT_DIR} ...")
     _write("manager", build_manager_payload())
     _write("single_am_coral", build_single_am_payload("Coral"))
+    _write("peer_am_coral", build_peer_am_payload("Coral"))
     _write("empty_sections_alon", build_empty_sections_payload("Alon"))
     _write("large_tickets", build_large_tickets_payload())
     print("Done.")

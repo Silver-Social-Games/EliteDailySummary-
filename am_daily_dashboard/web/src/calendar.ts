@@ -18,7 +18,7 @@
 
  */
 
-import { AUDIENCE_SLUG, REPORT, SINGLE_AM } from "./payload";
+import { AUDIENCE_SLUG, REPORT } from "./payload";
 
 import { esc, icon } from "./format";
 
@@ -39,7 +39,7 @@ const MONTH_NAMES = ["January", "February", "March", "April", "May", "June",
 
 
 function datelessBriefFile(): string {
-  if (SINGLE_AM && AUDIENCE_SLUG) return `elite_am_brief_${AUDIENCE_SLUG}.html`;
+  if (AUDIENCE_SLUG) return `elite_am_brief_${AUDIENCE_SLUG}.html`;
   return "elite_am_brief.html";
 }
 
@@ -47,7 +47,7 @@ function datelessBriefFile(): string {
 function archiveFileForDate(iso: string): string | undefined {
   const file = ARCHIVE_BY_DATE.get(iso);
   if (!file) return undefined;
-  if (!SINGLE_AM || !AUDIENCE_SLUG) return file;
+  if (!AUDIENCE_SLUG) return file;
   const suffix = `_${AUDIENCE_SLUG}.html`;
   if (file.endsWith(suffix)) return file;
   return `${iso}_elite_am_brief_${AUDIENCE_SLUG}.html`;

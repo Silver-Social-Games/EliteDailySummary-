@@ -44,7 +44,6 @@ from payload_builders import (  # noqa: E402
     build_birthday_section,
     build_lock_section,
     build_rd_section,
-    build_responsiveness_section,
     build_top10_section,
     build_zd_section,
     focus_for_agent,
@@ -180,19 +179,6 @@ def _birthday_gift_row(agent_tag: str, aid: int, name: str, **extra: Any) -> dic
     return row
 
 
-def _responsiveness_row(agent_tag: str, aid: int, name: str, **extra: Any) -> dict:
-    parts = name.split()
-    row = {
-        "AID": aid, "name": name, "agent": agent_tag, "email": f"{name.lower()}@example.com",
-        "first_name": parts[0], "last_name": parts[-1] if len(parts) > 1 else "",
-        "last_ticket_date": (REPORT_DATE - timedelta(days=120)).isoformat(),
-        "days_since_ticket": 120,
-        "locked": False, "lock_reason": "", "lock_reason_comment": "",
-    }
-    row.update(extra)
-    return row
-
-
 def _zd_row(agent_tag: str, aid: int, name: str, *, open_tickets: int = 1, **extra: Any) -> dict:
     row = {
         "AID": aid, "name": name, "agent": agent_tag, "open_tickets": open_tickets,
@@ -309,10 +295,6 @@ def build_manager_payload(*, ticket_count_for_coral: int = 1) -> dict:
         _anniversary_row("coral_s", 505, "Coral Anniversary Player"),
         _anniversary_row("lee_t", 705, "Lee Anniversary Player"),
     ]
-    responsiveness_raw = [
-        _responsiveness_row("coral_s", 508, "Coral Silent Player"),
-        _responsiveness_row("gabriel_e", 608, "Gabriel Silent Player", days_since_ticket=200),
-    ]
     zd_raw = [
         _zd_row("coral_s", 500 + i, f"Coral Ticket Player {i}")
         for i in range(1, ticket_count_for_coral + 1)
@@ -342,7 +324,6 @@ def build_manager_payload(*, ticket_count_for_coral: int = 1) -> dict:
     birthdays = build_birthday_section(birthday_raw, ticket_enrich={})
     anniversary = build_anniversary_section(anniversary_raw, enrich_map={})
     birthday_gift = build_birthday_gift_section(birthday_gift_raw, enrich_map={})
-    responsiveness = build_responsiveness_section(responsiveness_raw, enrich_map={})
     zd = build_zd_section(zd_raw, enrich_map={})
     locks = build_lock_section(lock_raw, REPORT_DATE)
     big_winners = build_big_winners_section(bw_raw, enrich_map={})
@@ -377,7 +358,7 @@ def build_manager_payload(*, ticket_count_for_coral: int = 1) -> dict:
             name, WEEKDAY,
             top10=top10, decline=decline_by_am.get(name, []), rd5k=rd5k,
             rd_first=rd_first, birthdays=birthdays, anniversary=anniversary,
-            birthday_gift=birthday_gift, responsiveness=responsiveness, zd=zd, locks=locks,
+            birthday_gift=birthday_gift, zd=zd, locks=locks,
             big_winners=big_winners, big_losers=[],
             purchase=purchase_by_agent[name], total_players=total_players_by_agent[name],
             elite_rev=elite_rev, elite_ply=elite_ply, goals=goals_blocks.get(name),
@@ -429,7 +410,19 @@ def build_manager_payload(*, ticket_count_for_coral: int = 1) -> dict:
 
 def build_single_am_payload(agent_name: str = "Coral") -> dict:
     manager = build_manager_payload()
-    payload = strip_payload_for_am(manager, agent_name)
+    payload = strip_payload_for_am(manager, agent_name, peer_mode=False)
+    report = dict(payload["report"])
+    report["archive"] = _archive(agent_name.lower())
+    payload["report"] = report
+    return payload
+
+
+def build_peer_am_payload(agent_name: str = "Coral") -> dict:
+    """Peer coverage board (PEER_BOOK_MODE): the home AM plus every peer tab,
+    with Goals stripped from every AM other than the home AM. Exercises the
+    HIDE_MANAGER gating and the Goals-home-only rule without a config flip."""
+    manager = build_manager_payload()
+    payload = strip_payload_for_am(manager, agent_name, peer_mode=True)
     report = dict(payload["report"])
     report["archive"] = _archive(agent_name.lower())
     payload["report"] = report
@@ -440,7 +433,7 @@ def build_empty_sections_payload(agent_name: str = "Alon") -> dict:
     """Alon already has no goals block and, by construction, no rows in any
     section here — hits every table's `empty:` string in one fixture."""
     manager = build_manager_payload()
-    return strip_payload_for_am(manager, agent_name)
+    return strip_payload_for_am(manager, agent_name, peer_mode=False)
 
 
 def build_large_tickets_payload() -> dict:

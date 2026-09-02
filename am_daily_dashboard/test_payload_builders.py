@@ -1149,7 +1149,7 @@ class FocusForAgentTests(unittest.TestCase):
         return focus_for_agent(
             agent_name, "Monday",
             top10=[], decline=[], rd5k=[], rd_first=[], birthdays=[], anniversary=[],
-            birthday_gift=[], responsiveness=[],
+            birthday_gift=[],
             zd=[], locks=[], big_winners=[], big_losers=[],
             purchase={"purchased": 12000.0, "purchased_players": 40},
             total_players=560,
@@ -1182,7 +1182,7 @@ class FocusForAgentTests(unittest.TestCase):
         result = focus_for_agent(
             "Alon", "Monday",
             top10=[], decline=[], rd5k=[], rd_first=[], birthdays=[], anniversary=[],
-            birthday_gift=[], responsiveness=[],
+            birthday_gift=[],
             zd=[], locks=[], big_winners=[], big_losers=[], purchase=None, total_players=0,
             elite_rev=40000.0, elite_ply=130,
         )
@@ -1203,7 +1203,7 @@ class FocusForAgentTests(unittest.TestCase):
         result = focus_for_agent(
             "Coral", "Monday",
             top10=[], decline=[], rd5k=[], rd_first=[], birthdays=[], anniversary=[],
-            birthday_gift=[], responsiveness=[],
+            birthday_gift=[],
             zd=[coral_row, gabriel_row], locks=[], big_winners=[], big_losers=[],
             purchase={"purchased": 0, "purchased_players": 0},
             total_players=0, elite_rev=0, elite_ply=0,
@@ -1224,7 +1224,7 @@ class FocusForAgentTests(unittest.TestCase):
         result = focus_for_agent(
             "Coral", "Monday",
             top10=[], decline=[], rd5k=[], rd_first=[], birthdays=[], anniversary=[],
-            birthday_gift=[], responsiveness=[],
+            birthday_gift=[],
             zd=[], locks=[], big_winners=[], big_losers=[elite_coral, non_elite],
             purchase={"purchased": 0, "purchased_players": 0},
             total_players=0, elite_rev=0, elite_ply=0,

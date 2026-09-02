@@ -27,6 +27,7 @@ from elite_lib.bigquery import HEAVY_QUERY_SCAN_CAP_BYTES, get_client, run_query
 from elite_lib.export_paths import cursor_export_dir, mirror_to_cursor  # noqa: E402
 from elite_lib.console import use_utf8_stdout  # noqa: E402
 
+import config  # noqa: E402
 from config import (  # noqa: E402
     BIRTHDAY_GIFT_REFRESH_DOW,
     PENDING_RD_LOOKBACK_DAYS,
@@ -85,7 +86,6 @@ from payload_builders import (  # noqa: E402
     build_birthday_section,
     build_lock_section,
     build_rd_section,
-    build_responsiveness_section,
     build_top10_section,
     build_zd_section,
     focus_for_agent,
@@ -299,8 +299,6 @@ def build_payload(report_date: date, client) -> dict:
     anniv_raw = run_query(client, am_queries.anniversary_sql(report_date))
     print(f"  One-month anniversaries (3d): {len(anniv_raw)}")
     bgift_raw = load_or_refresh_birthday_gift(client, report_date)
-    resp_raw = run_query(client, am_queries.ticket_inactivity_sql(report_date))
-    print(f"  Responsiveness (no ticket in 90d): {len(resp_raw)}")
     zd_raw = run_query(client, am_queries.open_zendesk_sql())
     print(f"  Open ZD players: {len(zd_raw)}")
     bw_raw = run_query(client, am_queries.big_winners_sql(report_date))
@@ -387,7 +385,6 @@ def build_payload(report_date: date, client) -> dict:
     birthdays = build_birthday_section(bday_raw, ticket_enrich=shared_enrich)
     anniversary = build_anniversary_section(anniv_raw, enrich_map=shared_enrich)
     birthday_gift = build_birthday_gift_section(bgift_raw, enrich_map=shared_enrich)
-    responsiveness = build_responsiveness_section(resp_raw, enrich_map=shared_enrich)
     locks = build_lock_section(locks_raw, report_date)
     print(f"  Locked after past-day window filter: {len(locks)}")
 
@@ -418,7 +415,6 @@ def build_payload(report_date: date, client) -> dict:
                 birthdays=birthdays,
                 anniversary=anniversary,
                 birthday_gift=birthday_gift,
-                responsiveness=responsiveness,
                 zd=zd,
                 locks=locks,
                 big_winners=big_winners,
@@ -572,6 +568,15 @@ def rebuild_html_from_json(
     for name in GOALS_AM_ORDER:
         slug = name.lower()
         am_payload = strip_payload_for_am(payload, name)
+        # Rewrite the per-AM JSON too, not just the HTML: refresh_all_brief_archives
+        # (below) re-derives each per-AM HTML from its own JSON, so a stale JSON
+        # here would overwrite the shape we just wrote - e.g. a --peer-mode rebuild
+        # would revert to isolated. Keeping JSON and HTML in lockstep matches what
+        # a full write_outputs run produces.
+        am_json = OUTPUT_DIR / f"{d}_elite_am_brief_{slug}.json"
+        am_json.write_text(
+            json.dumps(am_payload, indent=2, default=str), encoding="utf-8"
+        )
         for path in (
             OUTPUT_DIR / f"{d}_elite_am_brief_{slug}.html",
             OUTPUT_DIR / f"elite_am_brief_{slug}.html",
@@ -701,7 +706,23 @@ def main() -> None:
         help="Also mirror one elite_am_brief.html to Elite_Cursor for this audience "
         "(manager = full book; coral/gabriel/lee/rachel = stripped payload)",
     )
+    parser.add_argument(
+        "--peer-mode",
+        dest="peer_mode",
+        action="store_true",
+        default=None,
+        help="Force PEER_BOOK_MODE on for this run: per-AM files carry every AM "
+        "tab (Goals stays home-only). QA override; config default stays off.",
+    )
+    parser.add_argument(
+        "--no-peer-mode",
+        dest="peer_mode",
+        action="store_false",
+        help="Force PEER_BOOK_MODE off for this run (isolated single-AM files).",
+    )
     args = parser.parse_args()
+    if args.peer_mode is not None:
+        config.PEER_BOOK_MODE = args.peer_mode
     report_date = resolve_report_date(args.date)
     cursor_audience = normalize_cursor_audience(args.cursor_audience)
     if args.html_only:
