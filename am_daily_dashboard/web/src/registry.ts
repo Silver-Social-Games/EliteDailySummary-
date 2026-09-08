@@ -17,6 +17,7 @@ import { viewBigLosers } from "./views/bigLosers";
 import { viewCrmCalendar } from "./views/crmCalendar";
 import { viewAnniversary } from "./views/anniversary";
 import { viewBirthdayGift } from "./views/birthdayGift";
+import { viewBonusCalculator } from "./views/bonusCalculator";
 import {
   viewGamesNew,
   viewGamesSticky,
@@ -74,6 +75,12 @@ export const NAV_GROUPS: NavGroup[] = [
     accent: "games",
     entries: [{ kind: "view", id: "gamesSticky" }, { kind: "view", id: "gamesNew" }],
   },
+  {
+    id: "tools",
+    label: "Tools",
+    accent: "performance",
+    entries: [{ kind: "view", id: "bonusCalc" }],
+  },
 ];
 
 export const VIEWS: Record<string, ViewDef> = {
@@ -107,7 +114,7 @@ export const VIEWS: Record<string, ViewDef> = {
                 key: "zendesk", sub: "Open Zendesk tickets on your book" },
   locks:      { label: "Locked & Take A Break · Last 3 Days", short: "Lock & TAB", icon: "lock",
                 group: "Daily Triggers", key: "locks",
-                sub: "New locks and breaks due to end" },
+                sub: "Last 3 days locks and Locked MTD" },
   birthdays:  { label: "Birthdays · Last 3 Days", short: "Birthdays", icon: "gift",
                 group: "Daily Triggers", key: "birthdays", sub: "A reason to reach out" },
   crmCalendar: { label: "CRM Calendar", icon: "calendar", group: "CRM",
@@ -122,6 +129,7 @@ export const VIEWS: Record<string, ViewDef> = {
   birthdayGift: { label: "Monthly Birthday Gifts", short: "Monthly Birthday Gifts", icon: "gift",
                   group: "Daily Triggers", key: "birthdayGift",
                   sub: "This month's birthdays, high hold and spend" },
+  bonusCalc: { label: "Bonus Calculator", icon: "calculator", group: "Tools" },
 };
 
 export const NAV_ORDER: string[] = NAV_GROUPS.flatMap((g) =>
@@ -136,6 +144,7 @@ export const VIEW_FN: Record<string, () => string> = {
   crmCalendar: viewCrmCalendar, gamesSticky: viewGamesSticky, gamesNew: viewGamesNew,
   anniversary: viewAnniversary,
   birthdayGift: viewBirthdayGift,
+  bonusCalc: viewBonusCalculator,
 };
 
 /** @deprecated use NAV_GROUPS */

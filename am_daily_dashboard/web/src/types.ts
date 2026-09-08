@@ -92,6 +92,8 @@ export interface TableCardOpts {
   cardClass?: string;
   /** Short explanation line shown at the top of the card (card-sub style). */
   note?: string;
+  /** Section headline — card-head + card-title (dark ink, padded). Prefer over note for table sections. */
+  title?: string;
   /** Grey criteria line shown in the pager row, next to "Showing X of Y". */
   pagerNote?: string;
   /** Default true; off for sections where a search box is noise. */

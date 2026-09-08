@@ -779,6 +779,25 @@ class ArchiveCalendarTests(unittest.TestCase):
         self.assertNotIn("wrong_manager.html", text)
         self.assertIn("2026-08-16_elite_am_brief_coral.html", text)
 
+    def test_peer_mode_payload_gets_per_am_archive_not_manager(self) -> None:
+        payload = {
+            "report": {"date": "2026-08-17"},
+            "singleAm": False,
+            "peerMode": True,
+            "homeAm": "Coral",
+            "audienceSlug": "coral",
+            "agents": [{"agentName": "Coral"}],
+        }
+        out = self.dir / "2026-08-17_elite_am_brief_coral.html"
+        canvas_to_html.write_am_brief_html(payload, out)
+        text = out.read_text(encoding="utf-8")
+        self.assertIn("2026-08-16_elite_am_brief_coral.html", text)
+        self.assertNotIn("2026-08-16_elite_am_brief.html", text)
+        self.assertEqual(
+            canvas_to_html.audience_slug(out, payload),
+            "coral",
+        )
+
     def test_per_am_json_refresh_does_not_overwrite_the_manager_file(self) -> None:
         payload_path = self.dir / "2026-08-17_elite_am_brief_lee.json"
         payload_path.write_text(

@@ -366,6 +366,73 @@ describe("archive calendar", () => {
   });
 });
 
+describe("Bonus Calculator (Phase G v2)", () => {
+  test("manager board shows waterfall, GWG chips, and SC offer", () => {
+    const { dom, errors } = loadBoard("manager");
+    assert.ok(clickNav(dom, "bonusCalc"), "Bonus Calculator nav item expected");
+    const input = dom.window.document.querySelector("#bonusAidInput");
+    assert.ok(input, "expected AID search input");
+    input.value = "811001";
+    input.oninput();
+    const html = content(dom).innerHTML;
+    assert.ok(html.includes("bonus-metrics-sheet"), "expected player metrics sheet");
+    assert.ok(html.includes("FTD date"), "expected FTD date metric");
+    assert.ok(html.includes("Last bet date"), "expected last bet date metric");
+    assert.ok(html.includes("% Bonus to GGR"), "expected lifetime bonus-to-GGR ratio");
+    assert.ok(html.includes("bonus-gwg-chips"), "expected GWG chip picker");
+    assert.ok(html.includes("Total offer"), "expected total SC hero");
+    assert.ok(/SC/.test(html), "expected an SC offer label");
+    assert.ok(!html.includes("Inbound V5 NGR"), "card subtitle removed");
+    const whoRole = dom.window.document.querySelector(".who-role");
+    assert.ok(!whoRole || !whoRole.textContent.includes("Inbound V5 NGR"), "registry sub removed from who badge");
+    assert.deepEqual(errors, []);
+  });
+
+  test("active negative NGR shows Not eligible, not FS", () => {
+    const { dom } = loadBoard("manager");
+    assert.ok(clickNav(dom, "bonusCalc"));
+    const input = dom.window.document.querySelector("#bonusAidInput");
+    input.value = "811003";
+    input.oninput();
+    const html = content(dom).innerHTML;
+    assert.ok(html.includes("Not eligible"), "expected Not eligible label");
+    assert.ok(!/\d+\s*FS/.test(html), "must not show free spins path");
+  });
+
+  test("topbar bonus icon opens calculator from any view", () => {
+    const { dom } = loadBoard("manager");
+    const btn = dom.window.document.getElementById("openBonusCalc");
+    assert.ok(btn, "expected bonus calculator icon in topbar");
+    btn.onclick();
+    assert.ok(dom.window.document.querySelector(".bonus-calc"), "expected calculator view after icon click");
+  });
+
+  test("single-AM file rejects another AM's AID on the calculator", () => {
+    const { dom } = loadBoard("single_am_coral");
+    assert.ok(clickNav(dom, "bonusCalc"));
+    const input = dom.window.document.querySelector("#bonusAidInput");
+    input.value = "811002";
+    input.oninput();
+    assert.ok(
+      content(dom).innerHTML.includes("not in this brief's bonus lookup"),
+      "Gabriel AID must not resolve on Coral's isolated board"
+    );
+  });
+
+  test("peer coverage board resolves cross-AM AIDs", () => {
+    const { dom } = loadBoard("peer_am_coral");
+    assert.ok(clickNav(dom, "bonusCalc"));
+    const input = dom.window.document.querySelector("#bonusAidInput");
+    assert.ok(input, "expected AID search input");
+    input.value = "811002";
+    input.oninput();
+    const html = content(dom).innerHTML;
+    assert.ok(html.includes("Gabriel Bonus Player"), "expected Gabriel's player on peer lookup");
+    assert.ok(html.includes("Book owner"), "expected cross-AM owner label");
+    assert.ok(html.includes("Gabriel"), "expected Gabriel as book owner");
+  });
+});
+
 describe("search, sort and pagination (Open Tickets, 30-row fixture)", () => {
   test("a 30-row list paginates at 25, search narrows it, and page 2 shows the remainder", () => {
     const { dom } = loadBoard("large_tickets");

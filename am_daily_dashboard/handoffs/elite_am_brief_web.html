@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <!-- am-brief-build sources sha256:066d1849ee5281d9c25a9002ce7e67e1a7f669a8655bdc6406f84797759658b3 output sha256:d6d233c4653cdd8e381d9a76b93812d1b86d52785cf2a607cbfae18da06ad756 -->
+  <!-- am-brief-build sources sha256:80ff99756b4f5ba6aad214d2f67120263ca5a78788f1489c4eb11c6efc1cd096 output sha256:e7718cf5003c09e0dea73a54022ddd0f34805219733c8d13e5e5e3987d137f65 -->
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Elite Dashboard</title>
   <style>
@@ -64,6 +64,24 @@
     .ic-sm { width: 15px; height: 15px; vertical-align: -2.5px; }
     .ic-lg { width: 22px; height: 22px; }
     .ic-xl { width: 26px; height: 26px; }
+    .ic-2xl { width: 28px; height: 28px; }
+    .bonus-calc-grid-ic {
+      width: 22px; height: 22px; flex: none; display: inline-block; vertical-align: middle;
+    }
+    .bonus-calc-grid-ic.ic-md { width: 20px; height: 20px; }
+    .bonus-calc-grid-ic.ic-topbar { width: 22px; height: 22px; }
+    .ic-2xl { width: 28px; height: 28px; }
+    .bonus-calc-grid-ic {
+      width: 22px; height: 22px; flex: none; display: inline-block; vertical-align: middle;
+    }
+    .bonus-calc-grid-ic.ic-md { width: 20px; height: 20px; }
+    .bonus-calc-grid-ic.ic-topbar { width: 22px; height: 22px; }
+    .ic-2xl { width: 28px; height: 28px; }
+    .bonus-calc-grid-ic {
+      width: 22px; height: 22px; flex: none; display: inline-block; vertical-align: middle;
+    }
+    .bonus-calc-grid-ic.ic-md { width: 20px; height: 20px; }
+    .bonus-calc-grid-ic.ic-topbar { width: 22px; height: 22px; }
 
     /* ---------- app frame ---------- */
     .app { display: flex; min-height: 100vh; }
@@ -189,10 +207,36 @@
       color: var(--ink-3); cursor: pointer; transition: all .12s;
     }
     .btn-ghost:hover { color: var(--ink); border-color: var(--ink-4); background: #FAFBFD; }
+    .btn-ghost.active {
+      color: var(--brand-ink); border-color: var(--brand); background: var(--brand-soft);
+    }
     .export-btn { color: var(--brand); }
     .export-btn:hover { color: var(--brand-ink); border-color: var(--brand); background: var(--brand-soft); }
+    .bonus-calc-icon-btn {
+      width: 40px; height: 40px; min-height: 40px; padding: 0;
+      border-radius: 10px; display: inline-flex; align-items: center; justify-content: center;
+      color: #0B7B56;
+      border-color: rgba(14,159,110,.28);
+      background: var(--surface);
+      box-shadow: var(--shadow-sm);
+    }
+    .bonus-calc-icon-btn .bonus-calc-grid-ic {
+      width: 22px; height: 22px; display: block; flex: none;
+    }
+    .bonus-calc-icon-btn:hover {
+      color: #08704E;
+      border-color: rgba(14,159,110,.42);
+      background: rgba(14,159,110,.08);
+      box-shadow: var(--shadow-sm), 0 0 0 3px rgba(14,159,110,.10);
+    }
+    .bonus-calc-icon-btn.active {
+      color: #08704E;
+      border-color: rgba(14,159,110,.50);
+      background: rgba(14,159,110,.12);
+      box-shadow: var(--shadow-sm), 0 0 0 3px rgba(14,159,110,.12);
+    }
     .topbar-trail {
-      display: flex; align-items: stretch; gap: 8px; flex: none;
+      display: flex; align-items: center; gap: 8px; flex: none;
     }
     .crumb-top.g-manager    { color: #B8922E; }
     .crumb-top.g-performance { color: #0E9F6E; }
@@ -242,6 +286,7 @@
     .stack-6 { display: flex; flex-direction: column; gap: 6px; }
     .row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
     .grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); gap: 18px; align-items: start; }
+    .grid-3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px 18px; }
     .grid-2.goals-pair { align-items: stretch; }
     .grid-2.goals-pair > .card {
       display: flex; flex-direction: column; height: 100%; min-height: 0;
@@ -262,8 +307,10 @@
       display: flex; align-items: center; gap: 10px;
       padding: 12px 14px; border-bottom: 1px solid var(--line-soft);
     }
-    .card-title { font-size: 14.5px; font-weight: 650; letter-spacing: -.01em; }
+    .card-title { font-size: 14.5px; font-weight: 650; letter-spacing: -.01em; color: var(--ink); }
     .card-sub { font-size: 12px; color: var(--ink-4); }
+    .table-section-head { padding: 14px 16px 12px; }
+    .table-section-note { padding: 14px 16px 0; margin: 0 0 10px; }
     .card-body { padding: 14px; }
     .card-body.flush { padding: 0; }
     .card-icon {
@@ -925,7 +972,186 @@
       display: flex; align-items: center; gap: 7px;
     }
 
+    /* ---------- Bonus Calculator (Phase G) ---------- */
+    .bonus-calc .card-head-main { align-items: flex-start; }
+    .bonus-search { padding: 0 20px 16px; }
+    .bonus-search-label {
+      display: block; font-size: 10.5px; font-weight: 700; letter-spacing: .07em;
+      text-transform: uppercase; color: var(--ink-3); margin-bottom: 6px;
+    }
+    .bonus-search-row {
+      display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px;
+    }
+    .bonus-search-row input[type="search"] {
+      flex: 1 1 220px; min-width: 0; max-width: 360px;
+      padding: 9px 12px; font: inherit; font-size: 14px;
+      border-radius: var(--radius-sm); border: 1px solid var(--line);
+      background: var(--surface); color: var(--ink); outline: none;
+    }
+    .bonus-search-row input[type="search"]:focus {
+      border-color: var(--brand); box-shadow: 0 0 0 3px rgba(79,70,229,.13);
+    }
+    .bonus-empty {
+      margin: 0 20px 18px; padding: 14px 16px; border-radius: var(--radius-sm);
+      background: var(--neutral-soft); color: var(--ink-3); font-size: 13px;
+    }
+    .bonus-output {
+      margin: 0 20px 18px; border: 1px solid rgba(14,159,110,.28);
+      background: linear-gradient(180deg, #F4FBF8 0%, var(--surface) 100%);
+    }
+    .bonus-output-head {
+      display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between;
+      gap: 10px 16px; padding: 16px 18px 8px;
+    }
+    .bonus-output-kicker {
+      font-size: 10.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
+      color: #0B7B56;
+    }
+    .bonus-output-offer {
+      font-size: 28px; font-weight: 650; letter-spacing: -.02em; color: var(--ink);
+      line-height: 1.15; margin-top: 4px;
+    }
+    .bonus-output-meta {
+      padding: 0 18px 6px; font-size: 12.5px; color: var(--ink-3);
+    }
+    .bonus-output-note {
+      margin: 0; padding: 0 18px 16px; font-size: 12.5px; color: var(--ink-3); line-height: 1.5;
+    }
+    .bonus-metrics {
+      padding: 0 20px 20px; border-top: 1px solid var(--line-soft); margin-top: 4px;
+      padding-top: 16px;
+    }
+    .bonus-metric-k {
+      font-size: 10.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+      color: var(--ink-4); margin-bottom: 4px;
+    }
+    .bonus-metric-v { font-size: 14px; font-weight: 550; color: var(--ink); }
+
+    .bonus-layout {
+      display: grid; grid-template-columns: minmax(240px, 1fr) minmax(280px, 1.2fr);
+      gap: 16px; padding: 0 20px 16px;
+    }
+    .bonus-offer-col { margin: 0; }
+    .bonus-offer-base {
+      padding: 0 18px 4px; font-size: 13px; color: var(--ink-3);
+    }
+    .bonus-gwg-block { padding: 8px 18px 12px; }
+    .bonus-gwg-label {
+      font-size: 10.5px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase;
+      color: var(--ink-4); margin-bottom: 8px;
+    }
+    .bonus-gwg-chips {
+      display: inline-flex; flex-wrap: wrap; gap: 6px; padding: 3px;
+      border-radius: var(--radius-sm); background: rgba(14,159,110,.08); border: 1px solid rgba(14,159,110,.18);
+    }
+    .bonus-gwg-chips.disabled { opacity: .55; pointer-events: none; }
+    .bonus-gwg-chip {
+      border: none; background: transparent; color: var(--ink-3); font: inherit;
+      font-size: 12.5px; font-weight: 600; padding: 6px 12px; border-radius: 6px; cursor: pointer;
+    }
+    .bonus-gwg-chip.active {
+      background: var(--surface); color: #0B7B56; box-shadow: var(--shadow-sm);
+    }
+    .bonus-offer-total {
+      margin: 4px 18px 0; padding: 12px 14px; border-radius: var(--radius-sm);
+      background: rgba(14,159,110,.10); border: 1px solid rgba(14,159,110,.22);
+    }
+    .bonus-offer-total.dim { opacity: .65; }
+    .bonus-offer-total-k {
+      font-size: 10.5px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase;
+      color: #0B7B56; margin-bottom: 4px;
+    }
+    .bonus-offer-total-v {
+      font-size: 32px; font-weight: 650; letter-spacing: -.02em; color: var(--ink); line-height: 1.1;
+    }
+    .bonus-offer-total-note { margin-top: 4px; font-size: 12px; color: var(--ink-3); }
+    .bonus-output-offer.dim { color: var(--ink-3); font-size: 22px; }
+    .bonus-waterfall {
+      margin: 0; padding: 0; border: 1px solid var(--line-soft);
+    }
+    .bonus-waterfall summary {
+      list-style: none; cursor: pointer; display: flex; align-items: center; gap: 8px;
+      padding: 14px 16px 10px; font-size: 11px; font-weight: 700; letter-spacing: .08em;
+      text-transform: uppercase; color: var(--ink-4);
+    }
+    .bonus-waterfall summary::-webkit-details-marker { display: none; }
+    .bonus-waterfall summary::before {
+      content: ""; width: 6px; height: 6px; border-right: 1.5px solid var(--ink-4);
+      border-bottom: 1.5px solid var(--ink-4); transform: rotate(-45deg); transition: transform .15s;
+      flex: none; margin-top: -2px;
+    }
+    .bonus-waterfall[open] summary::before { transform: rotate(45deg); margin-top: 2px; }
+    .bonus-waterfall-body { padding: 0 16px 16px; }
+    .bonus-waterfall-title { margin: 0; }
+    .bonus-wf-row {
+      display: flex; justify-content: space-between; gap: 12px;
+      padding: 7px 0; border-bottom: 1px solid var(--line-soft); font-size: 13px;
+    }
+    .bonus-wf-row:last-child { border-bottom: none; }
+    .bonus-wf-row.muted .bonus-wf-v { color: var(--ink-4); }
+    .bonus-wf-k { color: var(--ink-3); flex: 1 1 auto; }
+    .bonus-wf-v { color: var(--ink); font-weight: 550; text-align: right; white-space: nowrap; }
+    .bonus-lifetime {
+      margin: 0 20px 20px; padding: 0; border: 1px solid var(--line-soft);
+    }
+    .bonus-lifetime summary {
+      cursor: pointer; padding: 12px 16px; font-size: 13px; font-weight: 600; color: var(--ink-2);
+      list-style: none;
+    }
+    .bonus-lifetime summary::-webkit-details-marker { display: none; }
+    .bonus-lifetime-grid { padding: 0 16px 16px; }
+
+    .bonus-metrics-sheet {
+      margin: 0 20px 20px; padding: 0; border: 1px solid var(--line-soft);
+    }
+    .bonus-metrics-sheet-head {
+      padding: 14px 16px 10px; font-size: 11px; font-weight: 700; letter-spacing: .08em;
+      text-transform: uppercase; color: var(--ink-4); border-bottom: 1px solid var(--line-soft);
+    }
+    .bonus-metrics-sheet-grid {
+      display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0;
+    }
+    .bonus-sheet-section {
+      padding: 0; border-bottom: 1px solid var(--line-soft);
+    }
+    .bonus-metrics-sheet-grid .bonus-sheet-section:nth-child(odd) {
+      border-right: 1px solid var(--line-soft);
+    }
+    .bonus-metrics-sheet-grid .bonus-sheet-section:nth-last-child(-n+2) {
+      border-bottom: none;
+    }
+    .bonus-sheet-section summary {
+      list-style: none; cursor: pointer; display: flex; align-items: center; gap: 8px;
+      padding: 12px 16px; font-size: 10.5px; font-weight: 700; letter-spacing: .07em;
+      text-transform: uppercase; color: var(--ink-3);
+    }
+    .bonus-sheet-section summary::-webkit-details-marker { display: none; }
+    .bonus-sheet-section summary::before {
+      content: ""; width: 6px; height: 6px; border-right: 1.5px solid var(--ink-4);
+      border-bottom: 1.5px solid var(--ink-4); transform: rotate(-45deg); transition: transform .15s;
+      flex: none; margin-top: -2px;
+    }
+    .bonus-sheet-section[open] summary::before { transform: rotate(45deg); margin-top: 2px; }
+    .bonus-sheet-body { padding: 0 16px 12px; }
+    .bonus-sheet-title { margin: 0; }
+    .bonus-sheet-row {
+      display: flex; justify-content: space-between; align-items: baseline; gap: 12px;
+      padding: 5px 0; font-size: 13px; border-bottom: 1px solid var(--line-soft);
+    }
+    .bonus-sheet-row:last-child { border-bottom: none; }
+    .bonus-sheet-k { color: var(--ink-3); flex: 1 1 auto; }
+    .bonus-sheet-v { color: var(--ink); font-weight: 550; text-align: right; white-space: nowrap; }
+    .bonus-sheet-row.tone-emph .bonus-sheet-k,
+    .bonus-sheet-row.tone-emph .bonus-sheet-v { font-weight: 650; color: var(--ink); }
+    .bonus-sheet-row.tone-soft { background: var(--neutral-soft); margin: 0 -8px; padding: 5px 8px; border-radius: 4px; border-bottom: none; }
+    .bonus-sheet-row.tone-soft + .bonus-sheet-row { border-top: 1px solid var(--line-soft); }
+
     @media (max-width: 900px) {
+      .bonus-metrics-sheet-grid { grid-template-columns: 1fr; }
+      .bonus-metrics-sheet-grid .bonus-sheet-section:nth-child(odd) { border-right: none; }
+      .bonus-metrics-sheet-grid .bonus-sheet-section:nth-last-child(-n+2) { border-bottom: 1px solid var(--line-soft); }
+      .bonus-metrics-sheet-grid .bonus-sheet-section:last-child { border-bottom: none; }
+      .bonus-layout { grid-template-columns: 1fr; }
       .sidebar { position: fixed; z-index: 50; transform: translateX(-100%); transition: transform .18s; }
       .app.mobile-open .sidebar { transform: translateX(0); }
       .content, .topbar { padding-left: 16px; padding-right: 16px; }
@@ -1000,6 +1226,7 @@
   <div id="toastRoot"></div>
 
   <script type="application/json" id="am-brief-payload">__PAYLOAD_JSON__</script>
+  <script type="application/json" id="am-brief-lookup">__BONUS_LOOKUP_JSON__</script>
   <script>
 "use strict";
 "use strict";
@@ -1038,7 +1265,20 @@
     return String(s != null ? s : "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
   }
   function icon(name, cls) {
+    if (name === "calculator") return bonusCalcIcon(cls);
     return `<svg class="ic ${cls || ""}" aria-hidden="true"><use href="#i-${name}"></use></svg>`;
+  }
+  function bonusCalcIcon(cls = "") {
+    return `<svg class="bonus-calc-grid-ic ${cls}" viewBox="0 0 24 24" aria-hidden="true" role="presentation">
+    <rect x="2.5" y="2.5" width="19" height="19" rx="4" fill="#1E2433"/>
+    <path d="M12 5v14M5 12h14" stroke="#343D4F" stroke-width="1.2"/>
+    <rect x="3.5" y="3.5" width="7.5" height="7.5" rx="2" fill="#0E9F6E"/>
+    <path d="M5.75 7h2.5M7 5.75v2.5" stroke="#ECFDF5" stroke-width="1.25" stroke-linecap="round"/>
+    <path d="M14.75 7h3.5" stroke="#CBD5E1" stroke-width="1.25" stroke-linecap="round"/>
+    <path d="M5.75 16.25l3.5 3.5M9.25 16.25l-3.5 3.5" stroke="#CBD5E1" stroke-width="1.25" stroke-linecap="round"/>
+    <rect x="13" y="13" width="7.5" height="7.5" rx="2" fill="#0E9F6E"/>
+    <path d="M14.75 15.75h3.5M14.75 17.75h3.5" stroke="#ECFDF5" stroke-width="1.25" stroke-linecap="round"/>
+  </svg>`;
   }
   function toNum(v) {
     const n = parseFloat(String(v != null ? v : "").replace(/[^0-9.\-]/g, ""));
@@ -1046,6 +1286,11 @@
   }
   function money(n) {
     return "$" + Math.round(n).toLocaleString();
+  }
+  function scAmount(n) {
+    const v = typeof n === "number" ? n : parseFloat(String(n != null ? n : ""));
+    if (!Number.isFinite(v)) return "\u2014";
+    return `${Math.round(v).toLocaleString()} SC`;
   }
   function fmtCount(n) {
     const v = typeof n === "number" ? n : Number(String(n != null ? n : "").replace(/[^\d.-]/g, ""));
@@ -1518,9 +1763,10 @@
         <div class="spacer"></div>
         ${countBadge}
       </div>` : "";
-    const note = opts.note ? `<div class="card-sub" style="margin:2px 0 10px">${esc(opts.note)}</div>` : "";
+    const note = opts.note ? `<div class="card-sub table-section-note">${esc(opts.note)}</div>` : "";
+    const heading = opts.title ? `<div class="card-head table-section-head"><div class="card-title">${esc(opts.title)}</div></div>` : note;
     return `<div class="card${opts.cardClass ? ` ${opts.cardClass}` : ""}${opts.compact ? " fit-content" : ""}">
-        ${note}
+        ${heading}
         ${toolbar}
         ${tableHtml(opts.headers, slice.map(opts.renderRow), opts.align, slice.map((r) => r.tone || "neutral"), {
       markerCol: opts.markerCol,
@@ -1542,8 +1788,8 @@
       return m ? `${m[1]}% of Jackpota purchase` : "";
     }
     const jp = Number((jackpota == null ? void 0 : jackpota.plyThis) || 0);
-    const el = Number(elite.plyThis || 0);
-    return jp > 0 ? `${(el / jp * 100).toFixed(1)}% of Jackpota purchased players` : "";
+    const el2 = Number(elite.plyThis || 0);
+    return jp > 0 ? `${(el2 / jp * 100).toFixed(1)}% of Jackpota purchased players` : "";
   }
   function segmentPanel(seg, kind, jackpota) {
     if (!seg) {
@@ -2546,13 +2792,37 @@
     });
   }
 
+  // src/views/locksMtd.ts
+  function locksMtdTableCard() {
+    return tableCard({
+      rows: rowsFor("locksMtd"),
+      stateKey: `lkm_${app.agent}`,
+      showSearch: true,
+      title: "Locked \xB7 MTD \xB7 this calendar month",
+      headers: ["AID", "Name", "Email", "Lock Reason", "Locked Date", "LTP", "Hold %"],
+      align: ["left", "left", "left", "left", "left", "right", "right"],
+      markerCol: 3,
+      empty: "No accounts locked this month.",
+      renderRow: (p) => [
+        aidHtml(p),
+        esc(p.name),
+        esc(p.email || "\u2014"),
+        `<span class="t-${p.tone || "warning"}">${esc(p.lockReason)}</span>`,
+        `<span class="t-small">${esc(p.created || p.lockedAt || "\u2014")}</span>`,
+        esc(p.lifetimePurchase || "\u2014"),
+        esc(p.lifetimeHold || "\u2014")
+      ]
+    });
+  }
+
   // src/views/locks.ts
-  function viewLocks() {
+  function locksRecentTableCard() {
     return tableCard({
       rows: rowsFor("locks"),
       stateKey: `lk_${app.agent}`,
       showSearch: false,
       sortFn: (rows) => sortBySoonestUnlock(rows),
+      title: "Locked & Take A Break \xB7 Last 3 Days",
       headers: ["AID", "Name", "Lock Reason", "Created", "Days Remaining / Unlock"],
       align: ["left", "left", "left", "left", "left"],
       markerCol: 2,
@@ -2565,6 +2835,12 @@
         unlockHtml(p.unlockDetail, p.unlockRemainingDays)
       ]
     });
+  }
+  function viewLocks() {
+    return `<div class="stack">
+        ${locksRecentTableCard()}
+        ${locksMtdTableCard()}
+      </div>`;
   }
 
   // src/views/birthdays.ts
@@ -3067,6 +3343,360 @@
     });
   }
 
+  // src/bonusConfig.ts
+  var BONUS_CALC_ACTIVE_PCT = 0.07;
+  var BONUS_CALC_INACTIVE_PCT = 0.07;
+  var BONUS_CALC_MAX_BONUS = 300;
+
+  // src/bonusCalc.ts
+  var BONUS_STATUS_TABLE = [
+    [0, "No/Low Bonus user", 1],
+    [0.05, "No/Low Bonus user", 0.9],
+    [0.1, "No/Low Bonus user", 0.8],
+    [0.15, "Regular Bonus user", 0.7],
+    [0.17, "Regular Bonus user", 0.6],
+    [0.19, "Regular Bonus user", 0.5],
+    [0.22, "Regular Bonus user", 0.4],
+    [0.25, "Bonus beggar", 0.3],
+    [0.3, "Bonus beggar", 0.2],
+    [0.45, "Abuser", 0.1]
+  ];
+  var ACTIVE_POS_NGR_TABLE = [
+    [1, 5],
+    [10, 10],
+    [20, 20],
+    [30, 30],
+    [40, 40],
+    [50, 50],
+    [60, 60],
+    [70, 70],
+    [80, 80],
+    [100, 100],
+    [130, 130],
+    [150, 150],
+    [200, 200],
+    [250, 250],
+    [300, 300],
+    [350, 350],
+    [400, 400],
+    [450, 450],
+    [500, 500]
+  ];
+  function vlookupApprox(key, table, valueIndex = 1) {
+    var _a, _b;
+    if (!table.length) return 0;
+    let chosen = (_a = table[0][valueIndex]) != null ? _a : 0;
+    for (const row of table) {
+      if (key + 1e-9 >= row[0]) chosen = (_b = row[valueIndex]) != null ? _b : 0;
+      else break;
+    }
+    return chosen;
+  }
+  function bonusStatusForRatio(ratio) {
+    const r = Math.max(0, ratio);
+    let label = BONUS_STATUS_TABLE[0][1];
+    let mult = BONUS_STATUS_TABLE[0][2];
+    for (const [threshold, tierLabel, tierMult] of BONUS_STATUS_TABLE) {
+      if (r + 1e-9 >= threshold) {
+        label = tierLabel;
+        mult = tierMult;
+      } else break;
+    }
+    return [label, mult];
+  }
+  function applyGwg(baseSc, gwgPct) {
+    if (baseSc == null || baseSc <= 0 || gwgPct <= 0) return [0, baseSc || 0];
+    const gwgSc = Math.round(baseSc * gwgPct * 100) / 100;
+    return [gwgSc, Math.round((baseSc + gwgSc) * 100) / 100];
+  }
+  function computeFreeBonus(inp) {
+    if (inp.locked) {
+      return {
+        freeBonus: null,
+        offerLabel: "No Free Bonus Allowed",
+        bonusStatus: "",
+        bonusStatusMult: 0,
+        recommended: 0,
+        capNote: "Locked or self-excluded: no outreach bonus.",
+        blocked: true,
+        blockedReason: inp.lockLabel || "Locked",
+        lookupAmount: 0,
+        cappedByMax: false,
+        avgPurchaseCapped: false,
+        ratioUsed: 0,
+        segmentLabel: "",
+        path: "blocked"
+      };
+    }
+    const ngr = inp.ggr - inp.bonus;
+    const avgPurchase = inp.purchaseCount ? inp.purchaseAmount / inp.purchaseCount : 0;
+    const bonusRatio = Math.max(inp.bonusPctWindow, inp.bonusPctLifetime);
+    const [statusLabel, statusMult] = bonusStatusForRatio(bonusRatio);
+    const segmentPct = inp.active ? BONUS_CALC_ACTIVE_PCT : BONUS_CALC_INACTIVE_PCT;
+    const segmentLabel = `${inp.active ? "Active" : "Inactive"} \xB7 ${(segmentPct * 100).toFixed(0)}% of NGR`;
+    if (inp.active && ngr > 0) {
+      let recommended = segmentPct * ngr * statusMult;
+      const ratio = avgPurchase > 0 ? recommended / avgPurchase : 0;
+      let avgPurchaseCapped = false;
+      if (ratio > 4) {
+        recommended = avgPurchase * 3;
+        avgPurchaseCapped = true;
+      } else if (ratio > 2) {
+        recommended = avgPurchase * 2;
+        avgPurchaseCapped = true;
+      }
+      const lookupAmount = vlookupApprox(recommended, ACTIVE_POS_NGR_TABLE);
+      const cappedByMax = lookupAmount > BONUS_CALC_MAX_BONUS;
+      const freeBonus = Math.min(lookupAmount, BONUS_CALC_MAX_BONUS);
+      return {
+        freeBonus: Math.round(freeBonus * 100) / 100,
+        offerLabel: `${Math.round(freeBonus).toLocaleString()} SC`,
+        bonusStatus: statusLabel,
+        bonusStatusMult: statusMult,
+        recommended: Math.round(recommended * 100) / 100,
+        capNote: `Flat Elite ${(segmentPct * 100).toFixed(0)}% of NGR \xD7 ${statusMult.toFixed(1)} status factor, capped at ${BONUS_CALC_MAX_BONUS.toLocaleString()} SC.`,
+        blocked: false,
+        lookupAmount,
+        cappedByMax,
+        avgPurchaseCapped,
+        ratioUsed: Math.round(ratio * 100) / 100,
+        segmentLabel,
+        path: "positive_ngr"
+      };
+    }
+    if (inp.active && ngr <= 0) {
+      return {
+        freeBonus: null,
+        offerLabel: "Not eligible",
+        bonusStatus: statusLabel,
+        bonusStatusMult: statusMult,
+        recommended: 0,
+        capNote: "Active player with non-positive 14-day NGR: not eligible for Free Bonus.",
+        blocked: false,
+        lookupAmount: 0,
+        cappedByMax: false,
+        avgPurchaseCapped: false,
+        ratioUsed: 0,
+        segmentLabel,
+        path: "not_eligible"
+      };
+    }
+    if (ngr > 0) {
+      const recommended = segmentPct * ngr * statusMult;
+      const lookupAmount = vlookupApprox(recommended, ACTIVE_POS_NGR_TABLE);
+      const cappedByMax = lookupAmount > BONUS_CALC_MAX_BONUS;
+      const freeBonus = Math.min(lookupAmount, BONUS_CALC_MAX_BONUS);
+      return {
+        freeBonus: Math.round(freeBonus * 100) / 100,
+        offerLabel: `${Math.round(freeBonus).toLocaleString()} SC`,
+        bonusStatus: statusLabel,
+        bonusStatusMult: statusMult,
+        recommended: Math.round(recommended * 100) / 100,
+        capNote: "Inactive player: reactivation bonus from lifetime window.",
+        blocked: false,
+        lookupAmount,
+        cappedByMax,
+        avgPurchaseCapped: false,
+        ratioUsed: 0,
+        segmentLabel,
+        path: "inactive"
+      };
+    }
+    return {
+      freeBonus: null,
+      offerLabel: "No Free Bonus Allowed",
+      bonusStatus: statusLabel,
+      bonusStatusMult: statusMult,
+      recommended: 0,
+      capNote: "Non-positive NGR: no free bonus.",
+      blocked: false,
+      lookupAmount: 0,
+      cappedByMax: false,
+      avgPurchaseCapped: false,
+      ratioUsed: 0,
+      segmentLabel,
+      path: "none"
+    };
+  }
+
+  // src/bonusLookup.ts
+  var el = document.getElementById("am-brief-lookup");
+  var BONUS_LOOKUP = el ? JSON.parse(el.textContent || '{"rows":[]}') : { rows: [] };
+  var BONUS_LOOKUP_ROWS = BONUS_LOOKUP.rows || [];
+  function bonusRowsForAgent(agent) {
+    return BONUS_LOOKUP_ROWS.filter((r) => String(r.agent || "") === agent);
+  }
+  function bonusRowForAid(agent, aid) {
+    const needle = String(aid || "").trim();
+    if (!needle) return void 0;
+    return bonusRowsForAgent(agent).find((r) => String(r.aid || "") === needle);
+  }
+  function bonusRowForAidPeer(aid) {
+    const needle = String(aid || "").trim();
+    if (!needle) return void 0;
+    return BONUS_LOOKUP_ROWS.find((r) => String(r.aid || "") === needle);
+  }
+  function bonusRowForAidAny(agent, aid) {
+    return PEER_MODE ? bonusRowForAidPeer(aid) : bonusRowForAid(agent, aid);
+  }
+
+  // src/views/bonusCalculator.ts
+  function pctLabel(n) {
+    return `${(n * 100).toFixed(1)}%`;
+  }
+  function pctBonusToGgr(bonus, ggr) {
+    if (!ggr) return "\u2014";
+    return pctLabel(bonus / ggr);
+  }
+  function wfRow(label, value, muted = false) {
+    return `<div class="bonus-wf-row${muted ? " muted" : ""}">
+    <div class="bonus-wf-k">${esc(label)}</div>
+    <div class="bonus-wf-v">${value}</div>
+  </div>`;
+  }
+  function sheetRow(label, value, tone = "") {
+    return `<div class="bonus-sheet-row${tone ? ` tone-${tone}` : ""}">
+    <div class="bonus-sheet-k">${esc(label)}</div>
+    <div class="bonus-sheet-v">${value}</div>
+  </div>`;
+  }
+  function sheetSection(title, rows, open = false) {
+    return `<details class="bonus-sheet-section"${open ? " open" : ""}>
+    <summary class="bonus-sheet-title">${esc(title)}</summary>
+    <div class="bonus-sheet-body">${rows}</div>
+  </details>`;
+  }
+  function gwgChips(selected, disabled) {
+    const options = [[0, "None"], [0.03, "3%"], [0.05, "5%"], [0.1, "10%"]];
+    return `<div class="bonus-gwg-chips${disabled ? " disabled" : ""}" role="group" aria-label="GWG add-on">
+    ${options.map(([pct, label]) => {
+      const active = Math.abs(selected - pct) < 1e-9;
+      return `<button type="button" class="bonus-gwg-chip${active ? " active" : ""}"
+        data-gwg-pct="${pct}"${disabled ? " disabled" : ""}>${esc(label)}</button>`;
+    }).join("")}
+  </div>`;
+  }
+  function playerMetricsPanel(row, result, statusBadge, windowDays) {
+    var _a, _b, _c, _d, _e, _f, _g, _h, _i;
+    const ggrWin = Number((_b = (_a = row.ggrWindow) != null ? _a : row.ggr) != null ? _b : 0);
+    const bonusWin = Number((_d = (_c = row.bonusWindow) != null ? _c : row.bonus) != null ? _d : 0);
+    const ngrWin = Number((_f = (_e = row.ngrWindow) != null ? _e : row.ngr) != null ? _f : 0);
+    const ggrLt = Number((_g = row.ggrLifetime) != null ? _g : 0);
+    const bonusLt = Number((_h = row.bonusLifetime) != null ? _h : 0);
+    const winLabel = `Last ${windowDays} days`;
+    return `<div class="bonus-metrics-sheet card">
+    <div class="bonus-metrics-sheet-head">Player metrics</div>
+    <div class="bonus-metrics-sheet-grid">
+      ${sheetSection("Profile", [
+      sheetRow("FTD date", esc(String(row.firstPurchaseDate || "\u2014"))),
+      sheetRow("Last bet date", esc(String(row.lastPlayDate || "\u2014")), "emph"),
+      sheetRow("Status", statusBadge, "soft"),
+      sheetRow("Player segment", esc(result.segmentLabel || "\u2014"), "emph")
+    ].join(""), true)}
+      ${sheetSection(winLabel, [
+      sheetRow("GGR", moneyHtml(ggrWin), "emph"),
+      sheetRow("Bonus SC", scAmount(bonusWin), "emph"),
+      sheetRow("NGR", moneyHtml(ngrWin), "soft")
+    ].join(""), true)}
+      ${sheetSection("Purchases & bonus history", [
+      sheetRow("Last purchase date", esc(String(row.lastPurchaseDate || "\u2014"))),
+      sheetRow(`Purchased $ \xB7 ${winLabel.toLowerCase()}`, moneyHtml(row.purchaseAmountWindow), "emph"),
+      sheetRow(`Purchases (#) \xB7 ${winLabel.toLowerCase()}`, esc(String((_i = row.purchaseCountWindow) != null ? _i : "\u2014")), "soft"),
+      sheetRow(`Avg purchase \xB7 ${winLabel.toLowerCase()}`, moneyHtml(row.avgPurchaseWindow)),
+      sheetRow(`% Bonus / purchase \xB7 ${winLabel.toLowerCase()}`, esc(pctLabel(Number(row.bonusPctWindow || 0))), "emph"),
+      sheetRow("% Bonus / purchase \xB7 lifetime", esc(pctLabel(Number(row.bonusPctLifetime || 0))), "soft"),
+      sheetRow("Bonus status", esc(result.bonusStatus || "\u2014"))
+    ].join(""))}
+      ${sheetSection("Lifetime", [
+      sheetRow("GGR", moneyHtml(ggrLt)),
+      sheetRow("Bonus SC", scAmount(bonusLt)),
+      sheetRow("Total purchased $ \xB7 lifetime", moneyHtml(row.purchaseAmountLifetime), "emph"),
+      sheetRow("% Bonus to GGR", esc(pctBonusToGgr(bonusLt, ggrLt)), "emph")
+    ].join(""))}
+    </div>
+  </div>`;
+  }
+  function viewBonusCalculator() {
+    const aidRaw = String(getState("bonus_aid", "") || "").trim();
+    const gwgPct = Number(getState("bonus_gwg_pct", 0) || 0);
+    const row = aidRaw ? bonusRowForAidAny(app.agent, aidRaw) : void 0;
+    const rowAgent = row ? String(row.agent || "") : "";
+    const crossAm = !!row && PEER_MODE && rowAgent !== app.agent;
+    let result = null;
+    if (row) {
+      result = computeFreeBonus({
+        active: !!row.active,
+        ggr: Number(row.ggr || 0),
+        bonus: Number(row.bonus || 0),
+        purchaseCount: Number(row.purchaseCount || 0),
+        purchaseAmount: Number(row.purchaseAmount || 0),
+        bonusPctWindow: Number(row.bonusPctWindow || 0),
+        bonusPctLifetime: Number(row.bonusPctLifetime || 0),
+        locked: !!row.locked,
+        lockLabel: String(row.lockLabel || "")
+      });
+    }
+    const eligible = !!result && !result.blocked && result.path !== "not_eligible" && result.path !== "none" && result.freeBonus != null && result.freeBonus > 0;
+    const [gwgSc, totalSc] = eligible ? applyGwg(result.freeBonus, gwgPct) : [0, 0];
+    const statusBadge = row ? `<span class="badge ${row.active ? "success" : "warning"}">${row.active ? "Active" : "Inactive"}</span>` : "";
+    const windowDays = Number((row == null ? void 0 : row.windowDays) || 14);
+    const offerBlock = !aidRaw ? `<p class="bonus-empty">Enter an AID${PEER_MODE ? " on any AM tab" : ""} to see the Inbound Free Bonus recommendation.</p>` : !row ? `<p class="bonus-empty">AID ${esc(aidRaw)} is not in this brief's bonus lookup${PEER_MODE ? "" : ` on ${esc(app.agent)}'s book`}.</p>` : `<div class="bonus-layout">
+          ${crossAm ? `<p class="bonus-peer-note">Book owner: <strong>${esc(rowAgent)}</strong> \xB7 viewing as ${esc(app.agent)}</p>` : ""}
+          <div class="bonus-offer-col card bonus-output-green">
+            <div class="bonus-output-head">
+              <div>
+                <div class="bonus-output-kicker">Free Bonus</div>
+                <div class="bonus-output-offer${eligible ? "" : " dim"}">${esc(result.offerLabel)}</div>
+              </div>
+              ${result.blocked ? `<span class="badge">${esc(result.blockedReason || "Blocked")}</span>` : ""}
+            </div>
+            ${eligible ? `<div class="bonus-offer-base">Base ${scAmount(result.freeBonus)}</div>` : ""}
+            <div class="bonus-gwg-block">
+              <div class="bonus-gwg-label">GWG add-on</div>
+              ${gwgChips(gwgPct, !eligible)}
+            </div>
+            <div class="bonus-offer-total${eligible ? "" : " dim"}">
+              <div class="bonus-offer-total-k">Total offer</div>
+              <div class="bonus-offer-total-v">${eligible ? scAmount(totalSc) : "\u2014"}</div>
+              ${eligible && gwgSc > 0 ? `<div class="bonus-offer-total-note">Includes +${scAmount(gwgSc)} GWG</div>` : ""}
+            </div>
+            <p class="bonus-output-note">${esc(result.capNote)}</p>
+          </div>
+          <details class="bonus-waterfall card" open>
+            <summary class="bonus-waterfall-title">Calculation</summary>
+            <div class="bonus-waterfall-body">
+            ${wfRow("Status factor", esc(result.bonusStatusMult ? `\xD7${result.bonusStatusMult.toFixed(1)}` : "\u2014"))}
+            ${result.path === "positive_ngr" || result.path === "inactive" ? wfRow("NGR factor (pre-lookup)", moneyHtml(result.recommended)) + wfRow("Lookup tier", scAmount(result.lookupAmount)) + wfRow(`${BONUS_CALC_MAX_BONUS} SC cap`, result.cappedByMax ? "Applied" : "Not needed") + (result.avgPurchaseCapped ? wfRow("Avg purchase cap", esc(`Ratio ${result.ratioUsed.toFixed(2)} capped to avg purchase`)) : "") : ""}
+            ${wfRow("Base Free Bonus SC", eligible ? scAmount(result.freeBonus) : esc(result.offerLabel))}
+            ${eligible ? wfRow("GWG", gwgSc > 0 ? `+${scAmount(gwgSc)}` : "None") + wfRow("Total SC", scAmount(totalSc)) : wfRow("GWG", "\u2014", true) + wfRow("Total SC", "\u2014", true)}
+            </div>
+          </details>
+        </div>
+        ${playerMetricsPanel(row, result, statusBadge, windowDays)}`;
+    return `<div class="bonus-calc card">
+      <div class="card-head">
+        <div class="card-head-main">
+          ${icon("calculator", "ic-md")}
+          <div>
+            <h2 class="card-title">Bonus Calculator</h2>
+          </div>
+        </div>
+      </div>
+      <div class="bonus-search">
+        <label class="bonus-search-label" for="bonusAidInput">AID</label>
+        <div class="bonus-search-row">
+          <input id="bonusAidInput" type="search" inputmode="numeric" placeholder="Search AID\u2026"
+            value="${esc(aidRaw)}" data-state="bonus_aid" autocomplete="off">
+          ${row ? `<span class="bonus-aid-link">${aidHtml({
+      aid: String(row.aid),
+      aidUrl: `https://lookerpatrianna.cloud.looker.com/dashboards/5207?Account+ID+=${encodeURIComponent(String(row.aid))}`
+    })}${row.name ? ` \xB7 ${esc(String(row.name))}` : ""}</span>` : ""}
+        </div>
+      </div>
+      ${offerBlock}
+    </div>`;
+  }
+
   // src/views/comingSoon.ts
   function comingSoonView() {
     return `<div class="coming-soon card">
@@ -3144,6 +3774,12 @@
       label: "Games",
       accent: "games",
       entries: [{ kind: "view", id: "gamesSticky" }, { kind: "view", id: "gamesNew" }]
+    },
+    {
+      id: "tools",
+      label: "Tools",
+      accent: "performance",
+      entries: [{ kind: "view", id: "bonusCalc" }]
     }
   ];
   var VIEWS = {
@@ -3235,7 +3871,7 @@
       icon: "lock",
       group: "Daily Triggers",
       key: "locks",
-      sub: "New locks and breaks due to end"
+      sub: "Last 3 days locks and Locked MTD"
     },
     birthdays: {
       label: "Birthdays \xB7 Last 3 Days",
@@ -3280,7 +3916,8 @@
       group: "Daily Triggers",
       key: "birthdayGift",
       sub: "This month's birthdays, high hold and spend"
-    }
+    },
+    bonusCalc: { label: "Bonus Calculator", icon: "calculator", group: "Tools" }
   };
   var NAV_ORDER = NAV_GROUPS.flatMap(
     (g) => g.entries.filter((e) => e.kind === "view").map((e) => e.id)
@@ -3303,7 +3940,8 @@
     gamesSticky: viewGamesSticky,
     gamesNew: viewGamesNew,
     anniversary: viewAnniversary,
-    birthdayGift: viewBirthdayGift
+    birthdayGift: viewBirthdayGift,
+    bonusCalc: viewBonusCalculator
   };
   var GROUP_ORDER = [...new Set(NAV_GROUPS.map((g) => g.label).filter(Boolean))];
 
@@ -3574,6 +4212,12 @@
         ["AID", "Email", "First Name", "Last Name", "Birthday", "Age", "Hold %", "30D Purchase", "LTP"],
         ["aid", "email", "firstName", "lastName", "birthday", "age", "holdPct", "purchase30d", "lifetimePurchase"]
       );
+    } else if (app.view === "locks") {
+      pack = genericRows(
+        "locksMtd",
+        ["AID", "Name", "Email", "Lock Reason", "Locked Date", "LTP", "Hold %"],
+        ["aid", "name", "email", "lockReason", "created", "lifetimePurchase", "lifetimeHold"]
+      );
     }
     if (!pack || !pack.rows.length) {
       toast("Nothing to export on this view");
@@ -3583,7 +4227,7 @@
     toast("CSV downloaded");
   }
   function viewSupportsCsvExport(viewId) {
-    return ["top20", "top10", "tickets", "rd", "birthdays", "anniversary", "birthdayGift"].includes(viewId);
+    return ["top20", "top10", "tickets", "rd", "birthdays", "anniversary", "birthdayGift", "locks"].includes(viewId);
   }
 
   // src/calendar.ts
@@ -3707,6 +4351,7 @@
         <div class="spacer"></div>
         <div class="topbar-trail">
           ${showExport ? `<button type="button" class="icon-btn export-btn" id="exportCsv" title="Download CSV">${icon("download", "ic-sm")}</button>` : ""}
+          <button type="button" class="icon-btn bonus-calc-icon-btn${app.view === "bonusCalc" ? " active" : ""}" id="openBonusCalc" title="Bonus Calculator" aria-label="Bonus Calculator">${icon("calculator", "ic-topbar")}</button>
           <div class="cal-wrap">
             <button type="button" class="cal-btn" id="calBtn" title="Switch report date">
               ${icon("calendar", "ic-sm")}
@@ -3735,6 +4380,7 @@
     if (group === "Declining & Churn") return "gaps";
     if (group === "CRM") return "brand";
     if (group === "Games") return "games";
+    if (group === "Tools") return "performance";
     if (group === "Anniversary") return "outreach";
     return "neutral";
   }
@@ -3748,49 +4394,51 @@
       if (app.calOpen && !app.calMonth) app.calMonth = (REPORT.date || "").slice(0, 7);
       rerender();
     };
-    document.querySelectorAll("[data-cal-month]").forEach((el) => {
-      el.onclick = (e) => {
+    document.querySelectorAll("[data-cal-month]").forEach((el2) => {
+      el2.onclick = (e) => {
         e.stopPropagation();
-        app.calMonth = el.getAttribute("data-cal-month");
+        app.calMonth = el2.getAttribute("data-cal-month");
         rerender();
       };
     });
-    document.querySelectorAll("[data-cal-open]").forEach((el) => {
-      el.onclick = (e) => {
+    document.querySelectorAll("[data-cal-open]").forEach((el2) => {
+      el2.onclick = (e) => {
         e.stopPropagation();
-        window.location.href = el.getAttribute("data-cal-open");
+        window.location.href = el2.getAttribute("data-cal-open");
       };
     });
     const calPop = document.getElementById("calPop");
     if (calPop) calPop.onclick = (e) => e.stopPropagation();
-    document.querySelectorAll("[data-go]").forEach((el) => {
-      el.onclick = () => go(el.getAttribute("data-go"));
+    document.querySelectorAll("[data-go]").forEach((el2) => {
+      el2.onclick = () => go(el2.getAttribute("data-go"));
     });
-    document.querySelectorAll("[data-agent]").forEach((el) => {
-      el.onclick = () => {
-        app.agent = el.getAttribute("data-agent");
+    document.querySelectorAll("[data-agent]").forEach((el2) => {
+      el2.onclick = () => {
+        app.agent = el2.getAttribute("data-agent");
         if (app.view === "dashboard") app.view = "home";
+        putState("bonus_aid", "");
+        putState("bonus_gwg_pct", 0);
         rerender();
         window.scrollTo({ top: 0, behavior: "auto" });
       };
     });
-    document.querySelectorAll("input[data-state]").forEach((el) => {
-      el.oninput = () => setState(el.getAttribute("data-state"), el.value);
+    document.querySelectorAll("input[data-state]").forEach((el2) => {
+      el2.oninput = () => setState(el2.getAttribute("data-state"), el2.value);
     });
-    document.querySelectorAll("select[data-state]").forEach((el) => {
-      el.onchange = () => setState(el.getAttribute("data-state"), el.value);
+    document.querySelectorAll("select[data-state]").forEach((el2) => {
+      el2.onchange = () => setState(el2.getAttribute("data-state"), el2.value);
     });
-    document.querySelectorAll("[data-reason-state]").forEach((el) => {
-      el.onclick = () => setState(el.getAttribute("data-reason-state"), el.getAttribute("data-reason"));
+    document.querySelectorAll("[data-reason-state]").forEach((el2) => {
+      el2.onclick = () => setState(el2.getAttribute("data-reason-state"), el2.getAttribute("data-reason"));
     });
-    document.querySelectorAll("[data-page-key]").forEach((el) => {
-      el.onclick = () => {
-        setPage(el.getAttribute("data-page-key"), Number(el.getAttribute("data-page")));
+    document.querySelectorAll("[data-page-key]").forEach((el2) => {
+      el2.onclick = () => {
+        setPage(el2.getAttribute("data-page-key"), Number(el2.getAttribute("data-page")));
       };
     });
-    document.querySelectorAll("[data-ticket-aid]").forEach((el) => {
-      el.onclick = () => {
-        const aid = el.getAttribute("data-ticket-aid");
+    document.querySelectorAll("[data-ticket-aid]").forEach((el2) => {
+      el2.onclick = () => {
+        const aid = el2.getAttribute("data-ticket-aid");
         const b = agentBlock();
         const pool = [...b.decline || [], ...b.rdFirstTime || [], ...b.birthdays || [], ...b.anniversary || [], ...b.birthdayGift || []];
         const p = pool.find((x) => String(x.aid) === aid);
@@ -3808,10 +4456,17 @@
     };
     const exportBtn = document.getElementById("exportCsv");
     if (exportBtn) exportBtn.onclick = () => exportCurrentViewCsv();
-    document.querySelectorAll("[data-crm-toggle]").forEach((el) => {
-      el.onclick = () => {
-        const kind = el.getAttribute("data-crm-toggle");
-        const value = el.getAttribute("data-crm-value") || "";
+    const bonusBtn = document.getElementById("openBonusCalc");
+    if (bonusBtn) bonusBtn.onclick = () => go("bonusCalc");
+    document.querySelectorAll("[data-gwg-pct]").forEach((el2) => {
+      el2.onclick = () => {
+        setState("bonus_gwg_pct", Number(el2.getAttribute("data-gwg-pct") || 0));
+      };
+    });
+    document.querySelectorAll("[data-crm-toggle]").forEach((el2) => {
+      el2.onclick = () => {
+        const kind = el2.getAttribute("data-crm-toggle");
+        const value = el2.getAttribute("data-crm-value") || "";
         const allDays = [...CRM_DAY_ORDER];
         const allBands = CRM_BANDS.map((b) => b.id);
         if (kind === "day") {
@@ -3827,9 +4482,9 @@
         }
       };
     });
-    document.querySelectorAll("[data-crm-quick]").forEach((el) => {
-      el.onclick = () => {
-        const quick = el.getAttribute("data-crm-quick");
+    document.querySelectorAll("[data-crm-quick]").forEach((el2) => {
+      el2.onclick = () => {
+        const quick = el2.getAttribute("data-crm-quick");
         if (quick === "all") setState("crm_days", [...CRM_DAY_ORDER]);
         else if (quick === "weekend") setState("crm_days", ["Friday", "Saturday"]);
         else if (quick === "all-bands") setState("crm_bands", CRM_BANDS.map((b) => b.id));
@@ -3855,12 +4510,12 @@
     }
     const focusKey2 = takeFocusKey();
     if (focusKey2) {
-      const el = document.querySelector(`[data-state="${CSS.escape(focusKey2)}"]`);
-      if (el && el.tagName === "INPUT") {
-        el.focus();
-        const end = el.value.length;
+      const el2 = document.querySelector(`[data-state="${CSS.escape(focusKey2)}"]`);
+      if (el2 && el2.tagName === "INPUT") {
+        el2.focus();
+        const end = el2.value.length;
         try {
-          el.setSelectionRange(end, end);
+          el2.setSelectionRange(end, end);
         } catch (e) {
         }
       }

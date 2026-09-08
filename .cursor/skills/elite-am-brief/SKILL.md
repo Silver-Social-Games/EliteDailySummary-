@@ -140,8 +140,10 @@ survived two days in Aug 2026.
 
 Default report date = **yesterday**. Do **not** publish AM Brief to GitHub
 Pages. AM Brief is **not** on the daily summary scheduled task (that one posts
-Pages links only). It has its **own** Sun–Thu 10:00 IL task for catch-up and
-optional Slack DMs — see **Slack go-live** below. Open the HTML from
+Pages links only). It has its **own** Sun–Thu 10:00 IL task for catch-up,
+verify, and OneDrive mirror — register once with
+`am_daily_dashboard/register_am_brief_scheduled_task.ps1` (Slack off by default;
+see **Slack go-live** for the optional DM path). Open the HTML from
 `VIP\Elite_Cursor\AM Brief` (also written under `am_daily_dashboard/exports/`).
 Point people at the dateless `elite_am_brief.html` / `elite_am_brief_<slug>.html`,
 not a dated file: the bookmark survives and the calendar reaches the history.

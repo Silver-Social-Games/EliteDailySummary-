@@ -34,6 +34,7 @@ GOALS_AM_ORDER = ["Coral", "Gabriel", "Lee", "Rachel"]
 # focus counter -> the list it should agree with
 FOCUS_VS_LIST = {
     "locked": "locks",
+    "locksMtd": "locksMtd",
     "rdOver5k": "rdOver5k",
     "birthdays": "birthdays",
     "declineCount": "decline",
@@ -106,6 +107,8 @@ def verify_agents(payload: dict, report: Report) -> None:
         for badge, list_key in FOCUS_VS_LIST.items():
             expected = len(agent.get(list_key) or [])
             got = focus.get(badge)
+            if got is None and list_key not in agent:
+                continue
             if got != expected:
                 report.check(
                     False,
@@ -260,6 +263,101 @@ def verify_anniversary(payload: dict, report: Report) -> None:
             report.check("anniversaryDate" in row, f"{name} anniversary row has 'anniversaryDate'")
 
 
+def _parse_lookup_from_html(html_path: Path) -> dict | None:
+    text = html_path.read_text(encoding="utf-8")
+    marker = 'id="am-brief-lookup">'
+    start = text.find(marker)
+    if start < 0:
+        return None
+    start = text.find(">", start) + 1
+    end = text.find("</script>", start)
+    if end < 0:
+        return None
+    try:
+        return json.loads(text[start:end])
+    except json.JSONDecodeError:
+        return None
+
+
+def verify_bonus_lookup(date_str: str, report: Report) -> None:
+    """Phase G: daily Bonus Calculator sidecar + HTML embed."""
+    sidecar = EXPORTS / f"{date_str}_elite_bonus_lookup.json"
+    if not sidecar.exists():
+        print("\nBonus Calculator lookup (skip: no sidecar yet)")
+        return
+    lookup = load(sidecar)
+    rows = lookup.get("rows") or []
+    print("\nBonus Calculator lookup")
+    report.check(isinstance(rows, list), "bonus lookup rows is a list", f"{len(rows)} rows")
+    report.check(
+        lookup.get("reportDate") == date_str,
+        "bonus lookup reportDate matches export date",
+        str(lookup.get("reportDate")),
+    )
+    required = {
+        "aid", "agent", "active", "ggr", "bonus", "ngr",
+        "purchaseCount", "purchaseAmount", "bonusPctWindow", "bonusPctLifetime", "locked",
+        "ggrWindow", "bonusWindow", "ngrWindow", "ggrLifetime", "bonusLifetime", "ngrLifetime",
+        "metricsSource", "windowDays",
+    }
+    if rows:
+        sample = rows[0]
+        missing = required - set(sample)
+        report.check(not missing, "bonus lookup row shape", str(sorted(missing)))
+    manager_html = EXPORTS / f"{date_str}_elite_am_brief.html"
+    if manager_html.exists():
+        embedded = _parse_lookup_from_html(manager_html)
+        report.check(embedded is not None, "manager HTML embeds #am-brief-lookup")
+        if embedded:
+            report.check(
+                len(embedded.get("rows") or []) == len(rows),
+                "manager HTML lookup row count matches sidecar",
+                f"html={len(embedded.get('rows') or [])} sidecar={len(rows)}",
+            )
+    coral_html = EXPORTS / f"{date_str}_elite_am_brief_coral.html"
+    coral_json = EXPORTS / f"{date_str}_elite_am_brief_coral.json"
+    if coral_html.exists() and rows:
+        embedded = _parse_lookup_from_html(coral_html)
+        if embedded:
+            embedded_rows = embedded.get("rows") or []
+            if coral_json.exists():
+                coral_payload = load(coral_json)
+                if coral_payload.get("peerMode"):
+                    allowed = set(coral_payload.get("amOrder") or [])
+                    sidecar_rows = [r for r in rows if r.get("agent") in allowed]
+                    agents = {r.get("agent") for r in embedded_rows}
+                    report.check(
+                        agents <= allowed,
+                        "coral HTML lookup scoped to peer amOrder",
+                        str(sorted(agents)),
+                    )
+                    report.check(
+                        len(embedded_rows) == len(sidecar_rows),
+                        "coral HTML lookup row count matches peer-scoped sidecar",
+                        f"html={len(embedded_rows)} sidecar={len(sidecar_rows)}",
+                    )
+                else:
+                    coral_sidecar = [r for r in rows if r.get("agent") == "Coral"]
+                    agents = {r.get("agent") for r in embedded_rows}
+                    report.check(
+                        agents <= {"Coral"},
+                        "coral HTML lookup scoped to Coral only",
+                        str(sorted(agents)),
+                    )
+                    report.check(
+                        len(embedded_rows) == len(coral_sidecar),
+                        "coral HTML lookup row count matches scoped sidecar",
+                        f"html={len(embedded_rows)} sidecar={len(coral_sidecar)}",
+                    )
+            else:
+                agents = {r.get("agent") for r in embedded_rows}
+                report.check(
+                    agents <= {"Coral"},
+                    "coral HTML lookup scoped to Coral only",
+                    str(sorted(agents)),
+                )
+
+
 def verify_isolation(date_str: str, report: Report) -> None:
     print("\nPer-AM file isolation")
     for name in GOALS_AM_ORDER:
@@ -380,6 +478,7 @@ def main() -> None:
     verify_goals_history(payload, report)
     verify_birthday_gift(payload, report)
     verify_anniversary(payload, report)
+    verify_bonus_lookup(date_str, report)
     verify_isolation(date_str, report)
     if args.render_check:
         render_check(date_str, report)

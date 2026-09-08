@@ -1,4 +1,4 @@
-/** Locked & Take A Break — new locks, plus breaks due to end.
+/** Locked & Take A Break — new locks, plus breaks due to end; Locked MTD stacked below.
  *
  * Rows sort by soonest unlock automatically, with no visible control: the
  * ordering is the point of the section, so it is deliberately not something an
@@ -10,11 +10,13 @@ import { sortBySoonestUnlock } from "./../filters";
 import { rowsFor } from "./../selectors";
 import { app } from "./../state";
 import { tableCard } from "./../table";
+import { locksMtdTableCard } from "./locksMtd";
 
-export function viewLocks(): string {
+function locksRecentTableCard(): string {
   return tableCard({
     rows: rowsFor("locks"), stateKey: `lk_${app.agent}`, showSearch: false,
     sortFn: (rows) => sortBySoonestUnlock(rows),
+    title: "Locked & Take A Break · Last 3 Days",
     headers: ["AID", "Name", "Lock Reason", "Created", "Days Remaining / Unlock"],
     align: ["left", "left", "left", "left", "left"], markerCol: 2,
     empty: "No new locks or breaks due in the Last 3 Days.",
@@ -23,4 +25,11 @@ export function viewLocks(): string {
       `<span class="t-small">${esc(p.created || p.lockedAt || "—")}</span>`,
       unlockHtml(p.unlockDetail, p.unlockRemainingDays)],
   });
+}
+
+export function viewLocks(): string {
+  return `<div class="stack">
+        ${locksRecentTableCard()}
+        ${locksMtdTableCard()}
+      </div>`;
 }

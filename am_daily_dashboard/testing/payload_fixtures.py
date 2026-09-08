@@ -42,6 +42,8 @@ from payload_builders import (  # noqa: E402
     build_big_winners_section,
     build_birthday_gift_section,
     build_birthday_section,
+    build_bonus_lookup_row,
+    build_lock_mtd_section,
     build_lock_section,
     build_rd_section,
     build_top10_section,
@@ -216,6 +218,10 @@ def _lock_row(agent_tag: str, aid: int, name: str, *, lock_reason: str = "Take a
         "AID": aid, "name": name, "agent": agent_tag, "lock_reason": lock_reason,
         "lock_reason_comment": "14 days" if lock_reason == "Take a break" else "",
         "locked_at": (REPORT_DATE - _days(days_ago)).isoformat(),
+        "locked": True,
+        "first_name": extra.pop("first_name", ""),
+        "last_name": extra.pop("last_name", ""),
+        "email": extra.pop("email", ""),
     }
     row.update(extra)
     return row
@@ -263,6 +269,68 @@ def _archive(slug: str = "") -> list[dict]:
     ]
 
 
+def build_bonus_lookup_fixture() -> dict:
+    """Small sidecar for jsdom Bonus Calculator tests."""
+    report = REPORT_DATE.isoformat()
+    rows = [
+        build_bonus_lookup_row(
+            {
+                "AID": "811001",
+                "agent": "coral_s",
+                "name": "Coral Bonus Player",
+                "last_play_date": report,
+                "ggr_win": 500,
+                "bonus_win": 50,
+                "purchase_count_win": 5,
+                "purchase_amt_win": 200,
+                "ggr_lt": 900,
+                "bonus_lt": 80,
+                "purchase_count_lt": 10,
+                "purchase_amt_lt": 400,
+                "locked": False,
+            },
+            REPORT_DATE,
+        ),
+        build_bonus_lookup_row(
+            {
+                "AID": "811002",
+                "agent": "gabriel_e",
+                "name": "Gabriel Bonus Player",
+                "last_play_date": report,
+                "ggr_win": 300,
+                "bonus_win": 20,
+                "purchase_count_win": 3,
+                "purchase_amt_win": 120,
+                "ggr_lt": 600,
+                "bonus_lt": 40,
+                "purchase_count_lt": 6,
+                "purchase_amt_lt": 240,
+                "locked": False,
+            },
+            REPORT_DATE,
+        ),
+        build_bonus_lookup_row(
+            {
+                "AID": "811003",
+                "agent": "coral_s",
+                "name": "Not Eligible Player",
+                "last_play_date": report,
+                "ggr_win": 40,
+                "bonus_win": 50,
+                "purchase_count_win": 2,
+                "purchase_amt_win": 100,
+                "ggr_lt": 200,
+                "bonus_lt": 30,
+                "purchase_count_lt": 4,
+                "purchase_amt_lt": 200,
+                "locked": False,
+            },
+            REPORT_DATE,
+        ),
+    ]
+    return {"reportDate": report, "rows": rows}
+
+
 def build_manager_payload(*, ticket_count_for_coral: int = 1) -> dict:
     """Full manager payload: Coral (scored), Gabriel (unscored, behind),
     Alon (no Goals — the one AM the board deliberately excludes).
@@ -305,6 +373,12 @@ def build_manager_payload(*, ticket_count_for_coral: int = 1) -> dict:
         _lock_row("coral_s", 505, "Coral Locked Player", lock_reason="Take a break"),
         _lock_row("gabriel_e", 606, "Gabriel Self Exclusion", lock_reason="Exclusion"),
     ]
+    locks_mtd_raw = [
+        _lock_row("coral_s", 507, "Coral MTD Lock", lock_reason="Fraud",
+                  email="coral.mtd@example.com", first_name="Coral", last_name="MTD"),
+        _lock_row("gabriel_e", 608, "Gabriel MTD Lock", lock_reason="Exclusion",
+                  email="gab.mtd@example.com", first_name="Gab", last_name="MTD"),
+    ]
     decline_raw = {
         "Coral": [_decline_row("coral_s", 507, "Coral Decline Player", urgency="Today")],
         "Gabriel": [_decline_row("gabriel_e", 607, "Gabriel Decline Player", urgency="48h",
@@ -326,6 +400,7 @@ def build_manager_payload(*, ticket_count_for_coral: int = 1) -> dict:
     birthday_gift = build_birthday_gift_section(birthday_gift_raw, enrich_map={})
     zd = build_zd_section(zd_raw, enrich_map={})
     locks = build_lock_section(lock_raw, REPORT_DATE)
+    locks_mtd = build_lock_mtd_section(locks_mtd_raw, REPORT_DATE, enrich_map={})
     big_winners = build_big_winners_section(bw_raw, enrich_map={})
     decline_by_am = {name: _decline_rows(raw) for name, raw in decline_raw.items()}
 
@@ -358,7 +433,7 @@ def build_manager_payload(*, ticket_count_for_coral: int = 1) -> dict:
             name, WEEKDAY,
             top10=top10, decline=decline_by_am.get(name, []), rd5k=rd5k,
             rd_first=rd_first, birthdays=birthdays, anniversary=anniversary,
-            birthday_gift=birthday_gift, zd=zd, locks=locks,
+            birthday_gift=birthday_gift, zd=zd, locks=locks, locks_mtd=locks_mtd,
             big_winners=big_winners, big_losers=[],
             purchase=purchase_by_agent[name], total_players=total_players_by_agent[name],
             elite_rev=elite_rev, elite_ply=elite_ply, goals=goals_blocks.get(name),

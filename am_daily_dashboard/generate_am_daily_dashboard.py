@@ -30,6 +30,7 @@ from elite_lib.console import use_utf8_stdout  # noqa: E402
 import config  # noqa: E402
 from config import (  # noqa: E402
     BIRTHDAY_GIFT_REFRESH_DOW,
+    LOCKS_MTD_ENABLED,
     PENDING_RD_LOOKBACK_DAYS,
     PRODUCT_TITLE,
     manager_gate_token,
@@ -84,6 +85,8 @@ from payload_builders import (  # noqa: E402
     build_big_losers_section,
     build_birthday_gift_section,
     build_birthday_section,
+    build_bonus_lookup,
+    build_lock_mtd_section,
     build_lock_section,
     build_rd_section,
     build_top10_section,
@@ -91,6 +94,7 @@ from payload_builders import (  # noqa: E402
     focus_for_agent,
     greeting_lines,
     soften_decline_rows,
+    strip_bonus_lookup_for_payload,
 )
 
 OUTPUT_DIR = Path(__file__).resolve().parent / "exports"
@@ -167,6 +171,7 @@ def mirror_cursor_audience(
     *,
     payload: dict,
     manager_html: Path,
+    bonus_lookup: dict | None = None,
 ) -> Path | None:
     """Write one self-contained brief to Elite_Cursor as elite_am_brief.html."""
     dest_dir = cursor_export_dir("am_brief")
@@ -178,7 +183,12 @@ def mirror_cursor_audience(
             shutil.copy2(manager_html, dest)
     else:
         am_payload = strip_payload_for_am(payload, CURSOR_AUDIENCE_NAMES[audience])
-        write_am_brief_html(am_payload, dest)
+        am_lookup = (
+            strip_bonus_lookup_for_payload(am_payload, bonus_lookup)
+            if bonus_lookup
+            else None
+        )
+        write_am_brief_html(am_payload, dest, bonus_lookup=am_lookup)
     print(f"  Elite_Cursor audience ({audience}): {dest}")
     return dest
 
@@ -305,6 +315,10 @@ def build_payload(report_date: date, client) -> dict:
     print(f"  Big Winners (≥$20K GGR win): {len(bw_raw)}")
     bl_raw = run_query(client, am_queries.big_losers_sql(report_date))
     print(f"  Big Losers (≥$5K GGR loss): {len(bl_raw)}")
+    locks_mtd_raw: list[dict] = []
+    if LOCKS_MTD_ENABLED:
+        locks_mtd_raw = run_query(client, am_queries.locked_mtd_sql(report_date))
+        print(f"  Locked MTD (raw): {len(locks_mtd_raw)}")
     # One shared enrich fetch (lifetime purchase/hold for Open Tickets, plus
     # zendesk_user_id so First-Time Locked RD / Birthdays tickets can
     # pre-select the requester) covering every AID that needs it.
@@ -317,7 +331,7 @@ def build_payload(report_date: date, client) -> dict:
             continue
     # rd5k_raw is in here for its missing-document status and account context,
     # not for a ticket draft — Pending RD stays view-only.
-    for r in (*top10_raw, *rd5k_raw, *rd_first_raw, *bday_raw, *anniv_raw, *bgift_raw, *resp_raw, *bw_raw, *bl_raw):
+    for r in (*top10_raw, *rd5k_raw, *rd_first_raw, *bday_raw, *anniv_raw, *bgift_raw, *bw_raw, *bl_raw, *locks_mtd_raw):
         try:
             ticket_aids.add(int(r["AID"]))
         except (TypeError, ValueError, KeyError):
@@ -386,7 +400,10 @@ def build_payload(report_date: date, client) -> dict:
     anniversary = build_anniversary_section(anniv_raw, enrich_map=shared_enrich)
     birthday_gift = build_birthday_gift_section(bgift_raw, enrich_map=shared_enrich)
     locks = build_lock_section(locks_raw, report_date)
+    locks_mtd = build_lock_mtd_section(locks_mtd_raw, report_date, enrich_map=shared_enrich)
     print(f"  Locked after past-day window filter: {len(locks)}")
+    if LOCKS_MTD_ENABLED:
+        print(f"  Locked MTD (report month): {len(locks_mtd)}")
 
     weekday = weekday_label(report_date)
     subtitle = f"{weekday} {report_date.strftime('%d %b %Y')}"
@@ -417,6 +434,7 @@ def build_payload(report_date: date, client) -> dict:
                 birthday_gift=birthday_gift,
                 zd=zd,
                 locks=locks,
+                locks_mtd=locks_mtd,
                 big_winners=big_winners,
                 big_losers=big_losers,
                 purchase=purchase,
@@ -468,12 +486,37 @@ def build_payload(report_date: date, client) -> dict:
     return payload
 
 
+def bonus_lookup_path(report_date: date) -> Path:
+    return OUTPUT_DIR / f"{report_date.isoformat()}_elite_bonus_lookup.json"
+
+
+def load_bonus_lookup(report_date: date) -> dict | None:
+    path = bonus_lookup_path(report_date)
+    if not path.is_file():
+        return None
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return None
+
+
+def fetch_and_save_bonus_lookup(client, report_date: date) -> dict:
+    print("  Bonus Calculator lookup...")
+    raw = run_query(client, am_queries.bonus_lookup_sql(report_date))
+    lookup = build_bonus_lookup(raw, report_date)
+    path = bonus_lookup_path(report_date)
+    path.write_text(json.dumps(lookup, indent=2, default=str), encoding="utf-8")
+    print(f"  Bonus lookup: {len(lookup.get('rows') or [])} AIDs -> {path.name}")
+    return lookup
+
+
 def write_outputs(
     payload: dict,
     canvas_dir: Path,
     *,
     publish: bool = False,
     cursor_audience: str | None = None,
+    bonus_lookup: dict | None = None,
 ) -> tuple[Path, Path]:
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     canvas_dir.mkdir(parents=True, exist_ok=True)
@@ -481,7 +524,7 @@ def write_outputs(
     canvas_path = canvas_dir / f"elite-am-brief-{d}.canvas.tsx"
     canvas_path.write_text(render_am_brief_canvas(payload), encoding="utf-8")
     html_path = OUTPUT_DIR / f"{d}_elite_am_brief.html"
-    write_am_brief_html(payload, html_path)
+    write_am_brief_html(payload, html_path, bonus_lookup=bonus_lookup)
     json_path = OUTPUT_DIR / f"{d}_elite_am_brief.json"
     json_path.write_text(
         json.dumps(payload, indent=2, default=str),
@@ -496,19 +539,24 @@ def write_outputs(
     # Dateless copies so a bookmark survives to tomorrow. The dated file stays
     # the archive; these are overwritten every run and are what people open.
     latest_paths: list[Path] = [OUTPUT_DIR / "elite_am_brief.html"]
-    write_am_brief_html(payload, latest_paths[0])
+    write_am_brief_html(payload, latest_paths[0], bonus_lookup=bonus_lookup)
     for name in GOALS_AM_ORDER:
         slug = name.lower()
         am_payload = strip_payload_for_am(payload, name)
+        am_lookup = (
+            strip_bonus_lookup_for_payload(am_payload, bonus_lookup)
+            if bonus_lookup
+            else None
+        )
         am_html = OUTPUT_DIR / f"{d}_elite_am_brief_{slug}.html"
         am_json = OUTPUT_DIR / f"{d}_elite_am_brief_{slug}.json"
-        write_am_brief_html(am_payload, am_html)
+        write_am_brief_html(am_payload, am_html, bonus_lookup=am_lookup)
         am_json.write_text(
             json.dumps(am_payload, indent=2, default=str),
             encoding="utf-8",
         )
         am_latest = OUTPUT_DIR / f"elite_am_brief_{slug}.html"
-        write_am_brief_html(am_payload, am_latest)
+        write_am_brief_html(am_payload, am_latest, bonus_lookup=am_lookup)
         latest_paths.append(am_latest)
         am_canvas = canvas_dir / f"elite-am-brief-{d}-{slug}.canvas.tsx"
         am_canvas.write_text(render_am_brief_canvas(am_payload), encoding="utf-8")
@@ -526,7 +574,12 @@ def write_outputs(
     refresh_all_brief_archives(mirror=False)
     mirror_brief_exports_to_cursor()
     if cursor_audience:
-        mirror_cursor_audience(cursor_audience, payload=payload, manager_html=html_path)
+        mirror_cursor_audience(
+            cursor_audience,
+            payload=payload,
+            manager_html=html_path,
+            bonus_lookup=bonus_lookup,
+        )
     return canvas_path, html_path
 
 
@@ -560,14 +613,20 @@ def rebuild_html_from_json(
     # Refresh prior-month Goals history from the current history file so an
     # html-only rebuild picks up any month closed since this JSON was written.
     attach_history_to_payload(payload)
+    bonus_lookup = load_bonus_lookup(report_date)
     written: list[Path] = []
     manager_dated = OUTPUT_DIR / f"{d}_elite_am_brief.html"
     for path in (manager_dated, OUTPUT_DIR / "elite_am_brief.html"):
-        write_am_brief_html(payload, path)
+        write_am_brief_html(payload, path, bonus_lookup=bonus_lookup)
         written.append(path)
     for name in GOALS_AM_ORDER:
         slug = name.lower()
         am_payload = strip_payload_for_am(payload, name)
+        am_lookup = (
+            strip_bonus_lookup_for_payload(am_payload, bonus_lookup)
+            if bonus_lookup
+            else None
+        )
         # Rewrite the per-AM JSON too, not just the HTML: refresh_all_brief_archives
         # (below) re-derives each per-AM HTML from its own JSON, so a stale JSON
         # here would overwrite the shape we just wrote - e.g. a --peer-mode rebuild
@@ -581,7 +640,7 @@ def rebuild_html_from_json(
             OUTPUT_DIR / f"{d}_elite_am_brief_{slug}.html",
             OUTPUT_DIR / f"elite_am_brief_{slug}.html",
         ):
-            write_am_brief_html(am_payload, path)
+            write_am_brief_html(am_payload, path, bonus_lookup=am_lookup)
             written.append(path)
     print(f"Rebuilt {len(written)} HTML files from {json_path.name} (no query)")
     refresh_all_brief_archives(mirror=False)
@@ -591,6 +650,7 @@ def rebuild_html_from_json(
             cursor_audience,
             payload=payload,
             manager_html=manager_dated,
+            bonus_lookup=bonus_lookup,
         )
     if publish:
         publish_am_brief(manager_dated)
@@ -701,6 +761,12 @@ def main() -> None:
         "BigQuery query (~3s vs ~90s). Use after editing the web shell.",
     )
     parser.add_argument(
+        "--bonus-lookup-only",
+        action="store_true",
+        help="Fetch and save the Bonus Calculator lookup sidecar for the date, "
+        "then exit (~15s). Follow with --html-only to embed it.",
+    )
+    parser.add_argument(
         "--cursor-audience",
         choices=CURSOR_AUDIENCE_CHOICES,
         help="Also mirror one elite_am_brief.html to Elite_Cursor for this audience "
@@ -732,6 +798,15 @@ def main() -> None:
             cursor_audience=cursor_audience,
         )
         return
+    if args.bonus_lookup_only:
+        client = get_client()
+        fetch_and_save_bonus_lookup(client, report_date)
+        print(
+            f"Bonus lookup saved. Rebuild HTML with:\n"
+            f"  python am_daily_dashboard/generate_am_daily_dashboard.py "
+            f"--date {report_date.isoformat()} --html-only"
+        )
+        return
     client = get_client()
     if args.goals_only:
         goals, team_goals = build_goals_blocks(report_date, client)
@@ -747,11 +822,13 @@ def main() -> None:
         )
         return
     payload = build_payload(report_date, client)
+    bonus_lookup = fetch_and_save_bonus_lookup(client, report_date)
     canvas_path, html_path = write_outputs(
         payload,
         args.canvas_dir,
         publish=args.publish,
         cursor_audience=cursor_audience,
+        bonus_lookup=bonus_lookup,
     )
     print_goals_audit(payload)
     print(f"Wrote {canvas_path}")

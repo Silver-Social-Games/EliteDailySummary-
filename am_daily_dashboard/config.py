@@ -82,6 +82,10 @@ LOCKS_REVIEW_WINDOW_DAYS = 3
 # calendar days before report_date (still locked but no longer actionable).
 LOCKS_TAB_EXPIRE_DAYS = 7
 
+# Locked MTD section: currently locked accounts whose lock started in the
+# report calendar month (all reasons). Rows drop on unlock at next regen.
+LOCKS_MTD_ENABLED = True
+
 # Churned, Active Decliners and Milestone Alerts were removed on 2026-08-18 at
 # the user's request — they had been built despite an earlier instruction to
 # exclude them, and each cost a BigQuery query on every run. Do not re-add them
@@ -210,3 +214,15 @@ ANNIVERSARY_WINDOW_DAYS: int = 3
 # Set live so saved daily history accumulates as coverage boards. Pass
 # --no-peer-mode to fall back to the isolated single-AM shape for one run.
 PEER_BOOK_MODE: bool = True
+
+# ---------------------------------------------------------------------------
+# Bonus Calculator — Inbound V5 NGR (Phase G, flat Elite profile)
+# ---------------------------------------------------------------------------
+# One rate for every managed Elite player (no PVIP/VIP tiers). Bonus-status
+# multipliers (% bonus / purchase history) still apply — see bonus_calculator.py.
+BONUS_CALC_ACTIVITY_DAYS: int = 14
+BONUS_CALC_ACTIVE_PCT: float = 0.07
+BONUS_CALC_INACTIVE_PCT: float = 0.07
+BONUS_CALC_MAX_BONUS: float = 300.0
+# GWG chip choices (% of base Free Bonus SC); 0 = None.
+BONUS_CALC_GWG_OPTIONS: tuple[float, ...] = (0.03, 0.05, 0.10)

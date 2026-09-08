@@ -28,6 +28,7 @@ from generate_am_daily_dashboard import (  # noqa: E402
     DEFAULT_CANVAS_DIR,
     OUTPUT_DIR,
     build_payload,
+    fetch_and_save_bonus_lookup,
     print_goals_audit,
     rebuild_html_from_json,
     resolve_report_date,
@@ -101,7 +102,13 @@ def run_one_day(
         rebuild_html_from_json(report_date, publish=publish)
         return
     payload = build_payload(report_date, client)
-    canvas_path, html_path = write_outputs(payload, canvas_dir, publish=publish)
+    bonus_lookup = fetch_and_save_bonus_lookup(client, report_date)
+    canvas_path, html_path = write_outputs(
+        payload,
+        canvas_dir,
+        publish=publish,
+        bonus_lookup=bonus_lookup,
+    )
     print_goals_audit(payload)
     print(f"Wrote {canvas_path}")
     print(f"Wrote {html_path}")

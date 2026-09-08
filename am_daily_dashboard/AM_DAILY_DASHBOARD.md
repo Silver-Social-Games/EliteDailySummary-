@@ -497,7 +497,24 @@ python am_daily_dashboard/canvas_to_html.py am_daily_dashboard/exports/YYYY-MM-D
 AM Brief is **private HTML**. Coral and the other AMs do **not** get it from git or
 the Elite Daily Summary site. Two paths:
 
-### Planned daily path: Slack DM (Sun–Thu 10:00 IL)
+### Daily path: OneDrive folder share (Sun–Thu 10:00 IL) — LIVE default
+
+Each morning the scheduled task runs catch-up + verify, mirrors into
+`VIP\Elite_Cursor\AM Brief\{Manager|Coral|Gabriel|Lee|Rachel}\`, and OneDrive
+desktop sync delivers updated files to each AM's shared folder.
+
+Register once (Windows timezone = Jerusalem):
+
+```powershell
+powershell -ExecutionPolicy Bypass -File am_daily_dashboard\register_am_brief_scheduled_task.ps1
+```
+
+Launcher: `run_am_brief_scheduled.ps1` — skips Fri/Sat, Slack **off** by default.
+Manual Slack: pass `-EnableAmBriefSlack`.
+
+AM opens `elite_am_brief_{slug}.html` from File Explorer (local `file:///` after sync).
+
+### Fallback: Slack DM (Sun–Thu 10:00 IL)
 
 Each morning the scheduled task generates yesterday's brief, then `post_am_brief_slack.py`
 builds a **stripped per-AM HTML** and DMs it as a file attachment to each AM's Slack
@@ -1455,12 +1472,13 @@ Full plan and rollback: `am_daily_dashboard/AM_BRIEF_EXPANSION_PLAN.md`.
 | `ANNIVERSARY_MANAGED_DAYS` | `30` | Phase C - Anniversary |
 | `ANNIVERSARY_WINDOW_DAYS` | `3` | Phase C - Anniversary |
 | `PEER_BOOK_MODE` | `True` | Phase F - Coverage board (live default) |
+| `BONUS_CALC_*` | see `config.py` | Phase G - Bonus Calculator |
 
-**`verify_brief.py`:** `verify_birthday_gift`, `verify_anniversary` — each skips gracefully when its payload key is absent; activates automatically once the section is built. (`verify_responsiveness` removed with the dropped Responsiveness section.)
+**`verify_brief.py`:** `verify_birthday_gift`, `verify_anniversary`, `verify_bonus_lookup` — each skips gracefully when its data is absent; activates automatically once the section is built.
 
 **Routing table** updated in `SKILL.md` with planned rows for Phases C/D/E/F/G.
 
-**Build order:** Phase 0 (done) - B Goals history (done) - C Anniversary (done) - D Birthday Gift (done) - E Responsiveness (DROPPED from board 2026-09-01, code parked) - F Coverage board (LIVE default 2026-09-01) - G Bonus Calculator - H Slack.
+**Build order:** Phase 0 (done) - B Goals history (done) - C Anniversary (done) - D Birthday Gift (done) - E Responsiveness (DROPPED from board 2026-09-01, code parked) - F Coverage board (LIVE default 2026-09-01) - G Bonus Calculator (done 2026-09-02) - H Slack.
 
 ### Phase F - Peer coverage board (LIVE default 2026-09-01, `PEER_BOOK_MODE = True`)
 
@@ -1520,6 +1538,36 @@ Goals / gate is ever present.
   (`--peer-mode` flag, `import config`), `web/src/{payload,state,render,sidebar,
   calendar}.ts`, `testing/{payload_fixtures,build_fixtures}.py`,
   `tests_js/render.test.mjs`, `test_goals.py`, `verify_brief.verify_isolation`.
+
+### Phase G - Bonus Calculator v2 (Inbound V5 NGR, 2026-09-02)
+
+AID lookup tool for Inbound Free Bonus recommendations. Flat Elite rate (no
+PVIP/VIP tiers). Lives outside the main payload as a daily sidecar so the
+manager JSON stays small.
+
+- **Sidecar:** `exports/YYYY-MM-DD_elite_bonus_lookup.json` from
+  `bonus_lookup_sql` + `build_bonus_lookup`. Embedded in HTML via
+  `#am-brief-lookup` (`canvas_to_html.BONUS_LOOKUP_PLACEHOLDER`). v2 adds
+  explicit window + lifetime metric keys (`ggrWindow`, `ggrLifetime`, etc.)
+  and `metricsSource` / `windowDays`.
+- **Scoping:** `strip_bonus_lookup_for_payload` narrows rows per audience
+  (single AM, coverage board, manager = full book).
+- **Runtime:** `web/src/bonusCalc.ts` mirrors `bonus_calculator.py` (Python is
+  the spec). Entry: sidebar **Tools > Bonus Calculator** only (no topbar
+  shortcut). Search AID on the current AM tab; green **Free Bonus** card shows
+  base SC, **GWG chips (None / 3% / 5% / 10%)**, and **Total offer** hero;
+  calculation **waterfall** + collapsible **lifetime metrics** panel.
+- **Locked paths:** active + NGR ≤ 0 → **Not eligible** (no FS, no retention
+  SC). Locked/SE/TAB → blocked. All bonus offers in **SC**, not $.
+- **Fetch without full regen:**
+  `python am_daily_dashboard/generate_am_daily_dashboard.py --date YYYY-MM-DD --bonus-lookup-only`
+  then `--html-only`.
+- **Verified:** `test_bonus_calculator.py`, `BonusLookupTests` in
+  `test_payload_builders.py`, `verify_brief.verify_bonus_lookup`, jsdom
+  fixture tests in `render.test.mjs`.
+- **Files:** `bonus_calculator.py`, `queries.bonus_lookup_sql`,
+  `payload_builders.build_bonus_lookup*`, `web/src/{bonusCalc,bonusConfig,
+  bonusLookup,views/bonusCalculator}.ts`, `config.BONUS_CALC_*`.
 
 ### Phase E - Responsiveness / silent book (DROPPED from board 2026-09-01)
 

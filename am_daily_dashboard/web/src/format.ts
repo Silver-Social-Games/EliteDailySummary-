@@ -10,7 +10,22 @@ export function esc(s: unknown): string {
 
 /** References a <symbol> in the sprite injected from src/icons.svg. */
 export function icon(name: string, cls?: string): string {
+  if (name === "calculator") return bonusCalcIcon(cls);
   return `<svg class="ic ${cls || ""}" aria-hidden="true"><use href="#i-${name}"></use></svg>`;
+}
+
+/** 2×2 calculator grid (+ / − / × / =) for Bonus Calculator entry points. */
+export function bonusCalcIcon(cls = ""): string {
+  return `<svg class="bonus-calc-grid-ic ${cls}" viewBox="0 0 24 24" aria-hidden="true" role="presentation">
+    <rect x="2.5" y="2.5" width="19" height="19" rx="4" fill="#1E2433"/>
+    <path d="M12 5v14M5 12h14" stroke="#343D4F" stroke-width="1.2"/>
+    <rect x="3.5" y="3.5" width="7.5" height="7.5" rx="2" fill="#0E9F6E"/>
+    <path d="M5.75 7h2.5M7 5.75v2.5" stroke="#ECFDF5" stroke-width="1.25" stroke-linecap="round"/>
+    <path d="M14.75 7h3.5" stroke="#CBD5E1" stroke-width="1.25" stroke-linecap="round"/>
+    <path d="M5.75 16.25l3.5 3.5M9.25 16.25l-3.5 3.5" stroke="#CBD5E1" stroke-width="1.25" stroke-linecap="round"/>
+    <rect x="13" y="13" width="7.5" height="7.5" rx="2" fill="#0E9F6E"/>
+    <path d="M14.75 15.75h3.5M14.75 17.75h3.5" stroke="#ECFDF5" stroke-width="1.25" stroke-linecap="round"/>
+  </svg>`;
 }
 
 export function toNum(v: unknown): number {
@@ -20,6 +35,13 @@ export function toNum(v: unknown): number {
 
 export function money(n: number): string {
   return "$" + Math.round(n).toLocaleString();
+}
+
+/** Sweeps Coins — no $ prefix (bonus comps are SC, not USD). */
+export function scAmount(n: unknown): string {
+  const v = typeof n === "number" ? n : parseFloat(String(n ?? ""));
+  if (!Number.isFinite(v)) return "—";
+  return `${Math.round(v).toLocaleString()} SC`;
 }
 
 /** Integer counts for KPI tiles — always thousands-separated when ≥ 1,000. */

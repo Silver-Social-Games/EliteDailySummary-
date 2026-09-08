@@ -22,6 +22,7 @@ export function topbar(): string {
         <div class="spacer"></div>
         <div class="topbar-trail">
           ${showExport ? `<button type="button" class="icon-btn export-btn" id="exportCsv" title="Download CSV">${icon("download", "ic-sm")}</button>` : ""}
+          <button type="button" class="icon-btn bonus-calc-icon-btn${app.view === "bonusCalc" ? " active" : ""}" id="openBonusCalc" title="Bonus Calculator" aria-label="Bonus Calculator">${icon("calculator", "ic-topbar")}</button>
           <div class="cal-wrap">
             <button type="button" class="cal-btn" id="calBtn" title="Switch report date">
               ${icon("calendar", "ic-sm")}
@@ -51,6 +52,7 @@ function groupAccent(group: string): string {
   if (group === "Declining & Churn") return "gaps";
   if (group === "CRM") return "brand";
   if (group === "Games") return "games";
+  if (group === "Tools") return "performance";
   if (group === "Anniversary") return "outreach";
   return "neutral";
 }

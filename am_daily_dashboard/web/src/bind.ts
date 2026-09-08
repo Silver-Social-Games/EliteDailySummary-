@@ -8,7 +8,7 @@ import { GATE_TOKEN, REPORT } from "./payload";
 import { CRM_BANDS, CRM_DAY_ORDER } from "./data/crmOffers";
 import { exportCurrentViewCsv } from "./exportCsv";
 import { agentBlock } from "./selectors";
-import { app, gateToken, getState, go, rememberGate, rerender, setPage, setState,
+import { app, gateToken, getState, go, putState, rememberGate, rerender, setPage, setState,
   takeFocusKey } from "./state";
 
 export function bind(): void {
@@ -43,6 +43,8 @@ export function bind(): void {
     (el as HTMLElement).onclick = () => {
       app.agent = el.getAttribute("data-agent")!;
       if (app.view === "dashboard") app.view = "home";
+      putState("bonus_aid", "");
+      putState("bonus_gwg_pct", 0);
       rerender();
       window.scrollTo({ top: 0, behavior: "auto" });
     };
@@ -79,6 +81,15 @@ export function bind(): void {
   };
   const exportBtn = document.getElementById("exportCsv");
   if (exportBtn) exportBtn.onclick = () => exportCurrentViewCsv();
+
+  const bonusBtn = document.getElementById("openBonusCalc");
+  if (bonusBtn) bonusBtn.onclick = () => go("bonusCalc");
+
+  document.querySelectorAll("[data-gwg-pct]").forEach((el) => {
+    (el as HTMLButtonElement).onclick = () => {
+      setState("bonus_gwg_pct", Number(el.getAttribute("data-gwg-pct") || 0));
+    };
+  });
 
   document.querySelectorAll("[data-crm-toggle]").forEach((el) => {
     (el as HTMLElement).onclick = () => {

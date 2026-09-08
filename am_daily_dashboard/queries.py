@@ -16,6 +16,7 @@ from config import (
     BIRTHDAYS_LOOKBACK_DAYS,
     BIRTHDAY_GIFT_MIN_30D_PURCHASE,
     BIRTHDAY_GIFT_MIN_HOLD_PCT,
+    BONUS_CALC_ACTIVITY_DAYS,
     GOALS_ACTIVE_LOOKBACK_DAYS,
     GOALS_REACTIVATION_GAP_DAYS,
     PENDING_RD_LOOKBACK_DAYS,
@@ -733,6 +734,38 @@ ORDER BY e.agent, name
 """.strip()
 
 
+def locked_mtd_sql(report_date: date) -> str:
+    """Currently locked Elite AM accounts whose lock started in report month."""
+    d = _iso(report_date)
+    month_start = _iso(report_date.replace(day=1))
+    return f"""
+WITH
+{_elite_am_book_ctes()}
+SELECT
+  e.agent,
+  e.account_id AS AID,
+  COALESCE(
+    NULLIF(TRIM(CONCAT(IFNULL(per.first_name, ''), ' ', IFNULL(per.last_name, ''))), ''),
+    ua.name,
+    ua.email,
+    CAST(e.account_id AS STRING)
+  ) AS name,
+  per.first_name,
+  per.last_name,
+  ua.email,
+  COALESCE(ua.locked, FALSE) AS locked,
+  COALESCE(ua.lock_reason, '') AS lock_reason,
+  COALESCE(ua.lock_reason_comment, '') AS lock_reason_comment,
+  DATE(ua.locked_at) AS locked_at
+FROM elite_am e
+INNER JOIN `{PROJECT_ID}.transactional_data.uam_accounts` ua ON ua.id = e.account_id
+LEFT JOIN `{PROJECT_ID}.transactional_data.uam_persons` per ON per.id = ua.person_id
+WHERE COALESCE(ua.locked, FALSE) = TRUE
+  AND DATE(ua.locked_at) BETWEEN DATE '{month_start}' AND DATE '{d}'
+ORDER BY e.agent, locked_at, name
+""".strip()
+
+
 def big_winners_sql(report_date: date) -> str:
     """Players whose net GGR was ≤ −BIG_WINNER_SECTION_MIN within the trailing
     TRIGGER_LOOKBACK_DAYS ending report_date (one row per AID, biggest win day).
@@ -1313,4 +1346,82 @@ LEFT JOIN reactivations r ON r.agent = p.agent
 LEFT JOIN upgrades u ON u.agent = p.agent
 LEFT JOIN active_players ap ON ap.agent = p.agent
 ORDER BY p.agent
+""".strip()
+
+
+def bonus_lookup_sql(report_date: date) -> str:
+    """Per-AID metrics for the Inbound Bonus Calculator lookup sidecar.
+
+    Returns one row per Elite book account with 14-day and lifetime GGR, bonus
+    (sc_reward_amount), purchase count/amount, and activity dates. Active vs
+    inactive is derived downstream from last_play_date vs BONUS_CALC_ACTIVITY_DAYS.
+    """
+    d = _iso(report_date)
+    win = max(BONUS_CALC_ACTIVITY_DAYS - 1, 0)
+    return f"""
+WITH
+{_elite_am_book_ctes(as_of=report_date)},
+params AS (SELECT DATE '{d}' AS report_date),
+kpi AS (
+  SELECT
+    k.account_id,
+    SUM(CASE WHEN k.date BETWEEN DATE_SUB((SELECT report_date FROM params), INTERVAL {win} DAY)
+             AND (SELECT report_date FROM params) THEN CAST(k.purchased AS FLOAT64) ELSE 0 END) AS purchase_amt_win,
+    COUNTIF(k.date BETWEEN DATE_SUB((SELECT report_date FROM params), INTERVAL {win} DAY)
+             AND (SELECT report_date FROM params) AND k.purchased > 0) AS purchase_count_win,
+    SUM(CASE WHEN k.date BETWEEN DATE_SUB((SELECT report_date FROM params), INTERVAL {win} DAY)
+             AND (SELECT report_date FROM params)
+         THEN CAST(k.profit AS FLOAT64) - CAST(k.loss AS FLOAT64) ELSE 0 END) AS ggr_win,
+    SUM(CASE WHEN k.date BETWEEN DATE_SUB((SELECT report_date FROM params), INTERVAL {win} DAY)
+             AND (SELECT report_date FROM params)
+         THEN COALESCE(k.sc_reward_amount, 0) ELSE 0 END) AS bonus_win,
+    SUM(CAST(k.purchased AS FLOAT64)) AS purchase_amt_lt,
+    SUM(CASE WHEN k.purchased > 0 THEN 1 ELSE 0 END) AS purchase_count_lt,
+    SUM(CAST(k.profit AS FLOAT64) - CAST(k.loss AS FLOAT64)) AS ggr_lt,
+    SUM(COALESCE(k.sc_reward_amount, 0)) AS bonus_lt,
+    MIN(CASE WHEN k.purchased > 0 THEN k.date END) AS first_purchase_date,
+    MAX(CASE WHEN k.purchased > 0 THEN k.date END) AS last_purchase_date
+  FROM `{PROJECT_ID}.jackpota_agg.daily_player_revenue_kpis` k
+  INNER JOIN elite_am e ON e.account_id = k.account_id
+  GROUP BY k.account_id
+),
+play AS (
+  SELECT g.account_id, MAX(DATE(g.at)) AS last_play_date
+  FROM `{PROJECT_ID}.jackpota_agg.fact_gameplay_daily` g
+  INNER JOIN elite_am e ON e.account_id = g.account_id
+  WHERE g.product_title IS NOT NULL AND g.product_title != 'Jackpot'
+  GROUP BY g.account_id
+)
+SELECT
+  e.agent,
+  e.account_id AS AID,
+  COALESCE(
+    NULLIF(TRIM(CONCAT(IFNULL(per.first_name, ''), ' ', IFNULL(per.last_name, ''))), ''),
+    ua.name,
+    ua.email,
+    CAST(e.account_id AS STRING)
+  ) AS name,
+  per.first_name,
+  per.last_name,
+  ua.email,
+  k.first_purchase_date,
+  k.last_purchase_date,
+  pl.last_play_date,
+  ROUND(COALESCE(k.ggr_win, 0), 2) AS ggr_win,
+  ROUND(COALESCE(k.bonus_win, 0), 2) AS bonus_win,
+  COALESCE(k.purchase_count_win, 0) AS purchase_count_win,
+  ROUND(COALESCE(k.purchase_amt_win, 0), 2) AS purchase_amt_win,
+  ROUND(COALESCE(k.ggr_lt, 0), 2) AS ggr_lt,
+  ROUND(COALESCE(k.bonus_lt, 0), 2) AS bonus_lt,
+  COALESCE(k.purchase_count_lt, 0) AS purchase_count_lt,
+  ROUND(COALESCE(k.purchase_amt_lt, 0), 2) AS purchase_amt_lt,
+  COALESCE(ua.locked, FALSE) AS locked,
+  COALESCE(ua.lock_reason, '') AS lock_reason,
+  COALESCE(ua.lock_reason_comment, '') AS lock_reason_comment
+FROM elite_am e
+LEFT JOIN kpi k ON k.account_id = e.account_id
+LEFT JOIN play pl ON pl.account_id = e.account_id
+LEFT JOIN `{PROJECT_ID}.transactional_data.uam_accounts` ua ON ua.id = e.account_id
+LEFT JOIN `{PROJECT_ID}.transactional_data.uam_persons` per ON per.id = ua.person_id
+ORDER BY e.agent, name
 """.strip()

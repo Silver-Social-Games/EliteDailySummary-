@@ -16,6 +16,7 @@ from datetime import date, datetime, timedelta
 from typing import TYPE_CHECKING
 
 from config import (  # noqa: E402
+    BONUS_CALC_ACTIVITY_DAYS,
     LOCKS_REVIEW_WINDOW_DAYS,
     LOCKS_TAB_EXPIRE_DAYS,
     LOCKS_WINDOW_DAYS,
@@ -910,6 +911,49 @@ def build_lock_section(rows: list[dict], report_date: date) -> list[dict]:
     return out
 
 
+def build_lock_mtd_section(
+    rows: list[dict],
+    report_date: date,
+    *,
+    enrich_map: dict[int, dict] | None = None,
+) -> list[dict]:
+    """MTD locked accounts — all lock reasons; drop on unlock at next regen."""
+    month_start = report_date.replace(day=1)
+    out = []
+    for r in rows:
+        if not r.get("locked"):
+            continue
+        locked_at_d = parse_date_val(r.get("locked_at"))
+        if locked_at_d is None or locked_at_d < month_start or locked_at_d > report_date:
+            continue
+        bucket, tone = lock_bucket(
+            r.get("lock_reason") or "",
+            r.get("lock_reason_comment") or "",
+        )
+        enrich = (enrich_map or {}).get(int(r.get("AID") or 0), {})
+        out.append(
+            aid_row(
+                r.get("AID"),
+                r.get("name") or "n/a",
+                agent=r.get("agent") or "",
+                agentName=agent_display(r.get("agent") or ""),
+                firstName=r.get("first_name") or "",
+                lastName=r.get("last_name") or "",
+                email=r.get("email") or "",
+                bucket=bucket,
+                lockReason=r.get("lock_reason") or "",
+                lockedAt=locked_at_d.isoformat(),
+                created=locked_at_d.isoformat(),
+                lifetimePurchase=format_lifetime_purchased(enrich)
+                if enrich
+                else fmt_money_short(0),
+                lifetimeHold=format_lifetime_hold(enrich) if enrich else "n/a",
+                tone=tone,
+            )
+        )
+    return out
+
+
 def soften_decline_rows(rows: list[dict], raw_top20: list[dict]) -> list[dict]:
     """Re-map tones to green-heavy AM Brief palette; keep all other fields."""
     by_aid = {str(r.get("AID")): r for r in raw_top20}
@@ -960,6 +1004,7 @@ def focus_for_agent(
     birthday_gift: list[dict],
     zd: list[dict],
     locks: list[dict],
+    locks_mtd: list[dict] | None = None,
     big_winners: list[dict],
     big_losers: list[dict],
     purchase: dict | None,
@@ -980,6 +1025,7 @@ def focus_for_agent(
 
     zd_a = filt(zd)
     locks_a = filt(locks)
+    locks_mtd_a = filt(locks_mtd or [])
     bw_a = filt_bw(big_winners)
     bl_a = filt([r for r in big_losers if r.get("isElite")])
     exclusion = sum(1 for r in locks_a if r.get("bucket") == "Self-exclusion")
@@ -1015,6 +1061,7 @@ def focus_for_agent(
         "focus": {
             "openZd": open_zd,
             "locked": len(locks_a),
+            "locksMtd": len(locks_mtd_a),
             "takeABreak": tab,
             "selfExclusion": exclusion,
             "otherLocked": other,
@@ -1035,6 +1082,7 @@ def focus_for_agent(
         "birthdayGift": filt(birthday_gift),
         "zendesk": zd_a,
         "locks": locks_a,
+        "locksMtd": locks_mtd_a,
         "bigWinners": bw_a,
         "bigLosers": bl_a,
         "goals": goals,
@@ -1078,3 +1126,103 @@ def build_am_shares_and_overview(agents: list[dict]) -> tuple[list[dict], list[d
         for a in agents
     ]
     return am_shares, overview
+
+
+def _bonus_lock_label(
+    locked: bool, lock_reason: str = "", lock_reason_comment: str = ""
+) -> tuple[bool, str]:
+    disabled, label = outreach_lock_gate(locked, lock_reason, lock_reason_comment)
+    if disabled:
+        return True, label or "Locked"
+    if _birthday_row_excluded(locked, lock_reason, lock_reason_comment):
+        return True, label or "Locked"
+    return False, ""
+
+
+def build_bonus_lookup_row(r: dict, report_date: date) -> dict:
+    """One AID row for the calculator sidecar from a bonus_lookup_sql row."""
+    last_play = parse_date_val(r.get("last_play_date"))
+    days_since_play = (
+        (report_date - last_play).days if last_play is not None else 9999
+    )
+    active = days_since_play < BONUS_CALC_ACTIVITY_DAYS
+    ggr_win = float(r.get("ggr_win") or 0)
+    bonus_win = float(r.get("bonus_win") or 0)
+    purchase_count_win = _safe_int(r.get("purchase_count_win"))
+    purchase_amt_win = float(r.get("purchase_amt_win") or 0)
+    ggr_lt = float(r.get("ggr_lt") or 0)
+    bonus_lt = float(r.get("bonus_lt") or 0)
+    purchase_count_lt = _safe_int(r.get("purchase_count_lt"))
+    purchase_amt_lt = float(r.get("purchase_amt_lt") or 0)
+    if active:
+        ggr = ggr_win
+        bonus = bonus_win
+        purchase_count = purchase_count_win
+        purchase_amount = purchase_amt_win
+    else:
+        ggr = ggr_lt
+        bonus = bonus_lt
+        purchase_count = purchase_count_lt
+        purchase_amount = purchase_amt_lt
+    bonus_pct_win = bonus_win / purchase_amt_win if purchase_amt_win > 0 else 0.0
+    bonus_pct_lt = bonus_lt / purchase_amt_lt if purchase_amt_lt > 0 else 0.0
+    locked = bool(r.get("locked"))
+    blocked, lock_label = _bonus_lock_label(
+        locked,
+        str(r.get("lock_reason") or ""),
+        str(r.get("lock_reason_comment") or ""),
+    )
+    aid = str(r.get("AID") or "").strip()
+    return {
+        "aid": aid,
+        "agent": agent_display(str(r.get("agent") or "")),
+        "name": str(r.get("name") or aid),
+        "email": str(r.get("email") or ""),
+        "active": active,
+        "daysSincePlay": days_since_play if days_since_play < 9999 else None,
+        "ggr": round(ggr, 2),
+        "bonus": round(bonus, 2),
+        "ngr": round(ggr - bonus, 2),
+        "purchaseCount": purchase_count,
+        "purchaseAmount": round(purchase_amount, 2),
+        "avgPurchase": round(purchase_amount / purchase_count, 2) if purchase_count else 0.0,
+        "bonusPctWindow": round(bonus_pct_win, 4),
+        "bonusPctLifetime": round(bonus_pct_lt, 4),
+        "ggrWindow": round(ggr_win, 2),
+        "bonusWindow": round(bonus_win, 2),
+        "ngrWindow": round(ggr_win - bonus_win, 2),
+        "purchaseCountWindow": purchase_count_win,
+        "purchaseAmountWindow": round(purchase_amt_win, 2),
+        "avgPurchaseWindow": round(purchase_amt_win / purchase_count_win, 2) if purchase_count_win else 0.0,
+        "ggrLifetime": round(ggr_lt, 2),
+        "bonusLifetime": round(bonus_lt, 2),
+        "ngrLifetime": round(ggr_lt - bonus_lt, 2),
+        "purchaseCountLifetime": purchase_count_lt,
+        "purchaseAmountLifetime": round(purchase_amt_lt, 2),
+        "avgPurchaseLifetime": round(purchase_amt_lt / purchase_count_lt, 2) if purchase_count_lt else 0.0,
+        "metricsSource": "window" if active else "lifetime",
+        "windowDays": BONUS_CALC_ACTIVITY_DAYS,
+        "firstPurchaseDate": str(r.get("first_purchase_date") or "")[:10] or None,
+        "lastPlayDate": str(r.get("last_play_date") or "")[:10] or None,
+        "lastPurchaseDate": str(r.get("last_purchase_date") or "")[:10] or None,
+        "locked": blocked,
+        "lockLabel": lock_label,
+    }
+
+
+def build_bonus_lookup(raw_rows: list[dict], report_date: date) -> dict:
+    rows = [build_bonus_lookup_row(r, report_date) for r in raw_rows]
+    return {"reportDate": report_date.isoformat(), "rows": rows}
+
+
+def strip_bonus_lookup_for_payload(payload: dict, lookup: dict) -> dict:
+    """Scope lookup rows to the audience implied by the brief payload."""
+    rows = lookup.get("rows") or []
+    if payload.get("singleAm"):
+        name = payload.get("singleAmName") or ""
+        rows = [r for r in rows if r.get("agent") == name]
+    elif payload.get("peerMode"):
+        allowed = set(payload.get("amOrder") or [])
+        rows = [r for r in rows if r.get("agent") in allowed]
+    return {"reportDate": lookup.get("reportDate"), "rows": rows}
+

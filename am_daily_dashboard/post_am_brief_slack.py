@@ -1,145 +1,292 @@
-"""Daily Slack DM of the Elite AM Brief HTML to each AM (Sun-Thu, private).
+"""DM each AM their Elite AM Brief HTML for the report date.
 
-Opt-in via AM_BRIEF_SLACK_ENABLED=1. Never posts to GitHub Pages.
-Requires gitignored am_slack_recipients.local.json and SLACK_BOT_TOKEN.
+Delivery (pick one):
+  *OneDrive sync (zero daily action for you or AM after setup):* scheduled
+   generate + mirror updates VIP\\Elite_Cursor\\AM Brief\\{AM}\\; share that
+   folder View-only; AM syncs via OneDrive desktop app and opens from File Explorer.
+  *Slack (fallback):* --bootstrap-if-needed once, then --send daily.
+
+Run from repo root:
+  python am_daily_dashboard/post_am_brief_slack.py --dry-run
+  python am_daily_dashboard/post_am_brief_slack.py --send
+  python am_daily_dashboard/post_am_brief_slack.py --send --bootstrap-if-needed
 """
+
 from __future__ import annotations
 
 import argparse
+import csv
 import json
-import os
-import subprocess
 import sys
-import tempfile
 from datetime import date, timedelta
 from pathlib import Path
 
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
 PACKAGE_DIR = Path(__file__).resolve().parent
-PROJECT_ROOT = PACKAGE_DIR.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 sys.path.insert(0, str(PACKAGE_DIR))
 
-from am_brief_schedule import is_send_day, report_date_for_send_day  # noqa: E402
-from canvas_to_html import write_am_brief_html  # noqa: E402
-from generate_am_daily_dashboard import (  # noqa: E402
-    CURSOR_AUDIENCE_NAMES,
-    GOALS_AM_ORDER,
-    OUTPUT_DIR,
+from mirror_am_brief import am_brief_share_dir  # noqa: E402
+from package_am_brief import package_agent  # noqa: E402
+from elite_lib.console import use_utf8_stdout  # noqa: E402
+from elite_lib.slack_post import SlackPostError, open_dm, resolve_token, upload_file  # noqa: E402
+
+RECIPIENTS_TSV = PACKAGE_DIR / "data" / "am_brief_slack_recipients.tsv"
+BOOTSTRAP_STATE = PACKAGE_DIR / "data" / "am_brief_slack_bootstrap.json"
+WORKSHOP_EXPORTS = PACKAGE_DIR / "exports"
+
+OPEN_INSTRUCTIONS = (
+    "1. *Download* the attached file(s) (Save, not preview)\n"
+    "2. Put them in your local *Elite AM Brief* folder (same folder every day)\n"
+    "3. Double-click *elite_am_brief_{slug}.html* in Chrome or Edge\n"
+    "Never open inside Slack preview or OneDrive web view."
 )
-from goals import strip_payload_for_am  # noqa: E402
 
-RECIPIENTS_PATH = PACKAGE_DIR / "data" / "am_slack_recipients.local.json"
-SLACK_AM_ORDER = GOALS_AM_ORDER
+BOOTSTRAP_INSTRUCTIONS = (
+    "*First-time only:* unzip the attached zip to e.g. "
+    "Documents\\Elite AM Brief\\{agent}\\. "
+    "Open elite_am_brief_{slug}.html from that folder. "
+    "Each morning, save new attachments into the *same* folder so the calendar keeps working."
+)
+
+def resolve_report_date(arg: str | None) -> date:
+    if arg:
+        return date.fromisoformat(arg)
+    return date.today() - timedelta(days=1)
 
 
-def slack_enabled() -> bool:
-    return os.environ.get("AM_BRIEF_SLACK_ENABLED", "").strip().lower() in {
-        "1",
-        "true",
-        "yes",
-    }
-
-
-def load_recipients() -> dict[str, str]:
-    if not RECIPIENTS_PATH.is_file():
+def load_recipients(*, agent: str = "") -> list[dict[str, str]]:
+    if not RECIPIENTS_TSV.is_file():
         raise SystemExit(
-            f"Missing {RECIPIENTS_PATH.name}. Copy "
-            f"am_slack_recipients.local.json.example and fill Slack user IDs."
+            f"Recipients file missing: {RECIPIENTS_TSV}\n"
+            "Copy data/am_brief_slack_recipients.tsv.example and fill Slack user ids."
         )
-    data = json.loads(RECIPIENTS_PATH.read_text(encoding="utf-8"))
-    return {str(k): str(v) for k, v in data.items()}
+    rows: list[dict[str, str]] = []
+    with RECIPIENTS_TSV.open(encoding="utf-8", newline="") as handle:
+        for row in csv.DictReader(handle, delimiter="\t"):
+            if (row.get("enabled") or "").strip().lower() not in ("yes", "y", "1", "true"):
+                continue
+            name = (row.get("agent") or "").strip()
+            slug = (row.get("slug") or "").strip().lower()
+            user_id = (row.get("slack_user_id") or "").strip()
+            if not name or not slug or not user_id:
+                continue
+            if agent and name.lower() != agent.strip().lower():
+                continue
+            rows.append({"agent": name, "slug": slug, "slack_user_id": user_id})
+    if not rows:
+        hint = f" for {agent}" if agent else ""
+        raise SystemExit(f"No enabled recipients{hint} in {RECIPIENTS_TSV}")
+    return rows
 
 
-def run_catch_up() -> None:
-    cmd = [
-        sys.executable,
-        str(PACKAGE_DIR / "generate_am_brief_range.py"),
-        "--catch-up",
-        "--verify",
-    ]
-    subprocess.run(cmd, cwd=PROJECT_ROOT, check=True)
+def brief_html_paths(report_date: date, agent: str, slug: str) -> tuple[Path | None, Path | None]:
+    """Return (dated, bookmark) paths for an AM audience."""
+    dated_name = f"{report_date.isoformat()}_elite_am_brief_{slug}.html"
+    bookmark_name = f"elite_am_brief_{slug}.html"
+    share_dir = am_brief_share_dir(agent_name=agent)
+    dated: Path | None = None
+    bookmark: Path | None = None
+    if share_dir is not None:
+        if (share_dir / dated_name).is_file():
+            dated = share_dir / dated_name
+        if (share_dir / bookmark_name).is_file():
+            bookmark = share_dir / bookmark_name
+    if dated is None and (WORKSHOP_EXPORTS / dated_name).is_file():
+        dated = WORKSHOP_EXPORTS / dated_name
+    return dated, bookmark
 
 
-def ensure_manager_json(report_date: date) -> Path:
-    json_path = OUTPUT_DIR / f"{report_date.isoformat()}_elite_am_brief.json"
-    if json_path.is_file():
-        return json_path
-    cmd = [
-        sys.executable,
-        str(PACKAGE_DIR / "generate_am_daily_dashboard.py"),
-        "--date",
-        report_date.isoformat(),
-    ]
-    subprocess.run(cmd, cwd=PROJECT_ROOT, check=True)
-    if not json_path.is_file():
-        raise SystemExit(f"Generate did not produce {json_path}")
-    return json_path
+def load_bootstrap_state() -> dict[str, bool]:
+    if not BOOTSTRAP_STATE.is_file():
+        return {}
+    try:
+        raw = json.loads(BOOTSTRAP_STATE.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return {}
+    return {str(k): bool(v) for k, v in raw.items()}
 
 
-def human_date(d: date) -> str:
-    return d.strftime("%a %d %b %Y")
+def save_bootstrap_state(state: dict[str, bool]) -> None:
+    BOOTSTRAP_STATE.parent.mkdir(parents=True, exist_ok=True)
+    BOOTSTRAP_STATE.write_text(json.dumps(state, indent=2), encoding="utf-8")
 
 
-def post_am_briefs(report_date: date, *, dry_run: bool = False) -> None:
-    from elite_lib.slack_post import SlackPostError, post_dm_file
+def build_daily_message(agent: str, slug: str, report_date: date) -> str:
+    subtitle = report_date.strftime("%A %d %b %Y")
+    return "\n".join(
+        [
+            f"*Elite AM Brief* — {subtitle}",
+            "",
+            f"Hi {agent} — your morning board is attached.",
+            "",
+            "*How to open:*",
+            OPEN_INSTRUCTIONS.format(slug=slug),
+            "",
+            "Save today's file(s) into the same folder as your history zip, then open "
+            f"`elite_am_brief_{slug}.html` for the calendar.",
+        ]
+    )
 
-    json_path = ensure_manager_json(report_date)
-    payload = json.loads(json_path.read_text(encoding="utf-8"))
-    recipients = load_recipients()
 
-    for slug in SLACK_AM_ORDER:
-        name = CURSOR_AUDIENCE_NAMES[slug]
-        user_id = recipients.get(name)
-        if not user_id or user_id.startswith("U000"):
-            print(f"Skip {name}: no Slack user id in {RECIPIENTS_PATH.name}")
-            continue
-        am_payload = strip_payload_for_am(payload, name)
-        with tempfile.NamedTemporaryFile(
-            suffix=".html", prefix=f"elite_am_brief_{slug}_", delete=False
-        ) as tmp:
-            tmp_path = Path(tmp.name)
-        write_am_brief_html(am_payload, tmp_path)
-        comment = f"Elite Dashboard · {human_date(report_date)}"
-        if dry_run:
-            print(f"Would DM {name} ({user_id}): {comment} [{tmp_path.name}]")
-            tmp_path.unlink(missing_ok=True)
-            continue
-        try:
-            post_dm_file(user_id, tmp_path, comment=comment)
-            print(f"Slack DM sent to {name}")
-        except SlackPostError as exc:
-            print(f"Slack DM failed for {name}: {exc}", file=sys.stderr)
-        finally:
-            tmp_path.unlink(missing_ok=True)
+def build_bootstrap_message(agent: str, slug: str) -> str:
+    return "\n".join(
+        [
+            f"*Elite AM Brief — one-time setup*",
+            "",
+            f"Hi {agent} — attached is your full brief history (zip).",
+            "",
+            BOOTSTRAP_INSTRUCTIONS.format(agent=agent, slug=slug),
+            "",
+            OPEN_INSTRUCTIONS.format(slug=slug),
+        ]
+    )
+
+
+def send_bootstrap(
+    recipient: dict[str, str],
+    *,
+    dry_run: bool,
+    token: str | None,
+    force: bool,
+) -> bool:
+    """Send history zip once per AM. Returns True if sent (or would send)."""
+    agent = recipient["agent"]
+    state = load_bootstrap_state()
+    if state.get(agent) and not force:
+        print(f"  Bootstrap skip {agent} (already sent)")
+        return False
+    zip_path = package_agent(agent)
+    message = build_bootstrap_message(agent, recipient["slug"])
+    size_mb = zip_path.stat().st_size / (1024 * 1024)
+    prefix = "[DRY RUN] " if dry_run else ""
+    print(f"{prefix}Bootstrap {agent}: {zip_path.name} ({size_mb:.1f} MB)")
+    if dry_run:
+        return True
+    channel_id = open_dm(recipient["slack_user_id"], token=token)
+    upload_file(
+        zip_path,
+        channel_id,
+        comment=message,
+        title=f"Elite AM Brief setup — {agent}",
+        token=token,
+    )
+    state[agent] = True
+    save_bootstrap_state(state)
+    print(f"  Bootstrap sent to DM {channel_id}")
+    return True
+
+
+def post_daily_for_am(
+    recipient: dict[str, str],
+    report_date: date,
+    *,
+    dry_run: bool,
+    token: str | None,
+) -> None:
+    slug = recipient["slug"]
+    dated, bookmark = brief_html_paths(report_date, recipient["agent"], slug)
+    if dated is None:
+        raise SystemExit(
+            f"No per-AM brief for {recipient['agent']} on {report_date.isoformat()}. "
+            "Run generate_am_daily_dashboard.py for that date first."
+        )
+    paths = [dated]
+    if bookmark and bookmark.resolve() != dated.resolve():
+        paths.append(bookmark)
+    message = build_daily_message(recipient["agent"], slug, report_date)
+    prefix = "[DRY RUN] " if dry_run else ""
+    names = ", ".join(p.name for p in paths)
+    total_kb = sum(p.stat().st_size for p in paths) // 1024
+    print(
+        f"{prefix}{recipient['agent']} ({recipient['slack_user_id']}): "
+        f"{names} ({total_kb} KB)"
+    )
+    if dry_run:
+        return
+    channel_id = open_dm(recipient["slack_user_id"], token=token)
+    for i, path in enumerate(paths):
+        upload_file(
+            path,
+            channel_id,
+            comment=message if i == 0 else "",
+            title=f"Elite AM Brief — {report_date.isoformat()}",
+            token=token,
+        )
+    print(f"  Sent to DM {channel_id}")
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Slack DM Elite AM Brief to each AM")
+    use_utf8_stdout()
+    parser = argparse.ArgumentParser(description="DM Elite AM Brief HTML to each AM")
     parser.add_argument("--date", help="Report date YYYY-MM-DD (default: yesterday)")
-    parser.add_argument("--dry-run", action="store_true")
     parser.add_argument(
-        "--skip-catch-up",
+        "--agent",
+        help="Send to one AM only (e.g. Coral)",
+    )
+    parser.add_argument(
+        "--dry-run",
         action="store_true",
-        help="Do not run generate_am_brief_range --catch-up first",
+        help="Print recipients and message text without calling Slack (default)",
+    )
+    parser.add_argument(
+        "--send",
+        action="store_true",
+        help="Upload the HTML to each AM's Slack DM",
+    )
+    parser.add_argument(
+        "--bootstrap-if-needed",
+        action="store_true",
+        help="Send history zip once per AM (tracked in data/am_brief_slack_bootstrap.json)",
+    )
+    parser.add_argument(
+        "--force-bootstrap",
+        action="store_true",
+        help="Re-send history zip even if bootstrap was already sent",
     )
     args = parser.parse_args()
+    dry_run = not args.send
+    report_date = resolve_report_date(args.date)
+    token = None if dry_run else resolve_token()
+    if not dry_run and not token:
+        raise SystemExit(
+            "No Slack bot token configured. Use --dry-run to preview, or set "
+            "SLACK_BOT_TOKEN / elite_lib/_local_credentials.py before --send."
+        )
 
-    today = date.today()
-    if not args.dry_run and not is_send_day(today):
-        print(f"Skip: AM Brief Slack runs Sun-Thu only (today is {today:%A}).")
-        return
-
-    if not args.dry_run and not slack_enabled():
-        print("Skip: AM_BRIEF_SLACK_ENABLED is not set.")
-        return
-
-    if not args.skip_catch_up and not args.dry_run:
-        run_catch_up()
-
-    report_date = (
-        date.fromisoformat(args.date) if args.date else report_date_for_send_day(today)
-    )
-    post_am_briefs(report_date, dry_run=args.dry_run)
+    recipients = load_recipients(agent=args.agent or "")
+    mode = "DRY RUN" if dry_run else "SEND"
+    print(f"Elite AM Brief Slack — {report_date.isoformat()} ({mode})")
+    errors = 0
+    if args.bootstrap_if_needed or args.force_bootstrap:
+        print("\nBootstrap (history zip)")
+        for recipient in recipients:
+            try:
+                send_bootstrap(
+                    recipient,
+                    dry_run=dry_run,
+                    token=token,
+                    force=args.force_bootstrap,
+                )
+            except (SlackPostError, SystemExit) as exc:
+                errors += 1
+                print(f"  ERROR bootstrap {recipient['agent']}: {exc}")
+    print("\nDaily brief")
+    for recipient in recipients:
+        try:
+            post_daily_for_am(
+                recipient,
+                report_date,
+                dry_run=dry_run,
+                token=token,
+            )
+        except (SlackPostError, SystemExit) as exc:
+            errors += 1
+            print(f"  ERROR: {recipient['agent']}: {exc}")
+    if errors:
+        raise SystemExit(f"{errors} recipient(s) failed")
+    if dry_run:
+        print("\nDry run complete. Re-run with --send to post to Slack.")
 
 
 if __name__ == "__main__":

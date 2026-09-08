@@ -33,6 +33,9 @@ from payload_builders import (  # noqa: E402
     build_big_winners_section,
     build_birthday_gift_section,
     build_birthday_section,
+    build_bonus_lookup,
+    build_bonus_lookup_row,
+    build_lock_mtd_section,
     build_lock_section,
     build_package_fit,
     build_rd_section,
@@ -46,6 +49,7 @@ from payload_builders import (  # noqa: E402
     parse_date_val,
     soften_decline_rows,
     soft_tone_for_code,
+    strip_bonus_lookup_for_payload,
     unlock_info,
     _safe_int,
     _ticket_ids_list,
@@ -1000,6 +1004,7 @@ def _lock_row(
         "AID": aid, "name": "Locked Player", "agent": agent,
         "lock_reason": lock_reason, "lock_reason_comment": lock_reason_comment,
         "locked_at": (REPORT_DATE - timedelta(days=days_ago)).isoformat(),
+        "locked": True,
     }
 
 
@@ -1067,6 +1072,32 @@ class BuildLockSectionTests(unittest.TestCase):
 
     def test_empty_rows(self) -> None:
         self.assertEqual(build_lock_section([], REPORT_DATE), [])
+
+
+class BuildLockMtdSectionTests(unittest.TestCase):
+    def test_includes_lock_in_report_month(self) -> None:
+        out = build_lock_mtd_section(
+            [_lock_row(lock_reason="Fraud", lock_reason_comment="", days_ago=2)],
+            REPORT_DATE,
+        )
+        self.assertEqual(len(out), 1)
+        self.assertEqual(out[0]["lockReason"], "Fraud")
+
+    def test_excludes_prior_month_lock(self) -> None:
+        from datetime import timedelta
+        prior = REPORT_DATE.replace(day=1) - timedelta(days=5)
+        days_ago = (REPORT_DATE - prior).days
+        out = build_lock_mtd_section(
+            [_lock_row(lock_reason="Fraud", days_ago=days_ago)],
+            REPORT_DATE,
+        )
+        self.assertEqual(len(out), 0)
+
+    def test_excludes_unlocked_row(self) -> None:
+        row = _lock_row(days_ago=0)
+        row["locked"] = False
+        out = build_lock_mtd_section([row], REPORT_DATE)
+        self.assertEqual(len(out), 0)
 
 
 class SoftenDeclineRowsTests(unittest.TestCase):
@@ -1150,7 +1181,7 @@ class FocusForAgentTests(unittest.TestCase):
             agent_name, "Monday",
             top10=[], decline=[], rd5k=[], rd_first=[], birthdays=[], anniversary=[],
             birthday_gift=[],
-            zd=[], locks=[], big_winners=[], big_losers=[],
+            zd=[], locks=[], locks_mtd=[], big_winners=[], big_losers=[],
             purchase={"purchased": 12000.0, "purchased_players": 40},
             total_players=560,
             elite_rev=40000.0, elite_ply=130,
@@ -1160,7 +1191,7 @@ class FocusForAgentTests(unittest.TestCase):
         result = self._minimal_focus()
         for key in ("agentName", "greetingLines", "purchase", "purchasedPlayers",
                     "totalPlayers", "focus", "top10", "decline", "rdOver5k",
-                    "rdFirstTime", "birthdays", "zendesk", "locks", "bigWinners", "bigLosers", "goals"):
+                    "rdFirstTime", "birthdays", "zendesk", "locks", "locksMtd", "bigWinners", "bigLosers", "goals"):
             self.assertIn(key, result)
 
     def test_agent_name_matches(self) -> None:
@@ -1183,7 +1214,7 @@ class FocusForAgentTests(unittest.TestCase):
             "Alon", "Monday",
             top10=[], decline=[], rd5k=[], rd_first=[], birthdays=[], anniversary=[],
             birthday_gift=[],
-            zd=[], locks=[], big_winners=[], big_losers=[], purchase=None, total_players=0,
+            zd=[], locks=[], locks_mtd=[], big_winners=[], big_losers=[], purchase=None, total_players=0,
             elite_rev=40000.0, elite_ply=130,
         )
         self.assertEqual(result["purchasedPlayers"], 0)
@@ -1298,6 +1329,107 @@ class LockedRdSqlTests(unittest.TestCase):
 
         sql = am_queries.locked_rd_over_5k_sql(date(2026, 8, 24))
         self.assertIn("DATE(w.created_at) >= DATE_SUB", sql)
+
+
+class BonusLookupTests(unittest.TestCase):
+    def test_active_player_uses_window_metrics(self) -> None:
+        report = date(2026, 8, 31)
+        row = build_bonus_lookup_row(
+            {
+                "AID": "900001",
+                "agent": "coral_s",
+                "name": "Window Player",
+                "last_play_date": "2026-08-30",
+                "ggr_win": 500,
+                "bonus_win": 50,
+                "purchase_count_win": 5,
+                "purchase_amt_win": 200,
+                "ggr_lt": 900,
+                "bonus_lt": 80,
+                "purchase_count_lt": 10,
+                "purchase_amt_lt": 400,
+                "locked": False,
+            },
+            report,
+        )
+        self.assertTrue(row["active"])
+        self.assertEqual(row["ggr"], 500.0)
+        self.assertEqual(row["ngr"], 450.0)
+        self.assertEqual(row["agent"], "Coral")
+        self.assertEqual(row["ggrWindow"], 500.0)
+        self.assertEqual(row["ggrLifetime"], 900.0)
+        self.assertEqual(row["metricsSource"], "window")
+        self.assertEqual(row["windowDays"], 14)
+
+    def test_inactive_player_uses_lifetime_metrics(self) -> None:
+        report = date(2026, 8, 31)
+        row = build_bonus_lookup_row(
+            {
+                "AID": "900002",
+                "agent": "gabriel_e",
+                "name": "Lifetime Player",
+                "last_play_date": "2026-08-01",
+                "ggr_win": 100,
+                "bonus_win": 10,
+                "purchase_count_win": 1,
+                "purchase_amt_win": 20,
+                "ggr_lt": 800,
+                "bonus_lt": 60,
+                "purchase_count_lt": 8,
+                "purchase_amt_lt": 320,
+                "locked": False,
+            },
+            report,
+        )
+        self.assertFalse(row["active"])
+        self.assertEqual(row["ggr"], 800.0)
+        self.assertEqual(row["purchaseCount"], 8)
+        self.assertEqual(row["metricsSource"], "lifetime")
+
+    def test_locked_player_flagged(self) -> None:
+        report = date(2026, 8, 31)
+        row = build_bonus_lookup_row(
+            {
+                "AID": "900003",
+                "agent": "coral_s",
+                "name": "Locked Player",
+                "last_play_date": "2026-08-30",
+                "ggr_win": 500,
+                "bonus_win": 0,
+                "purchase_count_win": 1,
+                "purchase_amt_win": 50,
+                "ggr_lt": 500,
+                "bonus_lt": 0,
+                "purchase_count_lt": 1,
+                "purchase_amt_lt": 50,
+                "locked": True,
+                "lock_reason": "self_exclusion",
+            },
+            report,
+        )
+        self.assertTrue(row["locked"])
+        self.assertTrue(row["lockLabel"])
+
+    def test_strip_scopes_single_am(self) -> None:
+        lookup = build_bonus_lookup(
+            [
+                {"AID": "1", "agent": "coral_s", "name": "A", "last_play_date": "2026-08-30",
+                 "ggr_win": 1, "bonus_win": 0, "purchase_count_win": 0, "purchase_amt_win": 0,
+                 "ggr_lt": 1, "bonus_lt": 0, "purchase_count_lt": 0, "purchase_amt_lt": 0,
+                 "locked": False},
+                {"AID": "2", "agent": "gabriel_e", "name": "B", "last_play_date": "2026-08-30",
+                 "ggr_win": 1, "bonus_win": 0, "purchase_count_win": 0, "purchase_amt_win": 0,
+                 "ggr_lt": 1, "bonus_lt": 0, "purchase_count_lt": 0, "purchase_amt_lt": 0,
+                 "locked": False},
+            ],
+            date(2026, 8, 31),
+        )
+        scoped = strip_bonus_lookup_for_payload(
+            {"singleAm": True, "singleAmName": "Coral"},
+            lookup,
+        )
+        agents = {r["agent"] for r in scoped["rows"]}
+        self.assertEqual(agents, {"Coral"})
 
 
 class QueriesIsoTests(unittest.TestCase):

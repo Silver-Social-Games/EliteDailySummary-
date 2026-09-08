@@ -1,4 +1,4 @@
-# AM Brief morning send — Sun-Thu 10:00 AM Israel (separate from daily summary Pages).
+# AM Brief morning send — daily 10:00 AM Israel (separate from daily summary Pages).
 param(
     [switch]$EnableAmBriefSlack
 )
@@ -16,14 +16,6 @@ function Write-Log([string]$Message) {
 
 Write-Log "Starting AM Brief scheduled run (cwd=$ProjectRoot)"
 
-if (-not $env:GOOGLE_APPLICATION_CREDENTIALS) {
-    $DefaultKey = 'c:\Users\Owner\Downloads\key.json.json'
-    if (Test-Path $DefaultKey) {
-        $env:GOOGLE_APPLICATION_CREDENTIALS = $DefaultKey
-        Write-Log "Set GOOGLE_APPLICATION_CREDENTIALS=$DefaultKey"
-    }
-}
-
 $Python = (Get-Command python -ErrorAction SilentlyContinue).Source
 if (-not $Python) {
     $Python = (Get-Command python3 -ErrorAction SilentlyContinue).Source
@@ -31,6 +23,27 @@ if (-not $Python) {
 if (-not $Python) {
     Write-Log "ERROR: Python not found on PATH"
     exit 1
+}
+
+$ScheduleCheck = @"
+import sys
+sys.path.insert(0, r'$ProjectRoot')
+sys.path.insert(0, r'$ProjectRoot\am_daily_dashboard')
+from am_brief_schedule import is_send_day
+print('yes' if is_send_day() else 'no')
+"@
+$sendToday = (& $Python -c $ScheduleCheck 2>&1 | Select-Object -Last 1).ToString().Trim()
+if ($sendToday -ne 'yes') {
+    Write-Log "Skipped: not a send day (unexpected — is_send_day should be true daily)"
+    exit 0
+}
+
+if (-not $env:GOOGLE_APPLICATION_CREDENTIALS) {
+    $DefaultKey = 'c:\Users\Owner\Downloads\key.json.json'
+    if (Test-Path $DefaultKey) {
+        $env:GOOGLE_APPLICATION_CREDENTIALS = $DefaultKey
+        Write-Log "Set GOOGLE_APPLICATION_CREDENTIALS=$DefaultKey"
+    }
 }
 
 Set-Location $ProjectRoot
@@ -59,8 +72,8 @@ if (Test-Path $Manifest) {
 if ($EnableAmBriefSlack) {
     $env:AM_BRIEF_SLACK_ENABLED = '1'
     $PostAm = Join-Path $ProjectRoot 'am_daily_dashboard\post_am_brief_slack.py'
-    Write-Log "Running AM Brief Slack DMs: $PostAm --skip-catch-up"
-    & $Python $PostAm --skip-catch-up 2>&1 | ForEach-Object {
+    Write-Log "Running AM Brief Slack: bootstrap-if-needed + daily send"
+    & $Python $PostAm --send --bootstrap-if-needed 2>&1 | ForEach-Object {
         Write-Log $_
         $_
     }

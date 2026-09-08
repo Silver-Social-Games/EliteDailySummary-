@@ -27,8 +27,10 @@ for _p in (PROJECT_ROOT, PACKAGE_DIR):
         sys.path.insert(0, str(_p))
 
 from canvas_to_html import write_am_brief_html  # noqa: E402
+from payload_builders import strip_bonus_lookup_for_payload  # noqa: E402
 
 from testing.payload_fixtures import (  # noqa: E402
+    build_bonus_lookup_fixture,
     build_empty_sections_payload,
     build_large_tickets_payload,
     build_manager_payload,
@@ -37,6 +39,7 @@ from testing.payload_fixtures import (  # noqa: E402
 )
 
 OUT_DIR = PACKAGE_DIR / "tests_js" / "fixtures"
+BONUS_LOOKUP = build_bonus_lookup_fixture()
 
 
 def _meta(payload: dict) -> dict:
@@ -60,7 +63,8 @@ def _meta(payload: dict) -> dict:
 def _write(name: str, payload: dict) -> None:
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     html_path = OUT_DIR / f"{name}.html"
-    write_am_brief_html(payload, html_path)
+    scoped = strip_bonus_lookup_for_payload(payload, BONUS_LOOKUP)
+    write_am_brief_html(payload, html_path, bonus_lookup=scoped)
     (OUT_DIR / f"{name}.meta.json").write_text(
         json.dumps(_meta(payload), indent=2), encoding="utf-8"
     )

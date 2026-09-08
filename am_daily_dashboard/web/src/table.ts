@@ -164,11 +164,14 @@ export function tableCard(opts: TableCardOpts): string {
       : "";
 
   const note = opts.note
-    ? `<div class="card-sub" style="margin:2px 0 10px">${esc(opts.note)}</div>`
+    ? `<div class="card-sub table-section-note">${esc(opts.note)}</div>`
     : "";
+  const heading = opts.title
+    ? `<div class="card-head table-section-head"><div class="card-title">${esc(opts.title)}</div></div>`
+    : note;
 
   return `<div class="card${opts.cardClass ? ` ${opts.cardClass}` : ""}${opts.compact ? " fit-content" : ""}">
-        ${note}
+        ${heading}
         ${toolbar}
         ${tableHtml(opts.headers, slice.map(opts.renderRow), opts.align, slice.map((r) => r.tone || "neutral"), {
           markerCol: opts.markerCol,
