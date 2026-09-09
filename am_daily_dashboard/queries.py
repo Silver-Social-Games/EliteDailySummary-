@@ -17,6 +17,9 @@ from config import (
     BIRTHDAY_GIFT_MIN_30D_PURCHASE,
     BIRTHDAY_GIFT_MIN_HOLD_PCT,
     BONUS_CALC_ACTIVITY_DAYS,
+    LOCK_TAB_ALERT_MIN_30D_PURCHASE,
+    LOCK_TAB_ALERT_MIN_HOLD_PCT,
+    LOCKS_WINDOW_DAYS,
     GOALS_ACTIVE_LOOKBACK_DAYS,
     GOALS_REACTIVATION_GAP_DAYS,
     PENDING_RD_LOOKBACK_DAYS,
@@ -731,6 +734,86 @@ INNER JOIN `{PROJECT_ID}.transactional_data.uam_accounts` ua ON ua.id = e.accoun
 LEFT JOIN `{PROJECT_ID}.transactional_data.uam_persons` per ON per.id = ua.person_id
 WHERE COALESCE(ua.locked, FALSE) = TRUE
 ORDER BY e.agent, name
+""".strip()
+
+
+def lock_tab_alert_sql(report_date: date) -> str:
+    """Locked Elite AM accounts in the trailing LOCKS_WINDOW_DAYS with high 30DP and Hold.
+
+    Lock-type filtering (Take a break / Other locked, not Self-exclusion) is
+    applied in Python via payload_builders.lock_bucket(). Metrics match
+    birthday_gift_sql / enrich lifetime + 30-day purchase windows.
+    """
+    d = _iso(report_date)
+    lookback_interval = LOCKS_WINDOW_DAYS - 1
+    return f"""
+WITH
+{_elite_am_book_ctes()},
+params AS (
+  SELECT DATE '{d}' AS report_date
+),
+lifetime AS (
+  SELECT
+    k.account_id,
+    SUM(CAST(k.purchased AS FLOAT64)) AS lifetime_purchased,
+    SUM(
+      CAST(k.purchased AS FLOAT64) - CAST(k.redeemed AS FLOAT64)
+      - CAST(k.chargeback AS FLOAT64) - CAST(k.refunds AS FLOAT64)
+    ) AS lifetime_net_purchase
+  FROM `{PROJECT_ID}.jackpota_agg.daily_player_revenue_kpis` k
+  INNER JOIN elite_am e ON e.account_id = k.account_id
+  GROUP BY k.account_id
+),
+purchase_30d AS (
+  SELECT
+    k.account_id,
+    SUM(CAST(k.purchased AS FLOAT64)) AS purchased_30d
+  FROM `{PROJECT_ID}.jackpota_agg.daily_player_revenue_kpis` k
+  INNER JOIN elite_am e ON e.account_id = k.account_id
+  CROSS JOIN params p
+  WHERE k.date BETWEEN DATE_SUB(p.report_date, INTERVAL 30 DAY) AND p.report_date
+  GROUP BY k.account_id
+),
+locked AS (
+  SELECT
+    e.agent,
+    e.account_id AS AID,
+    COALESCE(
+      NULLIF(TRIM(CONCAT(IFNULL(per.first_name, ''), ' ', IFNULL(per.last_name, ''))), ''),
+      ua.name,
+      ua.email,
+      CAST(e.account_id AS STRING)
+    ) AS name,
+    COALESCE(ua.lock_reason, '') AS lock_reason,
+    COALESCE(ua.lock_reason_comment, '') AS lock_reason_comment,
+    DATE(ua.locked_at) AS locked_at
+  FROM elite_am e
+  INNER JOIN `{PROJECT_ID}.transactional_data.uam_accounts` ua ON ua.id = e.account_id
+  LEFT JOIN `{PROJECT_ID}.transactional_data.uam_persons` per ON per.id = ua.person_id
+  CROSS JOIN params p
+  WHERE COALESCE(ua.locked, FALSE) = TRUE
+    AND ua.locked_at IS NOT NULL
+    AND DATE(ua.locked_at) BETWEEN DATE_SUB(p.report_date, INTERVAL {lookback_interval} DAY)
+                               AND p.report_date
+)
+SELECT
+  l.agent,
+  l.AID,
+  l.name,
+  l.lock_reason,
+  l.lock_reason_comment,
+  l.locked_at,
+  ROUND(lt.lifetime_purchased, 2) AS lifetime_purchased,
+  ROUND(lt.lifetime_net_purchase, 2) AS lifetime_net_purchase,
+  ROUND(COALESCE(p30.purchased_30d, 0), 2) AS purchased_30d,
+  ROUND(SAFE_DIVIDE(lt.lifetime_net_purchase, NULLIF(lt.lifetime_purchased, 0)), 4) AS hold_pct
+FROM locked l
+INNER JOIN lifetime lt ON lt.account_id = l.AID
+LEFT JOIN purchase_30d p30 ON p30.account_id = l.AID
+WHERE lt.lifetime_purchased > 0
+  AND lt.lifetime_net_purchase / lt.lifetime_purchased >= {LOCK_TAB_ALERT_MIN_HOLD_PCT}
+  AND COALESCE(p30.purchased_30d, 0) >= {LOCK_TAB_ALERT_MIN_30D_PURCHASE}
+ORDER BY l.agent, purchased_30d DESC, l.name
 """.strip()
 
 

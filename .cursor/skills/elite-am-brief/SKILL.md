@@ -84,6 +84,37 @@ Last verify PASS: YYYY-MM-DD. Do not read exports/ JSON.
 
 Or: `python am_daily_dashboard/print_handoff.py` plus the Slack go-live line.
 
+## Lock/TAB management Slack (locked 2026-09-09)
+
+High-value Elite **close / TAB** alerts to private `#big-players-account-closures`
+(Sun–Thu with AM Brief scheduled run). Same lock source as the AM Brief **Locked &
+Take A Break** section; filters in Python exclude self-exclusion.
+
+| Gate | Value |
+|---|---|
+| 30D Purchase | ≥ $10,000 |
+| Hold (lifetime) | ≥ 50% |
+| Lock types | Take a break + Other locked |
+
+**One-time setup:** invite the Elite Slack bot to the private channel; set
+`ELITE_LOCK_TAB_SLACK_CHANNEL = "C…"` in `elite_lib/_local_credentials.py`
+(channel name alone fails for private channels).
+
+```bash
+python am_daily_dashboard/post_lock_tab_slack.py --dry-run --force   # preview (~30s BQ)
+python am_daily_dashboard/post_lock_tab_slack.py --send --force --resend  # delete stored ts + repost
+```
+
+**Message shape (locked):** `*Elite Lock Alert*` · bullets with `AID:` · player
+name = Looker link · `AM:` · `Lock Date:` · `Reason:` · `LTP` · `Hold` ·
+`30D Purchase:` · bot display name **Elite Updates**. **Show the user a chat
+preview before the first live send or any format change** — do not post until
+they confirm.
+
+Dedupe + delete: `am_daily_dashboard/data/lock_tab_slack_sent.json` stores Slack
+`ts` per lock event; `--resend` deletes the stored message then reposts. History
+search needs `channels:history` on the bot — otherwise delete manually once.
+
 `--goals-only` runs the single Goals query, prints the Goal / MTD / Pace / Status
 audit plus that run's month-shape divisors, and writes nothing (~6s vs ~110s).
 Use it when reconciling Goals numbers against an external sheet.

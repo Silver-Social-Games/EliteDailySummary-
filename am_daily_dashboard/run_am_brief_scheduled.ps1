@@ -1,4 +1,4 @@
-# AM Brief morning send — daily 10:00 AM Israel (separate from daily summary Pages).
+# AM Brief morning send - daily 10:00 AM Israel (separate from daily summary Pages).
 param(
     [switch]$EnableAmBriefSlack
 )
@@ -34,7 +34,7 @@ print('yes' if is_send_day() else 'no')
 "@
 $sendToday = (& $Python -c $ScheduleCheck 2>&1 | Select-Object -Last 1).ToString().Trim()
 if ($sendToday -ne 'yes') {
-    Write-Log "Skipped: not a send day (unexpected — is_send_day should be true daily)"
+    Write-Log "Skipped: not a send day (unexpected - is_send_day should be true daily)"
     exit 0
 }
 
@@ -81,5 +81,13 @@ if ($EnableAmBriefSlack) {
 } else {
     Write-Log "AM Brief Slack disabled (pass -EnableAmBriefSlack to turn on)"
 }
+
+$LockTab = Join-Path $ProjectRoot 'am_daily_dashboard\post_lock_tab_slack.py'
+Write-Log "Running lock/TAB management Slack alerts"
+& $Python $LockTab --send 2>&1 | ForEach-Object {
+    Write-Log $_
+    $_
+}
+Write-Log "Lock/TAB Slack exit code: $LASTEXITCODE"
 
 exit $code

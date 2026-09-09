@@ -196,6 +196,18 @@ BIRTHDAY_GIFT_MIN_30D_PURCHASE: float = 4_000  # 30-day purchase >= $4 000
 BIRTHDAY_GIFT_REFRESH_DOW: int = 6            # Sunday
 
 # ---------------------------------------------------------------------------
+# Lock/TAB management Slack alert (#big-players-account-closures)
+# ---------------------------------------------------------------------------
+# Posted daily with AM Brief (Sun–Thu). Take a break + account closure only;
+# self-exclusion excluded in Python via lock_bucket().
+LOCK_TAB_ALERT_MIN_30D_PURCHASE: float = 10_000
+LOCK_TAB_ALERT_MIN_HOLD_PCT: float = 0.50
+LOCK_TAB_SLACK_CHANNEL: str = os.environ.get(
+    "ELITE_LOCK_TAB_SLACK_CHANNEL", "big-players-account-closures"
+)
+LOCK_TAB_SLACK_BOT_NAME: str = "Elite Updates"
+
+# ---------------------------------------------------------------------------
 # One-month anniversary (Phase C)
 # ---------------------------------------------------------------------------
 # Days after agent_start_managed_date that count as the one-month anniversary

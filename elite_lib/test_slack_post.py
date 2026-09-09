@@ -53,6 +53,17 @@ class PostMessageTests(unittest.TestCase):
         body = json.loads(request.data.decode("utf-8"))
         self.assertEqual(body, {"channel": "C123", "text": "hello"})
 
+    def test_username_in_payload_when_provided(self) -> None:
+        response = MagicMock()
+        response.read.return_value = json.dumps({"ok": True, "ts": "123.456"}).encode("utf-8")
+        response.__enter__.return_value = response
+
+        with patch("elite_lib.slack_post.urllib.request.urlopen", return_value=response) as mock_open:
+            post_message("C123", "hello", token="xoxb-test", username="Elite Updates")
+
+        body = json.loads(mock_open.call_args[0][0].data.decode("utf-8"))
+        self.assertEqual(body["username"], "Elite Updates")
+
     def test_raises_when_slack_returns_not_ok(self) -> None:
         response = MagicMock()
         response.read.return_value = json.dumps(

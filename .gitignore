@@ -40,6 +40,7 @@ am_daily_dashboard/handoffs/*
 am_daily_dashboard/data/am_slack_recipients.local.json
 am_daily_dashboard/data/am_brief_slack_recipients.tsv
 am_daily_dashboard/data/am_brief_slack_bootstrap.json
+am_daily_dashboard/data/lock_tab_slack_sent.json
 am_daily_dashboard/data/birthday_gift_weekly.json
 am_daily_dashboard/logs/
 monthly_summaries/*
