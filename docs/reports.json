@@ -1,5 +1,53 @@
 [
   {
+    "filename": "2026-09-22_elite_daily_summary_canvas.html",
+    "kind": "daily",
+    "label": "daily",
+    "title": "Daily 2026-09-22",
+    "date": "2026-09-22",
+    "sort_key": "2026-09-22"
+  },
+  {
+    "filename": "2026-09-13_elite_daily_summary_canvas.html",
+    "kind": "daily",
+    "label": "daily",
+    "title": "Daily 2026-09-13",
+    "date": "2026-09-13",
+    "sort_key": "2026-09-13"
+  },
+  {
+    "filename": "2026-09-09_elite_daily_summary_canvas.html",
+    "kind": "daily",
+    "label": "daily",
+    "title": "Daily 2026-09-09",
+    "date": "2026-09-09",
+    "sort_key": "2026-09-09"
+  },
+  {
+    "filename": "2026-09-07_elite_daily_summary_canvas.html",
+    "kind": "daily",
+    "label": "daily",
+    "title": "Daily 2026-09-07",
+    "date": "2026-09-07",
+    "sort_key": "2026-09-07"
+  },
+  {
+    "filename": "2026-09-06_elite_daily_summary_canvas.html",
+    "kind": "daily",
+    "label": "daily",
+    "title": "Daily 2026-09-06",
+    "date": "2026-09-06",
+    "sort_key": "2026-09-06"
+  },
+  {
+    "filename": "2026-09-03_to_2026-09-05_elite_weekend_summary_canvas.html",
+    "kind": "weekend",
+    "label": "weekend",
+    "title": "Weekend 2026-09-03 to 2026-09-05",
+    "date": "2026-09-05",
+    "sort_key": "2026-09-05"
+  },
+  {
     "filename": "2026-09-02_elite_daily_summary_canvas.html",
     "kind": "daily",
     "label": "daily",

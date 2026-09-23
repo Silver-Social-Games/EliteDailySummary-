@@ -1,0 +1,858 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Elite Daily Decline Dashboard</title>
+  <style>
+    /* Cursor canvas light tokens — comfortable default for Chrome */
+    :root {
+      --fg: #141414F0;
+      --fg2: #141414BD;
+      --fg3: #1414148A;
+      --fg4: #1414145C;
+      --bg-editor: #FCFCFC;
+      --stroke-secondary: #1414141F;
+      --stroke-tertiary: #14141414;
+      --fill-secondary: #14141424;
+      --fill-tertiary: #14141414;
+      --fill-quaternary: #1414140F;
+      --cat-green: #1F8A65;
+      --cat-yellow: #C08532;
+      --cat-cyan: #4C7F8C;
+      --marker-success: #1F8A65;
+      --marker-danger: #CF2D56;
+      --marker-warning: #DB704B;
+      --marker-info: #3685BF;
+      --marker-neutral: #1414148A;
+      --font: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --fg: #E4E4E4EB;
+        --fg2: #E4E4E48D;
+        --fg3: #E4E4E45E;
+        --fg4: #E4E4E442;
+        --bg-editor: #F3F3F3;
+        --stroke-secondary: #1414141F;
+        --stroke-tertiary: #14141420;
+        --fill-secondary: #14141418;
+        --fill-tertiary: #14141410;
+        --fill-quaternary: #1414140C;
+        --cat-green: #1F8A65;
+        --cat-yellow: #C08532;
+        --cat-cyan: #4C7F8C;
+        --marker-success: #1F8A65;
+        --marker-danger: #CF2D56;
+        --marker-warning: #DB704B;
+        --marker-info: #3685BF;
+        --marker-neutral: #1414148A;
+      }
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; background: var(--bg-editor); color: var(--fg); font-family: var(--font); }
+    .wrap { padding: 20px; max-width: 100%; }
+    .stack { display: flex; flex-direction: column; gap: 16px; }
+    .stack-8 { display: flex; flex-direction: column; gap: 8px; }
+    .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+    .spacer { flex: 1 1 auto; }
+    h1 { margin: 0; font-size: 24px; line-height: 30px; font-weight: 590; }
+    h2 { margin: 0; font-size: 18px; line-height: 24px; font-weight: 590; }
+    .t-body { font-size: 14px; line-height: 20px; }
+    .t-small { font-size: 12px; line-height: 16px; }
+    .t-secondary { color: var(--fg2); }
+    .t-tertiary { color: var(--fg3); }
+    .t-quaternary { color: var(--fg4); }
+    .t-danger { color: var(--marker-danger); }
+    .t-warning { color: var(--cat-yellow); }
+    .t-success { color: var(--cat-green); }
+    .t-info { color: var(--cat-cyan); }
+    .w-semibold { font-weight: 590; }
+    .w-medium { font-weight: 500; }
+    a { color: var(--marker-info); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    input[type="search"], select {
+      font-family: inherit;
+      font-size: 13px;
+      line-height: 18px;
+      color: var(--fg);
+      outline: none;
+    }
+    input[type="search"] {
+      flex: 1 1 220px;
+      min-width: 200px;
+      height: 28px;
+      padding: 4px 8px;
+      border: 1px solid var(--stroke-secondary);
+      border-radius: 6px;
+      background: var(--fill-tertiary);
+    }
+    .select-wrap { position: relative; display: inline-flex; align-items: center; }
+    select {
+      appearance: none;
+      -webkit-appearance: none;
+      background: transparent;
+      border: 1px solid var(--stroke-tertiary);
+      border-radius: 6px;
+      padding: 4px 20px 4px 4px;
+      cursor: pointer;
+      color-scheme: light;
+    }
+    .select-wrap::after {
+      content: "▾";
+      position: absolute;
+      right: 6px;
+      pointer-events: none;
+      color: var(--fg2);
+      font-size: 10px;
+    }
+
+    .pills { display: flex; flex-wrap: wrap; gap: 6px; }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 9999px;
+      white-space: nowrap;
+      user-select: none;
+      font-size: 10px;
+      line-height: 12px;
+      padding: 2px 6px;
+      background: var(--fill-quaternary);
+      color: var(--fg2);
+      border: none;
+      cursor: pointer;
+      font-weight: 400;
+      transition: color 120ms ease, background 120ms ease;
+    }
+    .pill.active {
+      background: var(--fill-secondary);
+      color: var(--fg);
+      font-weight: 500;
+    }
+
+    .table-frame {
+      width: 100%;
+      min-width: 0;
+      border: 1px solid var(--stroke-tertiary);
+      border-radius: 8px;
+      background: var(--bg-editor);
+      overflow-x: auto;
+      overflow-y: clip;
+    }
+    table.canvas {
+      min-width: 100%;
+      border-collapse: collapse;
+      table-layout: auto;
+      font-size: 14px;
+      line-height: 20px;
+      color: var(--fg);
+    }
+    table.canvas thead { background: var(--fill-quaternary); }
+    table.canvas th {
+      padding: 8px 12px;
+      text-align: left;
+      font-weight: 600;
+      color: var(--fg);
+      border-bottom: 1px solid var(--stroke-secondary);
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      background: var(--bg-editor);
+      background-image: linear-gradient(var(--fill-quaternary), var(--fill-quaternary));
+      white-space: nowrap;
+    }
+    table.canvas td {
+      padding: 8px 12px;
+      vertical-align: top;
+      border-bottom: 1px solid var(--stroke-tertiary);
+    }
+    table.canvas tbody tr:last-child td { border-bottom: none; }
+    table.canvas tbody tr.striped td { background: var(--fill-quaternary); }
+    table.canvas .num { text-align: right; }
+    table.canvas .center { text-align: center; }
+
+    .cell-marker {
+      display: inline-flex;
+      align-items: flex-start;
+      gap: 6px;
+      min-width: 0;
+      max-width: 100%;
+    }
+    .marker {
+      width: 6px;
+      height: 6px;
+      margin-top: 7px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .marker-success { background: var(--marker-success); }
+    .marker-danger { background: var(--marker-danger); }
+    .marker-warning { background: var(--marker-warning); }
+    .marker-info { background: var(--marker-info); }
+    .marker-neutral { background: var(--marker-neutral); }
+
+    .reason-cell, .action-cell { min-width: 280px; max-width: 620px; white-space: normal; line-height: 1.6; font-size: 12px; }
+    .action-cell { min-width: 200px; max-width: 420px; line-height: 1.5; }
+    .p7d-cell { min-width: 160px; max-width: 220px; font-size: 12px; line-height: 1.45; }
+    .sep { padding: 0 8px; font-weight: 700; color: var(--fg3); font-size: 15px; }
+    .players-table { min-width: 2950px; width: max-content; }
+
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.45);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      padding: 20px;
+    }
+    .modal-card {
+      background: var(--bg-editor);
+      border-radius: 12px;
+      padding: 20px;
+      max-width: 680px;
+      width: 100%;
+      max-height: 90vh;
+      overflow: auto;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+    }
+    .modal-card input, .modal-card textarea {
+      width: 100%;
+      margin-top: 4px;
+      margin-bottom: 12px;
+      padding: 8px 10px;
+      font-size: 13px;
+      border-radius: 6px;
+      border: 1px solid var(--stroke-secondary);
+      font-family: inherit;
+      color: var(--fg);
+      background: var(--bg-editor);
+    }
+    .modal-card textarea.internal-context {
+      font-size: 12px;
+      min-height: 120px;
+      background: var(--fill-quaternary, #1414140F);
+    }
+    .modal-card textarea { resize: vertical; min-height: 180px; }
+    .ticket-draft-btn {
+      font-size: 12px;
+      padding: 4px 10px;
+      cursor: pointer;
+    }
+    .ticket-preview {
+      font-size: 11px;
+      color: var(--fg-quaternary);
+      max-width: 140px;
+      line-height: 1.35;
+      margin-top: 2px;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap stack" id="app"></div>
+  <div id="ticketModalRoot"></div>
+  <script>
+    const DATA = {"report": {"mode": "weekend", "dateStart": "2026-09-03", "dateEnd": "2026-09-05", "title": "Elite Daily Decline Dashboard", "subtitle": "Thursday 03 Sep – Saturday 05 Sep 2026", "playerCount": 60, "daysPerReport": 20, "dayCount": 3, "daySummaries": [{"weekday": "Thursday", "date": "2026-09-03", "priorDate": "2026-08-27", "headline": "Jackpota revenue -7.7% vs last Thursday · Elite revenue -10.5% vs last Thursday · Elite share 26.3% of Jackpota", "jackpotaRevThis": "$798,755", "jackpotaRevPrior": "$865,747", "jackpotaRevWow": "$-66,991 (-7.7%)", "jackpotaPlyWow": "-652 (-9.4%)", "eliteRevThis": "$209,948", "eliteRevPrior": "$234,576", "eliteRevWow": "$-24,629 (-10.5%)", "elitePlyWow": "-96 (-12.0%)", "eliteShare": "26.3% of Jackpota", "jackpotaTone": "danger", "eliteTone": "danger"}, {"weekday": "Friday", "date": "2026-09-04", "priorDate": "2026-08-28", "headline": "Jackpota revenue -0.7% vs last Friday · Elite revenue -16.5% vs last Friday · Elite share 26.3% of Jackpota", "jackpotaRevThis": "$853,217", "jackpotaRevPrior": "$859,323", "jackpotaRevWow": "$-6,106 (-0.7%)", "jackpotaPlyWow": "-30 (-0.4%)", "eliteRevThis": "$224,737", "eliteRevPrior": "$269,118", "eliteRevWow": "$-44,381 (-16.5%)", "elitePlyWow": "-37 (-4.7%)", "eliteShare": "26.3% of Jackpota", "jackpotaTone": "danger", "eliteTone": "danger"}, {"weekday": "Saturday", "date": "2026-09-05", "priorDate": "2026-08-29", "headline": "Jackpota revenue -0.2% vs last Saturday · Elite revenue -3.5% vs last Saturday · Elite share 27.1% of Jackpota", "jackpotaRevThis": "$730,750", "jackpotaRevPrior": "$732,427", "jackpotaRevWow": "$-1,677 (-0.2%)", "jackpotaPlyWow": "+239 (+3.9%)", "eliteRevThis": "$197,916", "eliteRevPrior": "$205,002", "eliteRevWow": "$-7,086 (-3.5%)", "elitePlyWow": "-16 (-2.3%)", "eliteShare": "27.1% of Jackpota", "jackpotaTone": "danger", "eliteTone": "danger"}]}, "dayBlocks": [{"report": {"date": "2026-09-03", "weekday": "Thursday", "priorDate": "2026-08-27", "headline": "Jackpota revenue -7.7% vs last Thursday · Elite revenue -10.5% vs last Thursday · Elite share 26.3% of Jackpota", "segments": [{"label": "Jackpota", "revThis": "$798,755", "revPrior": "$865,747", "revWow": "$-66,991 (-7.7%)", "plyThis": "6269", "plyPrior": "6921", "plyWow": "-652 (-9.4%)", "share": "", "tone": "danger"}, {"label": "Elite", "revThis": "$209,948", "revPrior": "$234,576", "revWow": "$-24,629 (-10.5%)", "plyThis": "702", "plyPrior": "798", "plyWow": "-96 (-12.0%)", "share": "26.3% of Jackpota", "tone": "danger"}]}, "segments": [{"label": "Jackpota", "revThis": "$798,755", "revPrior": "$865,747", "revWow": "$-66,991 (-7.7%)", "plyThis": "6269", "plyPrior": "6921", "plyWow": "-652 (-9.4%)", "share": "", "tone": "danger"}, {"label": "Elite", "revThis": "$209,948", "revPrior": "$234,576", "revWow": "$-24,629 (-10.5%)", "plyThis": "702", "plyPrior": "798", "plyWow": "-96 (-12.0%)", "share": "26.3% of Jackpota", "tone": "danger"}], "titles": {"thisPurchase": "This Thursday Purchase", "priorPurchase": "Prior Thursday Purchase", "purchase7d": "7D Purchase", "lifetimePurchase": "LT Purchase", "lifetimeHold": "Lifetime Hold", "favouriteGame7d": "Favourite Game (7D)"}, "players": [{"aid": "465379620", "aidUrl": "https://lookerpatrianna.cloud.looker.com/dashboards/5207?Account+ID+=465379620", "name": "Tina Mince", "agent": "rachel_a", "agentName": "Rachel", "thisDay": "$0", "priorDay": "$5,035", "priorPriorNum": 5034.87, "sortGap": 5034.87, "zeroDay": true, "purchase7d": "$14,585 · 3/7 days · Fri, Mon, Wed", "lifetimePurchase": "$53,832", "lifetimeHold": "87.0%", "lifetimePurchasedNum": 53831.75, "favouriteGame7d": "Lucky Penny 3 Pots: Super Wheel", "urgency": "Today", "reason": "Redemption in progress", "reasonTable": "Redemption in progress  ●  Redeem Status Pending Redeem Review  ●  RD $20,900 total (3 open) · latest ID 852185  ●  Needs Recent Acceptable POA  ●  Last Purchase Wed 2 Sep $1,245", "reasonParts": ["Redemption in progress", "Redeem Status Pending Redeem Review", "RD $20,900 total (3 open) · latest ID 852185", "Needs Recent Acceptable POA", "Last Purchase Wed 2 Sep $1,245"], "recommendation": "Escalate Compliance · Recent Acceptable POA", "ticketEnabled": true, "ticketSubject": "Redemption Status 🔄", "ticketBody": "Hi Tina,\n\nCongratulations on your win! 🎉\n\nI'm personally keeping an eye on your redemption, and I'll update you as soon as there's news.\n\nIn the meantime, drop me a message if you need anything else.\n\nBest regards,", "zendeskUrl": "https://jackpotahelp.zendesk.com/agent/tickets/new/1?requester_id=27730250520604", "tone": "danger"}, {"aid": "414412782", "aidUrl": "https://lookerpatrianna.cloud.looker.com/dashboards/5207?Account+ID+=414412782", "name": "Carlos Bustos", "agent": "rachel_a", "agentName": "Rachel", "thisDay": "$0", "priorDay": "$4,220", "priorPriorNum": 4219.57, "sortGap": 4219.57, "zeroDay": true, "purchase7d": "$16,678 · 6/7 days · missed Thu", "lifetimePurchase": "$58,613", "lifetimeHold": "60.8%", "lifetimePurchasedNum": 58613.06, "favouriteGame7d": "Twin Buffalo: Hold and Win", "urgency": "Today", "reason": "Redemption in progress", "reasonTable": "Redemption in progress  ●  Redeem Status Pre-Authorized  ●  RD $8,000 total (4 open) · latest ID 845489  ●  Last Purchase Wed 2 Sep $50", "reasonParts": ["Redemption in progress", "Redeem Status Pre-Authorized", "RD $8,000 total (4 open) · latest ID 845489", "Last Purchase Wed 2 Sep $50"], "recommendation": "Escalate Ops · clear RD $8,000 total (4 open · latest ID 845489) · Ops Approval To Release", "ticketEnabled": true, "ticketSubject": "Redemption Status 🔄", "ticketBody": "Hi Carlos,\n\nCongratulations on your win! 🎉\n\nI'm personally keeping an eye on your redemption, and I'll update you as soon as there's news.\n\nIn the meantime, drop me a message if you need anything else.\n\nBest regards,", "zendeskUrl": "https://jackpotahelp.zendesk.com/agent/tickets/new/1?requester_id=25769562358172", "tone": "danger"}, {"aid": "241854278", "aidUrl": "https://lookerpatrianna.cloud.looker.com/dashboards/5207?Account+ID+=241854278", "name": "Sophie Wilding", "agent": "coral_s", "agentName": "Coral", "thisDay": "$0", "priorDay": "$2,735", "priorPriorNum": 2734.89, "sortGap": 2734.89, "zeroDay": true, "purchase7d": "$15,989 · 5/7 days · missed Mon, Thu", "lifetimePurchase": "$398,367", "lifetimeHold": "23.9%", "lifetimePurchasedNum": 398367.17, "favouriteGame7d": "3 Super Coin Volcanoes", "urgency": "Today", "reason": "Redemption in progress", "reasonTable": "Redemption in progress  ●  Redeem Status Pre-Authorized  ●  RD $16,550 total (16 open) · latest ID 858701  ●  Last Purchase Wed 2 Sep $6,985", "reasonParts": ["Redemption in progress", "Redeem Status Pre-Authorized", "RD $16,550 total (16 open) · latest ID 858701", "Last Purchase Wed 2 Sep $6,985"], "recommendation": "Escalate Ops · clear RD $16,550 total (16 open · latest ID 858701) · Ops Approval To Release", "ticketEnabled": true, "ticketSubject": "Redemption Status 🔄", "ticketBody": "Hi Sophie,\n\nCongratulations on your win! 🎉\n\nI'm personally keeping an eye on your redemption, and I'll update you as soon as there's news.\n\nIn the meantime, drop me a message if you need anything else.\n\nBest regards,", "zendeskUrl": "https://jackpotahelp.zendesk.com/agent/tickets/new/1?requester_id=21020100610588", "tone": "danger"}, {"aid": "472599602", "aidUrl": "https://lookerpatrianna.cloud.looker.com/dashboards/5207?Account+ID+=472599602", "name": "Ramon Galvan Jr", "agent": "gabriel_e", "agentName": "Gabriel", "thisDay": "$0", "priorDay": "$2,680", "priorPriorNum": 2679.93, "sortGap": 2679.93, "zeroDay": true, "purchase7d": "$120 · 1/7 days (Fri)", "lifetimePurchase": "$45,218", "lifetimeHold": "52.9%", "lifetimePurchasedNum": 45218.45, "favouriteGame7d": "Glory Of Rome", "urgency": "Today", "reason": "Redemption in progress", "reasonTable": "Redemption in progress  ●  Redeem Status Pending Redeem Review  ●  RD $167 (ID 859552)  ●  Needs KYC / Verification Document  ●  Last Purchase Fri 28 Aug $120", "reasonParts": ["Redemption in progress", "Redeem Status Pending Redeem Review", "RD $167 (ID 859552)", "Needs KYC / Verification Document", "Last Purchase Fri 28 Aug $120"], "recommendation": "Escalate Compliance · KYC / Verification Document", "ticketEnabled": true, "ticketSubject": "Redemption Status 🔄", "ticketBody": "Hi Ramon,\n\nCongratulations on your win! 🎉\n\nI'm personally keeping an eye on your redemption, and I'll update you as soon as there's news.\n\nIn the meantime, drop me a message if you need anything else.\n\nBest regards,", "zendeskUrl": "https://jackpotahelp.zendesk.com/agent/tickets/new/1?requester_id=28019537099804", "tone": "danger"}, {"aid": "157787523", "aidUrl": "https://lookerpatrianna.cloud.looker.com/dashboards/5207?Account+ID+=157787523", "name": "Tracy Hensley", "agent": "lee_t", "agentName": "Lee", "thisDay": "$0", "priorDay": "$2,000", "priorPriorNum": 1999.93, "sortGap": 1999.93, "zeroDay": true, "purchase7d": "$9,005 · 3/7 days · Mon, Tue, Wed", "lifetimePurchase": "$74,433", "lifetimeHold": "51.2%", "lifetimePurchasedNum": 74432.67, "favouriteGame7d": "Royal Beellion Hold And Win", "urgency": "Today", "reason": "Redemption in progress", "reasonTable": "Redemption in progress  ●  Redeem Status Pending Redeem Review  ●  RD $10,000 (ID 857934)  ●  Last Purchase Wed 2 Sep $600", "reasonParts": ["Redemption in progress", "Redeem Status Pending Redeem Review", "RD $10,000 (ID 857934)", "Last Purchase Wed 2 Sep $600"], "recommendation": "Escalate Ops · clear RD $10,000 (ID 857934) · Ops Approval", "ticketEnabled": true, "ticketSubject": "Redemption Status 🔄", "ticketBody": "Hi Tracy,\n\nCongratulations on your win! 🎉\n\nI'm personally keeping an eye on your redemption, and I'll update you as soon as there's news.\n\nIn the meantime, drop me a message if you need anything else.\n\nBest regards,", "zendeskUrl": "https://jackpotahelp.zendesk.com/agent/tickets/new/1?requester_id=18737771954844", "tone": "danger"}, {"aid": "291129003", "aidUrl": "https://lookerpatrianna.cloud.looker.com/dashboards/5207?Account+ID+=291129003", "name": "Vlatko Babic", "agent": "alon_tish", "agentName": "Alon", "thisDay": "$0", "priorDay": "$1,735", "priorPriorNum": 1734.93, "sortGap": 1734.93, "zeroDay": true, "purchase7d": "None In 7D", "lifetimePurchase": "$410,562", "lifetimeHold": "30.5%", "lifetimePurchasedNum": 410561.78, "favouriteGame7d": "Mad Hit Mr Coin (94%)", "urgency": "Today", "reason": "Redemption in progress", "reasonTable": "Redemption in progress  ●  Redeem Status Pre-Authorized  ●  RD $583 (ID 854967)  ●  Last Purchase Thu 27 Aug $1,735", "reasonParts": ["Redemption in progress", "Redeem Status Pre-Authorized", "RD $583 (ID 854967)", "Last Purchase Thu 27 Aug $1,735"], "recommendation": "Escalate Ops · clear RD $583 (ID 854967) · Ops Approval To Release", "ticketEnabled": true, "ticketSubject": "Redemption Status 🔄", "ticketBody": "Hi Vlatko,\n\nCongratulations on your win! 🎉\n\nI'm personally keeping an eye on your redemption, and I'll update you as soon as there's news.\n\nIn the meantime, drop me a message if you need anything else.\n\nBest regards,", "zendeskUrl": "https://jackpotahelp.zendesk.com/agent/tickets/new/1?requester_id=22103777216156", "tone": "danger"}, {"aid": "255469205", "aidUrl": "https://lookerpatrianna.cloud.looker.com/dashboards/5207?Account+ID+=255469205", "name": "Robert Kern", "agent": "gabriel_e", "agentName": "Gabriel", "thisDay": "$0", "priorDay": "$1,475", "priorPriorNum": 1474.87, "sortGap": 1474.87, "zeroDay": true, "purchase7d": "$630 · 4/7 days · missed Fri, Wed, Thu", "lifetimePurchase": "$15,209", "lifetimeHold": "100.0%", "lifetimePurchasedNum": 15209.45, "favouriteGame7d": "3 Coin Volcanoes", "urgency": "Today", "reason": "Payment failed", "reasonTable": "Payment failed  ●  2 Failed Checkout  ●  Last Purchase Tue 1 Sep $20  ●  2 Failed Post-Purchase", "reasonParts": ["Payment failed", "2 Failed Checkout", "Last Purchase Tue 1 Sep $20", "2 Failed Post-Purchase"], "recommendation": "Fix payment method · 2 failed checkout", "ticketEnabled": false, "ticketSubject": "", "ticketBody": "", "zendeskUrl": "", "tone": "danger"}, {"aid": "448957249", "aidUrl": "https://lookerpatrianna.cloud.looker.com/dashboards/5207?Account+ID+=448957249", "name": "Ashley Dalton", "agent": "rachel_a", "agentName": "Rachel", "thisDay": "$0", "priorDay": "$1,455", "priorPriorNum": 1454.9, "sortGap": 1454.9, "zeroDay": true, "purchase7d": "$3,455 · 5/7 days · missed Mon, Thu", "lifetimePurchase": "$78,173", "lifetimeHold": "50.8%", "lifetimePurchasedNum": 78173.41, "favouriteGame7d": "Giga Match Sugar Skull", "urgency": "Today", "reason": "Redemption in progress", "reasonTable": "Redemption in progress  ●  Redeem Status Pending Redeem Review  ●  RD $4,000 (ID 858364)  ●  Last Purchase Wed 2 Sep $230", "reasonParts": ["Redemption in progress", "Redeem Status Pending Redeem Review", "RD $4,000 (ID 858364)", "Last Purchase Wed 2 Sep $230"], "recommendation": "Escalate Ops · clear RD $4,000 (ID 858364) · Ops Approval", "ticketEnabled": true, "ticketSubject": "Redemption Status 🔄", "ticketBody": "Hi Ashley,\n\nCongratulations on your win! 🎉\n\nI'm personally keeping an eye on your redemption, and I'll update you as soon as there's news.\n\nIn the meantime, drop me a message if you need anything else.\n\nBest regards,", "zendeskUrl": "https://jackpotahelp.zendesk.com/agent/tickets/new/1?requester_id=27107506229020", "tone": "danger"}, {"aid": "465146589", "aidUrl": "https://lookerpatrianna.cloud.looker.com/dashboards/5207?Account+ID+=465146589", "name": "Allan Puente", "agent": "gabriel_e", "agentName": "Gabriel", "thisDay": "$0", "priorDay": "$900", "priorPriorNum": 899.92, "sortGap": 899.92, "zeroDay": true, "purchase7d": "$1,005 · 5/7 days · missed Wed, Thu", "lifetimePurchase": "$20,850", "lifetimeHold": "64.0%", "lifetimePurchasedNum": 20849.85, "favouriteGame7d": "J Mania Loco Habanero (94%)", "urgency": "Today", "reason": "Account locked", "reasonTable": "Account locked  ●  account deleted  ●  27 Aug Your Elite Spin Boost I…, 25 Aug Malfunction", "reasonParts": ["Account locked", "account deleted", "27 Aug Your Elite Spin Boost I…, 25 Aug Malfunction"], "recommendation": "Send to Ops · account deleted", "ticketEnabled": false, "ticketSubject": "", "ticketBody": "", "zendeskUrl": "", "tone": "danger"}, {"aid": "381053019", "aidUrl": "https://lookerpatrianna.cloud.looker.com/dashboards/5207?Account+ID+=381053019", "name": "Devan Corona", "agent": "gabriel_e", "agentName": "Gabriel", "thisDay": "$0", "priorDay": "$2,550", "priorPriorNum": 2549.68, "sortGap": 2549.68, "zeroDay": true, "purchase7d": "None In 7D", "lifetimePurchase": "$13,956", "lifetimeHold": "80.7%", "lifetimePurchasedNum": 13955.85, "favouriteGame7d": "—", "urgency": "48h", "reason": "Churn - needs reactivation", "reasonTable": "Churn - needs reactivation  ●  Last Purchase Thu 27 Aug $2,550  ●  No Play In 7D  ●  03 Sep Monthly Catch-Up this w…, 27 Aug Your Elite Spin Boost I…", "reasonParts": ["Churn - needs reactivation", "Last Purchase Thu 27 Aug $2,550", "No Play In 7D", "03 Sep Monthly Catch-Up this w…, 27 Aug Your Elite Spin Boost I…"], "recommendation": "Push purchase", "ticketEnabled": true, "ticketSubject": "You've Been Chosen 🎁", "ticketBody": "Hey Devan,\n\nNoticed things were quiet on Jackpota lately, and I wanted to check in personally 👋\n\nI've activated an exclusive offer for you: just grab the {GC_package_name} and reply once you do, I'll personally add a little extra on top 🎁\n\nSometimes one spin is all you need to win BIG.\n\nHave a good one,", "zendeskUrl": "https://jackpotahelp.zendesk.com/agent/tickets/new/1?requester_id=24613716379164", "tone": "danger"}, {"aid": "409508405", "aidUrl": "https://lookerpatrianna.cloud.looker.com/dashboards/5207?Account+ID+=409508405", "name": "Kelvin Troches", "agent": "lee_t", "agentName": "Lee", "thisDay": "$0", "priorDay": "$2,000", "priorPriorNum": 1999.98, "sortGap": 1999.98, "zeroDay": true, "purchase7d": "$2,965 · 2/7 days · Fri, Sat", "lifetimePurchase": "$67,948", "lifetimeHold": "64.7%", "lifetimePurchasedNum": 67947.73, "favouriteGame7d": "Immortal Ways Buffalo", "urgency": "48h", "reason": "Same weekday skip", "reasonTable": "Same weekday skip  ●  $0 vs Prior $2,000  ●  Last Purchase Sat 29 Aug $1,830", "reasonParts": ["Same weekday skip", "$0 vs Prior $2,000", "Last Purchase Sat 29 Aug $1,830"], "recommendation": "Push purchase", "ticketEnabled": true, "ticketSubject": "You've Been Chosen 🎁", "ticketBody": "Hey Kelvin,\n\nNoticed things were quiet on Jackpota lately, and I wanted to check in personally 👋\n\nI've activated an exclusive offer for you: just grab the {GC_package_name} and reply once you do, I'll personally add a little extra on top 🎁\n\nSometimes one spin is all you need to win BIG.\n\nHave a good one,", "zendeskUrl": "https://jackpotahelp.zendesk.com/agent/tickets/new/1?requester_id=25560985627548", "tone": "warning"}, {"aid": "192704632", "aidUrl": "https://lookerpatrianna.cloud.looker.com/dashboards/5207?Account+ID+=192704632", "name": "Deaquon Dennis", "agent": "gabriel_e", "agentName": "Gabriel", "thisDay": "$0", "priorDay": "$1,545", "priorPriorNum": 1544.86, "sortGap": 1544.86, "zeroDay": true, "purchase7d": "$700 · 3/7 days · Fri, Sat, Tue", "lifetimePurchase": "$13,948", "lifetimeHold": "42.8%", "lifetimePurchasedNum": 13948.3, "favouriteGame7d": "Well of Riches", "urgency": "48h", "reason": "Same weekday skip", "reasonTable": "Same weekday skip  ●  $0 vs Prior $1,545  ●  Last Purchase Tue 1 Sep $235", "reasonParts": ["Same weekday skip", "$0 vs Prior $1,545", "Last Purchase Tue 1 Sep $235"], "recommendation": "Soft check-in only", "ticketEnabled": true, "ticketSubject": "Checking In On You 👑", "ticketBody": "Hi Deaquon,\n\nIt's been a little while, and I just wanted to check in on how everything's going? 💬\nI hope you've been doing well and still enjoying the fun at Jackpota!\n\nIf you ever need anything: game recommendations, slot tips or just chat, I am here for you.\n\nI'd love to hear from you and see how I can make your experience even better.\n\nBest regards,", "zendeskUrl": "https://jackpotahelp.zendesk.com/agent/tickets/new/1?requester_id=19405677846172", "tone": "warning"}, {"aid": "46272415", "aidUrl": "https://lookerpatrianna.cloud.looker.com/dashboards/5207?Account+ID+=46272415", "name": "Kristen Stewart", "agent": "gabriel_e", "agentName": "Gabriel", "thisDay": "$0", "priorDay": "$1,540", "priorPriorNum": 1539.77, "sortGap": 1539.77, "zeroDay": true, "purchase7d": "None In 7D", "lifetimePurchase": "$72,643", "lifetimeHold": "74.7%", "lifetimePurchasedNum": 72642.8, "favouriteGame7d": "3 Carts of Gold: Hold and Win", "urgency": "48h", "reason": "Churn - needs reactivation", "reasonTable": "Churn - needs reactivation  ●  Last Purchase Thu 27 Aug $1,540  ●  No Purchases In 7D  ●  03 Sep Monthly Catch-Up this w…", "reasonParts": ["Churn - needs reactivation", "Last Purchase Thu 27 Aug $1,540", "No Purchases In 7D", "03 Sep Monthly Catch-Up this w…"], "recommendation": "Push purchase", "ticketEnabled": true, "ticketSubject": "You've Been Chosen 🎁", "ticketBody": "Hey Kristen,\n\nNoticed things were quiet on Jackpota lately, and I wanted to check in personally 👋\n\nI've activated an exclusive offer for you: just grab the {GC_package_name} and reply once you do, I'll personally add a little extra on top 🎁\n\nSometimes one spin is all you need to win BIG.\n\nHave a good one,", "zendeskUrl": "https://jackpotahelp.zendesk.com/agent/tickets/new/1?requester_id=15590310853788", "tone": "danger"}, {"aid": "314072955", "aidUrl": "https://lookerpatrianna.cloud.looker.com/dashboards/5207?Account+ID+=314072955", "name": "Mic Hendrix", "agent": "rachel_a", "agentName": "Rachel", "thisDay": "$0", "priorDay": "$1,135", "priorPriorNum": 1134.96, "sortGap": 1134.96, "zeroDay": true, "purchase7d": "$745 · 3/7 days · Sat, Sun, Mon", "lifetimePurchase": "$41,507", "lifetimeHold": "57.1%", "lifetimePurchasedNum": 41507.48, "favouriteGame7d": "King of the Sky: Hit the Bonus Power Chance", "urgency": "48h", "reason": "Same weekday skip", "reasonTable": "Same weekday skip  ●  $0 vs Prior $1,135  ●  Last Purchase Mon 31 Aug $175", "reasonParts": ["Same weekday skip", "$0 vs Prior $1,135", "Last Purchase Mon 31 Aug $175"], "recommendation": "Push purchase", "ticketEnabled": true, "ticketSubject": "You've Been Chosen 🎁", "ticketBody": "Hey Mic,\n\nNoticed things were quiet on Jackpota lately, and I wanted to check in personally 👋\n\nI've activated an exclusive offer for you: just grab the {GC_package_name} and reply once you do, I'll personally add a little extra on top 🎁\n\nSometimes one spin is all you need to win BIG.\n\nHave a good one,", "zendeskUrl": "https://jackpotahelp.zendesk.com/agent/tickets/new/1?requester_id=22638443716252", "tone": "warning"}, {"aid": "202295060", "aidUrl": "https://lookerpatrianna.cloud.looker.com/dashboards/5207?Account+ID+=202295060", "name": "Leila Jacoel", "agent": "gabriel_e", "agentName": "Gabriel", "thisDay": "$0", "priorDay": "$1,135", "priorPriorNum": 1134.94, "sortGap": 1134.94, "zeroDay": true, "purchase7d": "$370 · 2/7 days · Sat, Sun", "lifetimePurchase": "$66,685", "lifetimeHold": "47.6%", "lifetimePurchasedNum": 66685.34, "favouriteGame7d": "J Mania Lucky Pyggs (94%)", "urgency": "48h", "reason": "Same weekday skip", "reasonTable": "Same weekday skip  ●  $0 vs Prior $1,135  ●  Last Purchase Sun 30 Aug $170", "reasonParts": ["Same weekday skip", "$0 vs Prior $1,135", "Last Purchase Sun 30 Aug $170"], "recommendation": "Push purchase", "ticketEnabled": true, "ticketSubject": "You've Been Chosen 🎁", "ticketBody": "Hey Leila,\n\nNoticed things were quiet on Jackpota lately, and I wanted to check in personally 👋\n\nI've activated an exclusive offer for you: just grab the {GC_package_name} and reply once you do, I'll personally add a little extra on top 🎁\n\nSometimes one spin is all you need to win BIG.\n\nHave a good one,", "zendeskUrl": "https://jackpotahelp.zendesk.com/agent/tickets/new/1?requester_id=19678284528796", "tone": "warning"}, {"aid": "328725363", "aidUrl": "https://lookerpatrianna.cloud.looker.com/dashboards/5207?Account+ID+=328725363", "name": "Cynthia McCurdy", "agent": "gabriel_e", "agentName": "Gabriel", "thisDay": "$0", "priorDay": "$995", "priorPriorNum": 994.94, "sortGap": 994.94, "zeroDay": true, "purchase7d": "$645 · 2/7 days · Fri, Mon", "lifetimePurchase": "$54,647", "lifetimeHold": "88.6%", "lifetimePurchasedNum": 54646.72, "favouriteGame7d": "Well of Riches", "urgency": "48h", "reason": "Same weekday skip", "reasonTable": "Same weekday skip  ●  $0 vs Prior $995  ●  Last Purchase Mon 31 Aug $325", "reasonParts": ["Same weekday skip", "$0 vs Prior $995", "Last Purchase Mon 31 Aug $325"], "recommendation": "Push purchase", "ticketEnabled": true, "ticketSubject": "You've Been Chosen 🎁", "ticketBody": "Hey Cynthia,\n\nNoticed things were quiet on Jackpota lately, and I wanted to check in personally 👋\n\nI've activated an exclusive offer for you: just grab the {GC_package_name} and reply once you do, I'll personally add a little extra on top 🎁\n\nSometimes one spin is all you need to win BIG.\n\nHave a good one,", "zendeskUrl": "https://jackpotahelp.zendesk.com/agent/tickets/new/1?requester_id=23091980287516", "tone": "warning"}, {"aid": "402200712", "aidUrl": "https://lookerpatrianna.cloud.looker.com/dashboards/5207?Account+ID+=402200712", "name": "Derek Renshaw", "agent": "lee_t", "agentName": "Lee", "thisDay": "$0", "priorDay": "$980", "priorPriorNum": 979.82, "sortGap": 979.82, "zeroDay": true, "purchase7d": "$500 · 2/7 days · Sat, Mon", "lifetimePurchase": "$16,547", "lifetimeHold": "57.5%", "lifetimePurchasedNum": 16546.66, "favouriteGame7d": "Piggy Bankroll Vault Smash", "urgency": "48h", "reason": "Same weekday skip", "reasonTable": "Same weekday skip  ●  $0 vs Prior $980  ●  Last Purchase Mon 31 Aug $250", "reasonParts": ["Same weekday skip", "$0 vs Prior $980", "Last Purchase Mon 31 Aug $250"], "recommendation": "Push purchase", "ticketEnabled": true, "ticketSubject": "You've Been Chosen 🎁", "ticketBody": "Hey Derek,\n\nNoticed things were quiet on Jackpota lately, and I wanted to check in personally 👋\n\nI've activated an exclusive offer for you: just grab the {GC_package_name} and reply once you do, I'll personally add a little extra on top 🎁\n\nSometimes one spin is all you need to win BIG.\n\nHave a good one,", "zendeskUrl": "https://jackpotahelp.zendesk.com/agent/tickets/new/1?requester_id=25276474786588", "tone": "warning"}, {"aid": "452386628", "aidUrl": "https://lookerpatrianna.cloud.looker.com/dashboards/5207?Account+ID+=452386628", "name": "Orquidea Arias eusebio", "agent": "coral_s", "agentName": "Coral", "thisDay": "$0", "priorDay": "$975", "priorPriorNum": 974.86, "sortGap": 974.86, "zeroDay": true, "purchase7d": "None In 7D", "lifetimePurchase": "$9,997", "lifetimeHold": "87.1%", "lifetimePurchasedNum": 9997.23, "favouriteGame7d": "—", "urgency": "48h", "reason": "Churn - needs reactivation", "reasonTable": "Churn - needs reactivation  ●  Last Purchase Thu 27 Aug $975  ●  No Play In 7D", "reasonParts": ["Churn - needs reactivation", "Last Purchase Thu 27 Aug $975", "No Play In 7D"], "recommendation": "Push purchase", "ticketEnabled": true, "ticketSubject": "You've Been Chosen 🎁", "ticketBody": "Hey Orquidea,\n\nNoticed things were quiet on Jackpota lately, and I wanted to check in personally 👋\n\nI've activated an exclusive offer for you: just grab the {GC_package_name} and reply once you do, I'll personally add a little extra on top 🎁\n\nSometimes one spin is all you need to win BIG.\n\nHave a good one,", "zendeskUrl": "https://jackpotahelp.zendesk.com/agent/tickets/new/1?requester_id=27234516230556", "tone": "danger"}, {"aid": "405159012", "aidUrl": "https://lookerpatrianna.cloud.looker.com/dashboards/5207?Account+ID+=405159012", "name": "Terrence Davis", "agent": "lee_t", "agentName": "Lee", "thisDay": "$0", "priorDay": "$1,895", "priorPriorNum": 1894.91, "sortGap": 1894.91, "zeroDay": true, "purchase7d": "$1,400 · 2/7 days · Fri, Wed", "lifetimePurchase": "$38,304", "lifetimeHold": "55.4%", "lifetimePurchasedNum": 38304.33, "favouriteGame7d": "Pirate's Booty", "urgency": "Watch", "reason": "Same weekday skip", "reasonTable": "Same weekday skip  ●  $0 vs Prior $1,895  ●  Played Today - No Purchase", "reasonParts": ["Same weekday skip", "$0 vs Prior $1,895", "Played Today - No Purchase"], "recommendation": "Push purchase", "ticketEnabled": true, "ticketSubject": "You've Been Chosen 🎁", "ticketBody": "Hey Terrence,\n\nNoticed things were quiet on Jackpota lately, and I wanted to check in personally 👋\n\nI've activated an exclusive offer for you: just grab the {GC_package_name} and reply once you do, I'll personally add a little extra on top 🎁\n\nSometimes one spin is all you need to win BIG.\n\nHave a good one,", "zendeskUrl": "https://jackpotahelp.zendesk.com/agent/tickets/new/1?requester_id=25381287568924", "tone": "warning"}, {"aid": "419769208", "aidUrl": "https://lookerpatrianna.cloud.looker.com/dashboards/5207?Account+ID+=419769208", "name": "Laurie Morris", "agent": "rachel_a", "agentName": "Rachel", "thisDay": "$0", "priorDay": "$1,080", "priorPriorNum": 1079.9, "sortGap": 1079.9, "zeroDay": true, "purchase7d": "$1,771 · 5/7 days · missed Sun, Thu", "lifetimePurchase": "$13,476", "lifetimeHold": "50.8%", "lifetimePurchasedNum": 13476.2, "favouriteGame7d": "Voltage Blitz Rapid Boost", "urgency": "Watch", "reason": "Same weekday skip", "reasonTable": "Same weekday skip  ●  $0 vs Prior $1,080  ●  Last Purchase Wed 2 Sep $740", "reasonParts": ["Same weekday skip", "$0 vs Prior $1,080", "Last Purchase Wed 2 Sep $740"], "recommendation": "No action", "ticketEnabled": false, "ticketSubject": "", "ticketBody": "", "zendeskUrl": "", "tone": "warning"}], "dayShort": "Thu"}, {"report": {"date": "2026-09-04", "weekday": "Friday", "priorDate": "2026-08-28", "headline": "Jackpota revenue -0.7% vs last Friday · Elite revenue -16.5% vs last Friday · Elite share 26.3% of Jackpota", "segments": [{"label": "Jackpota", "revThis": "$853,217", "revPrior": "$859,323", "revWow": "$-6,106 (-0.7%)", "plyThis": "6844", "plyPrior": "6874", "plyWow": "-30 (-0.4%)", "share": "", "tone": "danger"}, {"label": "Elite", "revThis": "$224,737", "revPrior": "$269,118", "revWow": "$-44,381 (-16.5%)", "plyThis": "752", "plyPrior": "789", "plyWow": "-37 (-4.7%)", "share": "26.3% of Jackpota", "tone": "danger"}]}, "segments": [{"label": "Jackpota", "revThis": "$853,217", "revPrior": "$859,323", "revWow": "$-6,106 (-0.7%)", "plyThis": "6844", "plyPrior": "6874", "plyWow": "-30 (-0.4%)", "share": "", "tone": "danger"}, {"label": "Elite", "revThis": "$224,737", "revPrior": "$269,118", "revWow": "$-44,381 (-16.5%)", "plyThis": "752", "plyPrior": "789", "plyWow": "-37 (-4.7%)", "share": "26.3% of Jackpota", "tone": "danger"}], "titles": {"thisPurchase": "This Friday Purchase", "priorPurchase": "Prior Friday Purchase", "purchase7d": "7D Purchase", "lifetimePurchase": "LT Purchase", "lifetimeHold": "Lifetime Hold", "favouriteGame7d": "Favourite Game (7D)"}, "players": [{"aid": "205941035", "aidUrl": "https://lookerpatrianna.cloud.looker.com/dashboards/5207?Account+ID+=205941035", "name": "Craig Jackson", "agent": "gabriel_e", "agentName": "Gabriel", "thisDay": "$0", "priorDay": "$14,380", "priorPriorNum": 14379.84, "sortGap": 14379.84, "zeroDay": true, "purchase7d": "$39,350 · 4/7 days · missed Mon, Tue, Fri", "lifetimePurchase": "$104,984", "lifetimeHold": "76.6%", "lifetimePurchasedNum": 104984.27, "favouriteGame7d": "Mr. Oinksters Hold and Win", "urgency": "Today", "reason": "Redemption in progress", "reasonTable": "Redemption in progress  ●  Redeem Status Pending Redeem Review  ●  RD $5,384 total (5 open) · latest ID 855192  ●  Last Purchase Thu 3 Sep $13,220", "reasonParts": ["Redemption in progress", "Redeem Status Pending Redeem Review", "RD $5,384 total (5 open) · latest ID 855192", "Last Purchase Thu 3 Sep $13,220"], "recommendation": "Escalate Ops · clear RD $5,384 total (5 open · latest ID 855192) · Ops Approval", "ticketEnabled": true, "ticketSubject": "Redemption Status 🔄", "ticketBody": "Hi Craig,\n\nCongratulations on your win! 🎉\n\nI'm personally keeping an eye on your redemption, and I'll update you as soon as there's news.\n\nIn the meantime, drop me a message if you need anything else.\n\nBest regards,", "zendeskUrl": "https://jackpotahelp.zendesk.com/agent/tickets/new/1?requester_id=19819460333340", "tone": "danger"}, {"aid": "465379620", "aidUrl": "https://lookerpatrianna.cloud.looker.com/dashboards/5207?Account+ID+=465379620", "name": "Tina Mince", "agent": "rachel_a", "agentName": "Rachel", "thisDay": "$0", "priorDay": "$11,780", "priorPriorNum": 11779.78, "sortGap": 11779.78, "zeroDay": true, "purchase7d": "$2,805 · 2/7 days · Mon, Wed", "lifetimePurchase": "$53,832", "lifetimeHold": "87.0%", "lifetimePurchasedNum": 53831.75, "favouriteGame7d": "Tiger Gems", "urgency": "Today", "reason": "Redemption in progress", "reasonTable": "Redemption in progress  ●  Redeem Status Pending Redeem Review  ●  RD $20,900 total (3 open) · latest ID 852185  ●  Needs Recent Acceptable POA  ●  Last Purchase Wed 2 Sep $1,245", "reasonParts": ["Redemption in progress", "Redeem Status Pending Redeem Review", "RD $20,900 total (3 open) · latest ID 852185", "Needs Recent Acceptable POA", "Last Purchase Wed 2 Sep $1,245"], "recommendation": "Escalate Compliance · Recent Acceptable POA", "ticketEnabled": true, "ticketSubject": "Redemption Status 🔄", "ticketBody": "Hi Tina,\n\nCongratulations on your win! 🎉\n\nI'm personally keeping an eye on your redemption, and I'll update you as soon as there's news.\n\nIn the meantime, drop me a message if you need anything else.\n\nBest regards,", "zendeskUrl": "https://jackpotahelp.zendesk.com/agent/tickets/new/1?requester_id=27730250520604", "tone": "danger"}, {"aid": "22893195", "aidUrl": "https://lookerpatrianna.cloud.looker.com/dashboards/5207?Account+ID+=22893195", "name": "Twanesia Ruffin", "agent": "rachel_a", "agentName": "Rachel", "thisDay": "$0", "priorDay": "$3,959", "priorPriorNum": 3959.47, "sortGap": 3959.47, "zeroDay": true, "purchase7d": "$11,494 · 5/7 days · missed Thu, Fri", "lifetimePurchase": "$34,597", "lifetimeHold": "65.0%", "lifetimePurchasedNum": 34596.57, "favouriteGame7d": "Lucky Penny 3 Pots: Super Wheel", "urgency": "Today", "reason": "Redemption in progress", "reasonTable": "Redemption in progress  ●  Redeem Status Pre-Authorized  ●  RD $2,800 total (4 open) · latest ID 850525  ●  Last Purchase Wed 2 Sep $6,759", "reasonParts": ["Redemption in progress", "Redeem Status Pre-Authorized", "RD $2,800 total (4 open) · latest ID 850525", "Last Purchase Wed 2 Sep $6,759"], "recommendation": "Escalate Ops · clear RD $2,800 total (4 open · latest ID 850525) · Ops Approval To Release", "ticketEnabled": true, "ticketSubject": "Redemption Status 🔄", "ticketBody": "Hi Twanesia,\n\nCongratulations on your win! 🎉\n\nI'm personally keeping an eye on your redemption, and I'll update you as soon as there's news.\n\nIn the meantime, drop me a message if you need anything else.\n\nBest regards,", "zendeskUrl": "https://jackpotahelp.zendesk.com/agent/tickets/new/1?requester_id=15004692068252", "tone": "danger"}, {"aid": "414412782", "aidUrl": "https://lookerpatrianna.cloud.looker.com/dashboards/5207?Account+ID+=414412782", "name": "Carlos Bustos", "agent": "rachel_a", "agentName": "Rachel", "thisDay": "$0", "priorDay": "$3,845", "priorPriorNum": 3844.61, "sortGap": 3844.61, "zeroDay": true, "purchase7d": "$12,834 · 5/7 days · missed Thu, Fri", "lifetimePurchase": "$58,613", "lifetimeHold": "60.8%", "lifetimePurchasedNum": 58613.06, "favouriteGame7d": "4 Gold Lanterns Hold & Win", "urgency": "Today", "reason": "Redemption in progress", "reasonTable": "Redemption in progress  ●  Redeem Status Pre-Authorized  ●  RD $8,000 total (4 open) · latest ID 845489  ●  Last Purchase Wed 2 Sep $50", "reasonParts": ["Redemption in progress", "Redeem Status Pre-Authorized", "RD $8,000 total (4 open) · latest ID 845489", "Last Purchase Wed 2 Sep $50"], "recommendation": "Escalate Ops · clear RD $8,000 total (4 open · latest ID 845489) · Ops Approval To Release", "ticketEnabled": true, "ticketSubject": "Redemption Status 🔄", "ticketBody": "Hi Carlos,\n\nCongratulations on your win! 🎉\n\nI'm personally keeping an eye on your redemption, and I'll update you as soon as there's news.\n\nIn the meantime, drop me a message if you need anything else.\n\nBest regards,", "zendeskUrl": "https://jackpotahelp.zendesk.com/agent/tickets/new/1?requester_id=25769562358172", "tone": "danger"}, {"aid": "312207496", "aidUrl": "https://lookerpatrianna.cloud.looker.com/dashboards/5207?Account+ID+=312207496", "name": "Zach Knapp", "agent": "gabriel_e", "agentName": "Gabriel", "thisDay": "$0", "priorDay": "$1,376", "priorPriorNum": 1375.94, "sortGap": 1375.94, "zeroDay": true, "purchase7d": "$1,555 · 2/7 days · Sat, Mon", "lifetimePurchase": "$58,936", "lifetimeHold": "18.6%", "lifetimePurchasedNum": 58936.1, "favouriteGame7d": "Jackpota's Fish Tales Max Scatter", "urgency": "Today", "reason": "Redemption in progress", "reasonTable": "Redemption in progress  ●  Redeem Status Pre-Authorized  ●  RD $525 (ID 849406)  ●  Needs Recent Acceptable POA  ●  Last Purchase Mon 31 Aug $625", "reasonParts": ["Redemption in progress", "Redeem Status Pre-Authorized", "RD $525 (ID 849406)", "Needs Recent Acceptable POA", "Last Purchase Mon 31 Aug $625"], "recommendation": "Escalate Compliance · Recent Acceptable POA", "ticketEnabled": true, "ticketSubject": "Redemption Status 🔄", "ticketBody": "Hi Zach,\n\nCongratulations on your win! 🎉\n\nI'm personally keeping an eye on your redemption, and I'll update you as soon as there's news.\n\nIn the meantime, drop me a message if you need anything else.\n\nBest regards,", "zendeskUrl": "https://jackpotahelp.zendesk.com/agent/tickets/new/1?requester_id=22590955464860", "tone": "danger"}, {"aid": "366224497", "aidUrl": "https://lookerpatrianna.cloud.looker.com/dashboards/5207?Account+ID+=366224497", "name": "Jess Izaguirre", "agent": "rachel_a", "agentName": "Rachel", "thisDay": "$0", "priorDay": "$1,120", "priorPriorNum": 1119.92, "sortGap": 1119.92, "zeroDay": true, "purchase7d": "None In 7D", "lifetimePurchase": "$5,280", "lifetimeHold": "100.0%", "lifetimePurchasedNum": 5280.01, "favouriteGame7d": "—", "urgency": "Today", "reason": "Account locked", "reasonTable": "Account locked  ●  self_excluded_account", "reasonParts": ["Account locked", "self_excluded_account"], "recommendation": "Send to Ops · self_excluded_account", "ticketEnabled": false, "ticketSubject": "", "ticketBody": "", "zendeskUrl": "", "tone": "danger"}, {"aid": "478710827", "aidUrl": "https://lookerpatrianna.cloud.looker.com/dashboards/5207?Account+ID+=478710827", "name": "Jennifer Hall", "agent": "gabriel_e", "agentName": "Gabriel", "thisDay": "$0", "priorDay": "$970", "priorPriorNum": 969.97, "sortGap": 969.97, "zeroDay": true, "purchase7d": "$1,515 · 1/7 days (Sat)", "lifetimePurchase": "$9,390", "lifetimeHold": "64.9%", "lifetimePurchasedNum": 9389.57, "favouriteGame7d": "Voltage Blitz Rapid Boost", "urgency": "Today", "reason": "Account locked", "reasonTable": "Account locked  ●  self_excluded_account  ●  29 Aug 💎 Welcome! I'm Your New…", "reasonParts": ["Account locked", "self_excluded_account", "29 Aug 💎 Welcome! I'm Your New…"], "recommendation": "Send to Ops · self_excluded_account", "ticketEnabled": false, "ticketSubject": "", "ticketBody": "", "zendeskUrl": "", "tone": "danger"}, {"aid": "141694544", "aidUrl": "https://lookerpatrianna.cloud.looker.com/dashboards/5207?Account+ID+=141694544", "name": "Caleb Frazier", "agent": "coral_s", "agentName": "Coral", "thisDay": "$0", "priorDay": "$945", "priorPriorNum": 944.82, "sortGap": 944.82, "zeroDay": true, "purchase7d": "$250 · 2/7 days · Sat, Tue", "lifetimePurchase": "$53,937", "lifetimeHold": "52.1%", "lifetimePurchasedNum": 53937.37, "favouriteGame7d": "UFO Pyramids", "urgency": "Today", "reason": "Redemption in progress", "reasonTable": "Redemption in progress  ●  Redeem Status Pending Redeem Review  ●  RD $900 (ID 849115)  ●  Last Purchase Tue 1 Sep $220", "reasonParts": ["Redemption in progress", "Redeem Status Pending Redeem Review", "RD $900 (ID 849115)", "Last Purchase Tue 1 Sep $220"], "recommendation": "Escalate Ops · clear RD $900 (ID 849115) · Ops Approval", "ticketEnabled": true, "ticketSubject": "Redemption Status 🔄", "ticketBody": "Hi Caleb,\n\nCongratulations on your win! 🎉\n\nI'm personally keeping an eye on your redemption, and I'll update you as soon as there's news.\n\nIn the meantime, drop me a message if you need anything else.\n\nBest regards,", "zendeskUrl": "https://jackpotahelp.zendesk.com/agent/tickets/new/1?requester_id=18085528923420", "tone": "danger"}, {"aid": "395638303", "aidUrl": "https://lookerpatrianna.cloud.looker.com/dashboards/5207?Account+ID+=395638303", "name": "Brandon Sisco", "agent": "coral_s", "agentName": "Coral", "thisDay": "$0", "priorDay": "$895", "priorPriorNum": 894.92, "sortGap": 894.92, "zeroDay": true, "purchase7d": "$2,775 · 6/7 days · missed Fri", "lifetimePurchase": "$34,953", "lifetimeHold": "49.9%", "lifetimePurchasedNum": 34953.45, "favouriteGame7d": "Voltage Blitz Rapid Boost", "urgency": "Today", "reason": "Redemption in progress", "reasonTable": "Redemption in progress  ●  Redeem Status Pending Redeem Review  ●  RD $6,000 (ID 842476)  ●  Last Purchase Thu 3 Sep $280", "reasonParts": ["Redemption in progress", "Redeem Status Pending Redeem Review", "RD $6,000 (ID 842476)", "Last Purchase Thu 3 Sep $280"], "recommendation": "Escalate Ops · clear RD $6,000 (ID 842476) · Ops Approval", "ticketEnabled": true, "ticketSubject": "Redemption Status 🔄", "ticketBody": "Hi Brandon,\n\nCongratulations on your win! 🎉\n\nI'm personally keeping an eye on your redemption, and I'll update you as soon as there's news.\n\nIn the meantime, drop me a message if you need anything else.\n\nBest regards,", "zendeskUrl": "https://jackpotahelp.zendesk.com/agent/tickets/new/1?requester_id=25084691910172", "tone": "danger"}, {"aid": "342859809", "aidUrl": "https://lookerpatrianna.cloud.looker.com/dashboards/5207?Account+ID+=342859809", "name": "Amy Le", "agent": "gabriel_e", "agentName": "Gabriel", "thisDay": "$0", "priorDay": "$3,790", "priorPriorNum": 3789.94, "sortGap": 3789.94, "zeroDay": true, "purchase7d": "$7,165 · 3/7 days · Sat, Sun, Wed", "lifetimePurchase": "$89,017", "lifetimeHold": "29.6%", "lifetimePurchasedNum": 89017.07, "favouriteGame7d": "3 Hot Teapots", "urgency": "48h", "reason": "Same weekday skip", "reasonTable": "Same weekday skip  ●  $0 vs Prior $3,790  ●  Last Purchase Wed 2 Sep $3,600", "reasonParts": ["Same weekday skip", "$0 vs Prior $3,790", "Last Purchase Wed 2 Sep $3,600"], "recommendation": "Soft check-in only", "ticketEnabled": true, "ticketSubject": "Checking In On You 👑", "ticketBody": "Hi Amy,\n\nIt's been a little while, and I just wanted to check in on how everything's going? 💬\nI hope you've been doing well and still enjoying the fun at Jackpota!\n\nIf you ever need anything: game recommendations, slot tips or just chat, I am here for you.\n\nI'd love to hear from you and see how I can make your experience even better.\n\nBest regards,", "zendeskUrl": "https://jackpotahelp.zendesk.com/agent/tickets/new/1?requester_id=23538874997660", "tone": "warning"}, {"aid": "298742733", "aidUrl": "https://lookerpatrianna.cloud.looker.com/dashboards/5207?Account+ID+=298742733", "name": "Larry Polanco", "agent": "gabriel_e", "agentName": "Gabriel", "thisDay": "$0", "priorDay": "$2,800", "priorPriorNum": 2799.86, "sortGap": 2799.86, "zeroDay": true, "purchase7d": "None In 7D", "lifetimePurchase": "$52,261", "lifetimeHold": "64.2%", "lifetimePurchasedNum": 52261.05, "favouriteGame7d": "Jackpota Dragons", "urgency": "48h", "reason": "Churn - needs reactivation", "reasonTable": "Churn - needs reactivation  ●  Last Purchase Fri 28 Aug $2,800  ●  No Purchases In 7D  ●  04 Sep Is your time to shine 🎯, 03 Sep Monthly Catch-Up this w…", "reasonParts": ["Churn - needs reactivation", "Last Purchase Fri 28 Aug $2,800", "No Purchases In 7D", "04 Sep Is your time to shine 🎯, 03 Sep Monthly Catch-Up this w…"], "recommendation": "Push purchase", "ticketEnabled": true, "ticketSubject": "You've Been Chosen 🎁", "ticketBody": "Hey Larry,\n\nNoticed things were quiet on Jackpota lately, and I wanted to check in personally 👋\n\nI've activated an exclusive offer for you: just grab the {GC_package_name} and reply once you do, I'll personally add a little extra on top 🎁\n\nSometimes one spin is all you need to win BIG.\n\nHave a good one,", "zendeskUrl": "https://jackpotahelp.zendesk.com/agent/tickets/new/1?requester_id=22250688014364", "tone": "danger"}, {"aid": "429007408", "aidUrl": "https://lookerpatrianna.cloud.looker.com/dashboards/5207?Account+ID+=429007408", "name": "Scott Stevens", "agent": "lee_t", "agentName": "Lee", "thisDay": "$0", "priorDay": "$1,785", "priorPriorNum": 1784.91, "sortGap": 1784.91, "zeroDay": true, "purchase7d": "None In 7D", "lifetimePurchase": "$24,781", "lifetimeHold": "71.7%", "lifetimePurchasedNum": 24780.75, "favouriteGame7d": "Gravity Blackjack", "urgency": "48h", "reason": "Churn - needs reactivation", "reasonTable": "Churn - needs reactivation  ●  Last Purchase Fri 28 Aug $1,785  ●  No Purchases In 7D  ●  28 Aug Your Elite Spin Boost i…", "reasonParts": ["Churn - needs reactivation", "Last Purchase Fri 28 Aug $1,785", "No Purchases In 7D", "28 Aug Your Elite Spin Boost i…"], "recommendation": "Push purchase", "ticketEnabled": true, "ticketSubject": "You've Been Chosen 🎁", "ticketBody": "Hey Scott,\n\nNoticed things were quiet on Jackpota lately, and I wanted to check in personally 👋\n\nI've activated an exclusive offer for you: just grab the {GC_package_name} and reply once you do, I'll personally add a little extra on top 🎁\n\nSometimes one spin is all you need to win BIG.\n\nHave a good one,", "zendeskUrl": "https://jackpotahelp.zendesk.com/agent/tickets/new/1?requester_id=26363315907356", "tone": "danger"}, {"aid": "243766793", "aidUrl": "https://lookerpatrianna.cloud.looker.com/dashboards/5207?Account+ID+=243766793", "name": "Thomas Kennerly", "agent": "lee_t", "agentName": "Lee", "thisDay": "$0", "priorDay": "$1,315", "priorPriorNum": 1314.87, "sortGap": 1314.87, "zeroDay": true, "purchase7d": "$80 · 1/7 days (Wed)", "lifetimePurchase": "$9,194", "lifetimeHold": "65.2%", "lifetimePurchasedNum": 9193.56, "favouriteGame7d": "Duck Hunters (94%)", "urgency": "48h", "reason": "Same weekday skip", "reasonTable": "Same weekday skip  ●  $0 vs Prior $1,315  ●  Played Today - No Purchase", "reasonParts": ["Same weekday skip", "$0 vs Prior $1,315", "Played Today - No Purchase"], "recommendation": "Soft check-in only", "ticketEnabled": true, "ticketSubject": "Checking In On You 👑", "ticketBody": "Hi Thomas,\n\nIt's been a little while, and I just wanted to check in on how everything's going? 💬\nI hope you've been doing well and still enjoying the fun at Jackpota!\n\nIf you ever need anything: game recommendations, slot tips or just chat, I am here for you.\n\nI'd love to hear from you and see how I can make your experience even better.\n\nBest regards,", "zendeskUrl": "https://jackpotahelp.zendesk.com/agent/tickets/new/1?requester_id=21086035215900", "tone": "warning"}, {"aid": "457244987", "aidUrl": "https://lookerpatrianna.cloud.looker.com/dashboards/5207?Account+ID+=457244987", "name": "Anyae Davis", "agent": "rachel_a", "agentName": "Rachel", "thisDay": "$0", "priorDay": "$1,195", "priorPriorNum": 1194.96, "sortGap": 1194.96, "zeroDay": true, "purchase7d": "$4,180 · 3/7 days · Sun, Tue, Wed", "lifetimePurchase": "$54,699", "lifetimeHold": "62.3%", "lifetimePurchasedNum": 54698.51, "favouriteGame7d": "Lucky Penny 3 Pots: Super Wheel", "urgency": "48h", "reason": "Same weekday skip", "reasonTable": "Same weekday skip  ●  $0 vs Prior $1,195  ●  Played Today - No Purchase", "reasonParts": ["Same weekday skip", "$0 vs Prior $1,195", "Played Today - No Purchase"], "recommendation": "Soft check-in only", "ticketEnabled": true, "ticketSubject": "Checking In On You 👑", "ticketBody": "Hi Anyae,\n\nIt's been a little while, and I just wanted to check in on how everything's going? 💬\nI hope you've been doing well and still enjoying the fun at Jackpota!\n\nIf you ever need anything: game recommendations, slot tips or just chat, I am here for you.\n\nI'd love to hear from you and see how I can make your experience even better.\n\nBest regards,", "zendeskUrl": "https://jackpotahelp.zendesk.com/agent/tickets/new/1?requester_id=27442339602204", "tone": "warning"}, {"aid": "409508405", "aidUrl": "https://lookerpatrianna.cloud.looker.com/dashboards/5207?Account+ID+=409508405", "name": "Kelvin Troches", "agent": "lee_t", "agentName": "Lee", "thisDay": "$0", "priorDay": "$1,135", "priorPriorNum": 1134.96, "sortGap": 1134.96, "zeroDay": true, "purchase7d": "$1,830 · 1/7 days (Sat)", "lifetimePurchase": "$67,948", "lifetimeHold": "64.7%", "lifetimePurchasedNum": 67947.73, "favouriteGame7d": "Piggy Bankroll Vault Smash", "urgency": "48h", "reason": "Same weekday skip", "reasonTable": "Same weekday skip  ●  $0 vs Prior $1,135  ●  Last Purchase Sat 29 Aug $1,830", "reasonParts": ["Same weekday skip", "$0 vs Prior $1,135", "Last Purchase Sat 29 Aug $1,830"], "recommendation": "Push purchase", "ticketEnabled": true, "ticketSubject": "You've Been Chosen 🎁", "ticketBody": "Hey Kelvin,\n\nNoticed things were quiet on Jackpota lately, and I wanted to check in personally 👋\n\nI've activated an exclusive offer for you: just grab the {GC_package_name} and reply once you do, I'll personally add a little extra on top 🎁\n\nSometimes one spin is all you need to win BIG.\n\nHave a good one,", "zendeskUrl": "https://jackpotahelp.zendesk.com/agent/tickets/new/1?requester_id=25560985627548", "tone": "warning"}, {"aid": "190991932", "aidUrl": "https://lookerpatrianna.cloud.looker.com/dashboards/5207?Account+ID+=190991932", "name": "Andrea Barrera", "agent": "coral_s", "agentName": "Coral", "thisDay": "$0", "priorDay": "$1,085", "priorPriorNum": 1084.96, "sortGap": 1084.96, "zeroDay": true, "purchase7d": "None In 7D", "lifetimePurchase": "$66,871", "lifetimeHold": "58.0%", "lifetimePurchasedNum": 66871.32, "favouriteGame7d": "—", "urgency": "48h", "reason": "Churn - needs reactivation", "reasonTable": "Churn - needs reactivation  ●  Last Purchase Fri 28 Aug $1,085  ●  No Play In 7D  ●  25 Aug The Elite Vault Opens i…, 23 Aug Can I Get Your Opinion?🤗", "reasonParts": ["Churn - needs reactivation", "Last Purchase Fri 28 Aug $1,085", "No Play In 7D", "25 Aug The Elite Vault Opens i…, 23 Aug Can I Get Your Opinion?🤗"], "recommendation": "Push purchase", "ticketEnabled": true, "ticketSubject": "You've Been Chosen 🎁", "ticketBody": "Hey Andrea,\n\nNoticed things were quiet on Jackpota lately, and I wanted to check in personally 👋\n\nI've activated an exclusive offer for you: just grab the {GC_package_name} and reply once you do, I'll personally add a little extra on top 🎁\n\nSometimes one spin is all you need to win BIG.\n\nHave a good one,", "zendeskUrl": "https://jackpotahelp.zendesk.com/agent/tickets/new/1?requester_id=19355316567708", "tone": "danger"}, {"aid": "400395457", "aidUrl": "https://lookerpatrianna.cloud.looker.com/dashboards/5207?Account+ID+=400395457", "name": "Beverl y Miller", "agent": "lee_t", "agentName": "Lee", "thisDay": "$0", "priorDay": "$1,440", "priorPriorNum": 1439.97, "sortGap": 1439.97, "zeroDay": true, "purchase7d": "$1,745 · 4/7 days · missed Sun, Mon, Fri", "lifetimePurchase": "$16,174", "lifetimeHold": "100.0%", "lifetimePurchasedNum": 16174.27, "favouriteGame7d": "Luna Princess Link&Merge VF", "urgency": "Watch", "reason": "Same weekday skip", "reasonTable": "Same weekday skip  ●  $0 vs Prior $1,440  ●  Last Purchase Thu 3 Sep $120", "reasonParts": ["Same weekday skip", "$0 vs Prior $1,440", "Last Purchase Thu 3 Sep $120"], "recommendation": "Push purchase", "ticketEnabled": true, "ticketSubject": "You've Been Chosen 🎁", "ticketBody": "Hey Beverl,\n\nNoticed things were quiet on Jackpota lately, and I wanted to check in personally 👋\n\nI've activated an exclusive offer for you: just grab the {GC_package_name} and reply once you do, I'll personally add a little extra on top 🎁\n\nSometimes one spin is all you need to win BIG.\n\nHave a good one,", "zendeskUrl": "https://jackpotahelp.zendesk.com/agent/tickets/new/1?requester_id=25219276687004", "tone": "warning"}, {"aid": "34535403", "aidUrl": "https://lookerpatrianna.cloud.looker.com/dashboards/5207?Account+ID+=34535403", "name": "Shawna Hardin", "agent": "lee_t", "agentName": "Lee", "thisDay": "$0", "priorDay": "$1,345", "priorPriorNum": 1344.95, "sortGap": 1344.95, "zeroDay": true, "purchase7d": "$405 · 1/7 days (Thu)", "lifetimePurchase": "$7,889", "lifetimeHold": "-27.4%", "lifetimePurchasedNum": 7888.8, "favouriteGame7d": "Hot & Spicy: Chili Rush", "urgency": "Watch", "reason": "Same weekday skip", "reasonTable": "Same weekday skip  ●  $0 vs Prior $1,345  ●  Played Today - No Purchase", "reasonParts": ["Same weekday skip", "$0 vs Prior $1,345", "Played Today - No Purchase"], "recommendation": "Push purchase", "ticketEnabled": true, "ticketSubject": "You've Been Chosen 🎁", "ticketBody": "Hey Shawna,\n\nNoticed things were quiet on Jackpota lately, and I wanted to check in personally 👋\n\nI've activated an exclusive offer for you: just grab the {GC_package_name} and reply once you do, I'll personally add a little extra on top 🎁\n\nSometimes one spin is all you need to win BIG.\n\nHave a good one,", "zendeskUrl": "https://jackpotahelp.zendesk.com/agent/tickets/new/1?requester_id=15357445333788", "tone": "warning"}, {"aid": "205933077", "aidUrl": "https://lookerpatrianna.cloud.looker.com/dashboards/5207?Account+ID+=205933077", "name": "Diana Schuttler", "agent": "coral_s", "agentName": "Coral", "thisDay": "$0", "priorDay": "$1,105", "priorPriorNum": 1104.93, "sortGap": 1104.93, "zeroDay": true, "purchase7d": "$3,390 · 5/7 days · missed Wed, Fri", "lifetimePurchase": "$129,191", "lifetimeHold": "41.9%", "lifetimePurchasedNum": 129190.57, "favouriteGame7d": "Lucky Penny 3 Pots: Super Wheel", "urgency": "Watch", "reason": "Same weekday skip", "reasonTable": "Same weekday skip  ●  $0 vs Prior $1,105  ●  Last Purchase Thu 3 Sep $385", "reasonParts": ["Same weekday skip", "$0 vs Prior $1,105", "Last Purchase Thu 3 Sep $385"], "recommendation": "No action", "ticketEnabled": false, "ticketSubject": "", "ticketBody": "", "zendeskUrl": "", "tone": "warning"}, {"aid": "335105603", "aidUrl": "https://lookerpatrianna.cloud.looker.com/dashboards/5207?Account+ID+=335105603", "name": "Frank Kimball", "agent": "rachel_a", "agentName": "Rachel", "thisDay": "$0", "priorDay": "$905", "priorPriorNum": 904.96, "sortGap": 904.96, "zeroDay": true, "purchase7d": "$1,735 · 5/7 days · missed Sat, Fri", "lifetimePurchase": "$54,653", "lifetimeHold": "37.4%", "lifetimePurchasedNum": 54653.24, "favouriteGame7d": "Thunderline Express: Hold & Win", "urgency": "Watch", "reason": "Same weekday skip", "reasonTable": "Same weekday skip  ●  $0 vs Prior $905  ●  Played Today - No Purchase", "reasonParts": ["Same weekday skip", "$0 vs Prior $905", "Played Today - No Purchase"], "recommendation": "No action", "ticketEnabled": false, "ticketSubject": "", "ticketBody": "", "zendeskUrl": "", "tone": "warning"}], "dayShort": "Fri"}, {"report": {"date": "2026-09-05", "weekday": "Saturday", "priorDate": "2026-08-29", "headline": "Jackpota revenue -0.2% vs last Saturday · Elite revenue -3.5% vs last Saturday · Elite share 27.1% of Jackpota", "segments": [{"label": "Jackpota", "revThis": "$730,750", "revPrior": "$732,427", "revWow": "$-1,677 (-0.2%)", "plyThis": "6353", "plyPrior": "6114", "plyWow": "+239 (+3.9%)", "share": "", "tone": "danger"}, {"label": "Elite", "revThis": "$197,916", "revPrior": "$205,002", "revWow": "$-7,086 (-3.5%)", "plyThis": "680", "plyPrior": "696", "plyWow": "-16 (-2.3%)", "share": "27.1% of Jackpota", "tone": "danger"}]}, "segments": [{"label": "Jackpota", "revThis": "$730,750", "revPrior": "$732,427", "revWow": "$-1,677 (-0.2%)", "plyThis": "6353", "plyPrior": "6114", "plyWow": "+239 (+3.9%)", "share": "", "tone": "danger"}, {"label": "Elite", "revThis": "$197,916", "revPrior": "$205,002", "revWow": "$-7,086 (-3.5%)", "plyThis": "680", "plyPrior": "696", "plyWow": "-16 (-2.3%)", "share": "27.1% of Jackpota", "tone": "danger"}], "titles": {"thisPurchase": "This Saturday Purchase", "priorPurchase": "Prior Saturday Purchase", "purchase7d": "7D Purchase", "lifetimePurchase": "LT Purchase", "lifetimeHold": "Lifetime Hold", "favouriteGame7d": "Favourite Game (7D)"}, "players": [{"aid": "414412782", "aidUrl": "https://lookerpatrianna.cloud.looker.com/dashboards/5207?Account+ID+=414412782", "name": "Carlos Bustos", "agent": "rachel_a", "agentName": "Rachel", "thisDay": "$0", "priorDay": "$9,199", "priorPriorNum": 9199.09, "sortGap": 9199.09, "zeroDay": true, "purchase7d": "$3,635 · 4/7 days · missed Thu, Fri, Sat", "lifetimePurchase": "$58,613", "lifetimeHold": "60.8%", "lifetimePurchasedNum": 58613.06, "favouriteGame7d": "Hot Rocket 5x 3x 2x", "urgency": "Today", "reason": "Redemption in progress", "reasonTable": "Redemption in progress  ●  Redeem Status Pre-Authorized  ●  RD $8,000 total (4 open) · latest ID 845489  ●  Last Purchase Wed 2 Sep $50", "reasonParts": ["Redemption in progress", "Redeem Status Pre-Authorized", "RD $8,000 total (4 open) · latest ID 845489", "Last Purchase Wed 2 Sep $50"], "recommendation": "Escalate Ops · clear RD $8,000 total (4 open · latest ID 845489) · Ops Approval To Release", "ticketEnabled": true, "ticketSubject": "Redemption Status 🔄", "ticketBody": "Hi Carlos,\n\nCongratulations on your win! 🎉\n\nI'm personally keeping an eye on your redemption, and I'll update you as soon as there's news.\n\nIn the meantime, drop me a message if you need anything else.\n\nBest regards,", "zendeskUrl": "https://jackpotahelp.zendesk.com/agent/tickets/new/1?requester_id=25769562358172", "tone": "danger"}, {"aid": "349355613", "aidUrl": "https://lookerpatrianna.cloud.looker.com/dashboards/5207?Account+ID+=349355613", "name": "Maria Linskey", "agent": "rachel_a", "agentName": "Rachel", "thisDay": "$0", "priorDay": "$1,940", "priorPriorNum": 1939.9, "sortGap": 1939.9, "zeroDay": true, "purchase7d": "$12,290 · 6/7 days · missed Sat", "lifetimePurchase": "$286,123", "lifetimeHold": "68.2%", "lifetimePurchasedNum": 286123.06, "favouriteGame7d": "Well of Riches", "urgency": "Today", "reason": "Redemption in progress", "reasonTable": "Redemption in progress  ●  Redeem Status Pre-Authorized  ●  RD $500 (ID 856849)  ●  Last Purchase Fri 4 Sep $970", "reasonParts": ["Redemption in progress", "Redeem Status Pre-Authorized", "RD $500 (ID 856849)", "Last Purchase Fri 4 Sep $970"], "recommendation": "Escalate Ops · clear RD $500 (ID 856849) · Ops Approval To Release", "ticketEnabled": true, "ticketSubject": "Redemption Status 🔄", "ticketBody": "Hi Maria,\n\nCongratulations on your win! 🎉\n\nI'm personally keeping an eye on your redemption, and I'll update you as soon as there's news.\n\nIn the meantime, drop me a message if you need anything else.\n\nBest regards,", "zendeskUrl": "https://jackpotahelp.zendesk.com/agent/tickets/new/1?requester_id=23754512314780", "tone": "danger"}, {"aid": "350118370", "aidUrl": "https://lookerpatrianna.cloud.looker.com/dashboards/5207?Account+ID+=350118370", "name": "Calvin Reed", "agent": "coral_s", "agentName": "Coral", "thisDay": "$0", "priorDay": "$1,580", "priorPriorNum": 1579.89, "sortGap": 1579.89, "zeroDay": true, "purchase7d": "$2,965 · 5/7 days · missed Wed, Sat", "lifetimePurchase": "$12,276", "lifetimeHold": "68.6%", "lifetimePurchasedNum": 12275.65, "favouriteGame7d": "Giga Match Egypt (94%)", "urgency": "Today", "reason": "Redemption in progress", "reasonTable": "Redemption in progress  ●  Redeem Status Pending Redeem Review  ●  RD $6,000 total (2 open) · latest ID 845723  ●  Last Purchase Fri 4 Sep $30", "reasonParts": ["Redemption in progress", "Redeem Status Pending Redeem Review", "RD $6,000 total (2 open) · latest ID 845723", "Last Purchase Fri 4 Sep $30"], "recommendation": "Escalate Ops · clear RD $6,000 total (2 open · latest ID 845723) · Ops Approval", "ticketEnabled": true, "ticketSubject": "Redemption Status 🔄", "ticketBody": "Hi Calvin,\n\nCongratulations on your win! 🎉\n\nI'm personally keeping an eye on your redemption, and I'll update you as soon as there's news.\n\nIn the meantime, drop me a message if you need anything else.\n\nBest regards,", "zendeskUrl": "https://jackpotahelp.zendesk.com/agent/tickets/new/1?requester_id=23771481481372", "tone": "danger"}, {"aid": "478710827", "aidUrl": "https://lookerpatrianna.cloud.looker.com/dashboards/5207?Account+ID+=478710827", "name": "Jennifer Hall", "agent": "gabriel_e", "agentName": "Gabriel", "thisDay": "$0", "priorDay": "$1,515", "priorPriorNum": 1514.94, "sortGap": 1514.94, "zeroDay": true, "purchase7d": "None In 7D", "lifetimePurchase": "$9,390", "lifetimeHold": "64.9%", "lifetimePurchasedNum": 9389.57, "favouriteGame7d": "—", "urgency": "Today", "reason": "Account locked", "reasonTable": "Account locked  ●  self_excluded_account  ●  29 Aug 💎 Welcome! I'm Your New…", "reasonParts": ["Account locked", "self_excluded_account", "29 Aug 💎 Welcome! I'm Your New…"], "recommendation": "Send to Ops · self_excluded_account", "ticketEnabled": false, "ticketSubject": "", "ticketBody": "", "zendeskUrl": "", "tone": "danger"}, {"aid": "300286239", "aidUrl": "https://lookerpatrianna.cloud.looker.com/dashboards/5207?Account+ID+=300286239", "name": "Jessica Peterson", "agent": "lee_t", "agentName": "Lee", "thisDay": "$0", "priorDay": "$1,360", "priorPriorNum": 1359.95, "sortGap": 1359.95, "zeroDay": true, "purchase7d": "$345 · 2/7 days · Mon, Tue", "lifetimePurchase": "$55,733", "lifetimeHold": "-17.9%", "lifetimePurchasedNum": 55732.8, "favouriteGame7d": "Luna Princess Link&Merge VF", "urgency": "Today", "reason": "Redemption in progress", "reasonTable": "Redemption in progress  ●  Redeem Status Pre-Authorized  ●  RD $2,005 (ID 850532)  ●  Last Purchase Tue 1 Sep $175", "reasonParts": ["Redemption in progress", "Redeem Status Pre-Authorized", "RD $2,005 (ID 850532)", "Last Purchase Tue 1 Sep $175"], "recommendation": "Escalate Ops · clear RD $2,005 (ID 850532) · Ops Approval To Release", "ticketEnabled": true, "ticketSubject": "Redemption Status 🔄", "ticketBody": "Hi Jessica,\n\nCongratulations on your win! 🎉\n\nI'm personally keeping an eye on your redemption, and I'll update you as soon as there's news.\n\nIn the meantime, drop me a message if you need anything else.\n\nBest regards,", "zendeskUrl": "https://jackpotahelp.zendesk.com/agent/tickets/new/1?requester_id=22290400918172", "tone": "danger"}, {"aid": "396659349", "aidUrl": "https://lookerpatrianna.cloud.looker.com/dashboards/5207?Account+ID+=396659349", "name": "Tommy Ho", "agent": "lee_t", "agentName": "Lee", "thisDay": "$0", "priorDay": "$1,280", "priorPriorNum": 1279.94, "sortGap": 1279.94, "zeroDay": true, "purchase7d": "$1,485 · 3/7 days · Mon, Tue, Wed", "lifetimePurchase": "$18,717", "lifetimeHold": "66.9%", "lifetimePurchasedNum": 18716.6, "favouriteGame7d": "Electric Coins 2 Ultimate", "urgency": "Today", "reason": "Redemption in progress", "reasonTable": "Redemption in progress  ●  Redeem Status Pre-Authorized  ●  RD $500 (ID 845572)  ●  Last Purchase Wed 2 Sep $655", "reasonParts": ["Redemption in progress", "Redeem Status Pre-Authorized", "RD $500 (ID 845572)", "Last Purchase Wed 2 Sep $655"], "recommendation": "Escalate Ops · clear RD $500 (ID 845572) · Ops Approval To Release", "ticketEnabled": true, "ticketSubject": "Redemption Status 🔄", "ticketBody": "Hi Tommy,\n\nCongratulations on your win! 🎉\n\nI'm personally keeping an eye on your redemption, and I'll update you as soon as there's news.\n\nIn the meantime, drop me a message if you need anything else.\n\nBest regards,", "zendeskUrl": "https://jackpotahelp.zendesk.com/agent/tickets/new/1?requester_id=25116295234716", "tone": "danger"}, {"aid": "426213804", "aidUrl": "https://lookerpatrianna.cloud.looker.com/dashboards/5207?Account+ID+=426213804", "name": "Camisha Bridges", "agent": "gabriel_e", "agentName": "Gabriel", "thisDay": "$0", "priorDay": "$1,270", "priorPriorNum": 1269.93, "sortGap": 1269.93, "zeroDay": true, "purchase7d": "$1,685 · 4/7 days · missed Sun, Fri, Sat", "lifetimePurchase": "$35,207", "lifetimeHold": "46.1%", "lifetimePurchasedNum": 35206.92, "favouriteGame7d": "The Tipsy Tourist: Beach Bonanza - Hold & Win", "urgency": "Today", "reason": "Redemption in progress", "reasonTable": "Redemption in progress  ●  Redeem Status Pending Redeem Review  ●  RD $4,715 total (5 open) · latest ID 854831  ●  Last Purchase Thu 3 Sep $365", "reasonParts": ["Redemption in progress", "Redeem Status Pending Redeem Review", "RD $4,715 total (5 open) · latest ID 854831", "Last Purchase Thu 3 Sep $365"], "recommendation": "Escalate Ops · clear RD $4,715 total (5 open · latest ID 854831) · Ops Approval", "ticketEnabled": true, "ticketSubject": "Redemption Status 🔄", "ticketBody": "Hi Camisha,\n\nCongratulations on your win! 🎉\n\nI'm personally keeping an eye on your redemption, and I'll update you as soon as there's news.\n\nIn the meantime, drop me a message if you need anything else.\n\nBest regards,", "zendeskUrl": "https://jackpotahelp.zendesk.com/agent/tickets/new/1?requester_id=26259818413468", "tone": "danger"}, {"aid": "230813245", "aidUrl": "https://lookerpatrianna.cloud.looker.com/dashboards/5207?Account+ID+=230813245", "name": "Lori Duncan", "agent": "coral_s", "agentName": "Coral", "thisDay": "$0", "priorDay": "$1,045", "priorPriorNum": 1044.68, "sortGap": 1044.68, "zeroDay": true, "purchase7d": "$1,844 · 6/7 days · missed Sat", "lifetimePurchase": "$15,845", "lifetimeHold": "77.5%", "lifetimePurchasedNum": 15844.64, "favouriteGame7d": "Bonanza Trillion", "urgency": "Today", "reason": "Redemption in progress", "reasonTable": "Redemption in progress  ●  Redeem Status Pre-Authorized  ●  RD $4,775 total (6 open) · latest ID 853560  ●  Last Purchase Fri 4 Sep $1,150", "reasonParts": ["Redemption in progress", "Redeem Status Pre-Authorized", "RD $4,775 total (6 open) · latest ID 853560", "Last Purchase Fri 4 Sep $1,150"], "recommendation": "Escalate Ops · clear RD $4,775 total (6 open · latest ID 853560) · Ops Approval To Release", "ticketEnabled": true, "ticketSubject": "Redemption Status 🔄", "ticketBody": "Hi Lori,\n\nCongratulations on your win! 🎉\n\nI'm personally keeping an eye on your redemption, and I'll update you as soon as there's news.\n\nIn the meantime, drop me a message if you need anything else.\n\nBest regards,", "zendeskUrl": "https://jackpotahelp.zendesk.com/agent/tickets/new/1?requester_id=20699784248732", "tone": "danger"}, {"aid": "48421940", "aidUrl": "https://lookerpatrianna.cloud.looker.com/dashboards/5207?Account+ID+=48421940", "name": "Dan Alvarado", "agent": "coral_s", "agentName": "Coral", "thisDay": "$0", "priorDay": "$990", "priorPriorNum": 989.94, "sortGap": 989.94, "zeroDay": true, "purchase7d": "$7,220 · 6/7 days · missed Sat", "lifetimePurchase": "$220,762", "lifetimeHold": "28.5%", "lifetimePurchasedNum": 220761.81, "favouriteGame7d": "Gold Fever Buy Bonus", "urgency": "Today", "reason": "Payment failed", "reasonTable": "Payment failed  ●  1 Failed Checkout  ●  Last Purchase Fri 4 Sep $10  ●  1 Failed Post-Purchase", "reasonParts": ["Payment failed", "1 Failed Checkout", "Last Purchase Fri 4 Sep $10", "1 Failed Post-Purchase"], "recommendation": "Fix payment method · 1 failed checkout", "ticketEnabled": false, "ticketSubject": "", "ticketBody": "", "zendeskUrl": "", "tone": "danger"}, {"aid": "203306245", "aidUrl": "https://lookerpatrianna.cloud.looker.com/dashboards/5207?Account+ID+=203306245", "name": "Roger Harris", "agent": "gabriel_e", "agentName": "Gabriel", "thisDay": "$0", "priorDay": "$900", "priorPriorNum": 899.98, "sortGap": 899.98, "zeroDay": true, "purchase7d": "$2,835 · 3/7 days · Mon, Tue, Fri", "lifetimePurchase": "$52,833", "lifetimeHold": "26.0%", "lifetimePurchasedNum": 52832.79, "favouriteGame7d": "4 Pots Riches: Hold and Win", "urgency": "Today", "reason": "Redemption in progress", "reasonTable": "Redemption in progress  ●  Redeem Status Pre-Authorized  ●  RD $149 (ID 854502)  ●  Last Purchase Fri 4 Sep $50", "reasonParts": ["Redemption in progress", "Redeem Status Pre-Authorized", "RD $149 (ID 854502)", "Last Purchase Fri 4 Sep $50"], "recommendation": "Escalate Ops · clear RD $149 (ID 854502) · Ops Approval To Release", "ticketEnabled": true, "ticketSubject": "Redemption Status 🔄", "ticketBody": "Hi Roger,\n\nCongratulations on your win! 🎉\n\nI'm personally keeping an eye on your redemption, and I'll update you as soon as there's news.\n\nIn the meantime, drop me a message if you need anything else.\n\nBest regards,", "zendeskUrl": "https://jackpotahelp.zendesk.com/agent/tickets/new/1?requester_id=19720833087260", "tone": "danger"}, {"aid": "454696005", "aidUrl": "https://lookerpatrianna.cloud.looker.com/dashboards/5207?Account+ID+=454696005", "name": "JEMAL IBRAHIM", "agent": "gabriel_e", "agentName": "Gabriel", "thisDay": "$0", "priorDay": "$900", "priorPriorNum": 899.95, "sortGap": 899.95, "zeroDay": true, "purchase7d": "$1,620 · 2/7 days · Tue, Thu", "lifetimePurchase": "$10,009", "lifetimeHold": "73.0%", "lifetimePurchasedNum": 10009.3, "favouriteGame7d": "Voltage Blitz Rapid Boost", "urgency": "Today", "reason": "Redemption in progress", "reasonTable": "Redemption in progress  ●  Redeem Status Pre-Authorized  ●  RD $1,500 (ID 845688)  ●  Last Purchase Thu 3 Sep $855", "reasonParts": ["Redemption in progress", "Redeem Status Pre-Authorized", "RD $1,500 (ID 845688)", "Last Purchase Thu 3 Sep $855"], "recommendation": "Escalate Ops · clear RD $1,500 (ID 845688) · Ops Approval To Release", "ticketEnabled": true, "ticketSubject": "Redemption Status 🔄", "ticketBody": "Hi JEMAL,\n\nCongratulations on your win! 🎉\n\nI'm personally keeping an eye on your redemption, and I'll update you as soon as there's news.\n\nIn the meantime, drop me a message if you need anything else.\n\nBest regards,", "zendeskUrl": "https://jackpotahelp.zendesk.com/agent/tickets/new/1?requester_id=27344371126684", "tone": "danger"}, {"aid": "281566601", "aidUrl": "https://lookerpatrianna.cloud.looker.com/dashboards/5207?Account+ID+=281566601", "name": "Lesia Mitchell", "agent": "coral_s", "agentName": "Coral", "thisDay": "$0", "priorDay": "$860", "priorPriorNum": 859.96, "sortGap": 859.96, "zeroDay": true, "purchase7d": "$1,790 · 4/7 days · missed Sun, Mon, Sat", "lifetimePurchase": "$74,213", "lifetimeHold": "9.2%", "lifetimePurchasedNum": 74212.78, "favouriteGame7d": "American Sevens", "urgency": "Today", "reason": "Redemption in progress", "reasonTable": "Redemption in progress  ●  Redeem Status Pre-Authorized  ●  RD $1,300 total (2 open) · latest ID 859190  ●  Needs Recent Acceptable POA  ●  Last Purchase Fri 4 Sep $410", "reasonParts": ["Redemption in progress", "Redeem Status Pre-Authorized", "RD $1,300 total (2 open) · latest ID 859190", "Needs Recent Acceptable POA", "Last Purchase Fri 4 Sep $410"], "recommendation": "Escalate Compliance · Recent Acceptable POA", "ticketEnabled": true, "ticketSubject": "Redemption Status 🔄", "ticketBody": "Hi Lesia,\n\nCongratulations on your win! 🎉\n\nI'm personally keeping an eye on your redemption, and I'll update you as soon as there's news.\n\nIn the meantime, drop me a message if you need anything else.\n\nBest regards,", "zendeskUrl": "https://jackpotahelp.zendesk.com/agent/tickets/new/1?requester_id=21945256940060", "tone": "danger"}, {"aid": "415632778", "aidUrl": "https://lookerpatrianna.cloud.looker.com/dashboards/5207?Account+ID+=415632778", "name": "Christine Reyes", "agent": "lee_t", "agentName": "Lee", "thisDay": "$0", "priorDay": "$810", "priorPriorNum": 809.83, "sortGap": 809.83, "zeroDay": true, "purchase7d": "$495 · 2/7 days · Mon, Tue", "lifetimePurchase": "$58,450", "lifetimeHold": "37.9%", "lifetimePurchasedNum": 58449.8, "favouriteGame7d": "Golden Penny x1000 Power Chance", "urgency": "Today", "reason": "Redemption in progress", "reasonTable": "Redemption Blocked  ●  Restricted 27 Aug  ●  Redeem Status Pending Verification  ●  Needs Recent Acceptable POA  ●  Last Play 14D Sat 5 Sep  ●  29 Aug Escalation about ticket…, 29 Aug Conversation with Chris…  ●  Pending RD $200", "reasonParts": ["Redemption Blocked", "Restricted 27 Aug", "Redeem Status Pending Verification", "Needs Recent Acceptable POA", "Last Play 14D Sat 5 Sep", "29 Aug Escalation about ticket…, 29 Aug Conversation with Chris…", "Pending RD $200"], "recommendation": "Escalate Compliance · Recent Acceptable POA", "ticketEnabled": true, "ticketSubject": "Redemption Status 🔄", "ticketBody": "Hi Christine,\n\nCongratulations on your win! 🎉\n\nI'm personally keeping an eye on your redemption, and I'll update you as soon as there's news.\n\nIn the meantime, drop me a message if you need anything else.\n\nBest regards,", "zendeskUrl": "https://jackpotahelp.zendesk.com/agent/tickets/new/1?requester_id=25819388641948", "tone": "danger"}, {"aid": "233474677", "aidUrl": "https://lookerpatrianna.cloud.looker.com/dashboards/5207?Account+ID+=233474677", "name": "Delores Williamson", "agent": "rachel_a", "agentName": "Rachel", "thisDay": "$0", "priorDay": "$730", "priorPriorNum": 729.82, "sortGap": 729.82, "zeroDay": true, "purchase7d": "$1,290 · 4/7 days · missed Tue, Wed, Sat", "lifetimePurchase": "$48,382", "lifetimeHold": "0.8%", "lifetimePurchasedNum": 48382.24, "favouriteGame7d": "3 Big Barrels Buffalo (94%)", "urgency": "Today", "reason": "Redemption in progress", "reasonTable": "Redemption in progress  ●  Redeem Status Pending Pm Verification  ●  RD $3,000 total (2 open) · latest ID 857447  ●  Needs Ops Approval To Release  ●  Last Purchase Fri 4 Sep $50", "reasonParts": ["Redemption in progress", "Redeem Status Pending Pm Verification", "RD $3,000 total (2 open) · latest ID 857447", "Needs Ops Approval To Release", "Last Purchase Fri 4 Sep $50"], "recommendation": "Escalate Ops · clear RD $3,000 total (2 open · latest ID 857447) · Ops Approval To Release", "ticketEnabled": true, "ticketSubject": "Redemption Status 🔄", "ticketBody": "Hi Delores,\n\nCongratulations on your win! 🎉\n\nI'm personally keeping an eye on your redemption, and I'll update you as soon as there's news.\n\nIn the meantime, drop me a message if you need anything else.\n\nBest regards,", "zendeskUrl": "https://jackpotahelp.zendesk.com/agent/tickets/new/1?requester_id=20782427158556", "tone": "danger"}, {"aid": "445860895", "aidUrl": "https://lookerpatrianna.cloud.looker.com/dashboards/5207?Account+ID+=445860895", "name": "Luanne Clements", "agent": "lee_t", "agentName": "Lee", "thisDay": "$0", "priorDay": "$666", "priorPriorNum": 665.85, "sortGap": 665.85, "zeroDay": true, "purchase7d": "None In 7D", "lifetimePurchase": "$130,987", "lifetimeHold": "43.9%", "lifetimePurchasedNum": 130986.61, "favouriteGame7d": "—", "urgency": "Today", "reason": "Account locked", "reasonTable": "Account locked  ●  Indefinite Exclusion  ●  29 Aug Close my acct, 28 Aug Your Elite Spin Boost i…", "reasonParts": ["Account locked", "Indefinite Exclusion", "29 Aug Close my acct, 28 Aug Your Elite Spin Boost i…"], "recommendation": "Send to Ops · Indefinite Exclusion", "ticketEnabled": false, "ticketSubject": "", "ticketBody": "", "zendeskUrl": "", "tone": "danger"}, {"aid": "342859809", "aidUrl": "https://lookerpatrianna.cloud.looker.com/dashboards/5207?Account+ID+=342859809", "name": "Amy Le", "agent": "gabriel_e", "agentName": "Gabriel", "thisDay": "$0", "priorDay": "$1,625", "priorPriorNum": 1624.96, "sortGap": 1624.96, "zeroDay": true, "purchase7d": "$5,540 · 2/7 days · Sun, Wed", "lifetimePurchase": "$89,017", "lifetimeHold": "29.6%", "lifetimePurchasedNum": 89017.07, "favouriteGame7d": "3 Hot Teapots", "urgency": "48h", "reason": "Same weekday skip", "reasonTable": "Same weekday skip  ●  $0 vs Prior $1,625  ●  Played Today - No Purchase", "reasonParts": ["Same weekday skip", "$0 vs Prior $1,625", "Played Today - No Purchase"], "recommendation": "Push purchase", "ticketEnabled": true, "ticketSubject": "You've Been Chosen 🎁", "ticketBody": "Hey Amy,\n\nNoticed things were quiet on Jackpota lately, and I wanted to check in personally 👋\n\nI've activated an exclusive offer for you: just grab the {GC_package_name} and reply once you do, I'll personally add a little extra on top 🎁\n\nSometimes one spin is all you need to win BIG.\n\nHave a good one,", "zendeskUrl": "https://jackpotahelp.zendesk.com/agent/tickets/new/1?requester_id=23538874997660", "tone": "warning"}, {"aid": "301022700", "aidUrl": "https://lookerpatrianna.cloud.looker.com/dashboards/5207?Account+ID+=301022700", "name": "Tomika Long", "agent": "gabriel_e", "agentName": "Gabriel", "thisDay": "$0", "priorDay": "$1,460", "priorPriorNum": 1459.88, "sortGap": 1459.88, "zeroDay": true, "purchase7d": "$1,225 · 1/7 days (Mon)", "lifetimePurchase": "$92,834", "lifetimeHold": "49.7%", "lifetimePurchasedNum": 92834.07, "favouriteGame7d": "Fortune Surge", "urgency": "48h", "reason": "Same weekday skip", "reasonTable": "Same weekday skip  ●  $0 vs Prior $1,460  ●  Played Today - No Purchase", "reasonParts": ["Same weekday skip", "$0 vs Prior $1,460", "Played Today - No Purchase"], "recommendation": "Push purchase", "ticketEnabled": true, "ticketSubject": "You've Been Chosen 🎁", "ticketBody": "Hey Tomika,\n\nNoticed things were quiet on Jackpota lately, and I wanted to check in personally 👋\n\nI've activated an exclusive offer for you: just grab the {GC_package_name} and reply once you do, I'll personally add a little extra on top 🎁\n\nSometimes one spin is all you need to win BIG.\n\nHave a good one,", "zendeskUrl": "https://jackpotahelp.zendesk.com/agent/tickets/new/1?requester_id=22311032839964", "tone": "warning"}, {"aid": "476623063", "aidUrl": "https://lookerpatrianna.cloud.looker.com/dashboards/5207?Account+ID+=476623063", "name": "Jaicee Thompson", "agent": "lee_t", "agentName": "Lee", "thisDay": "$0", "priorDay": "$1,420", "priorPriorNum": 1419.93, "sortGap": 1419.93, "zeroDay": true, "purchase7d": "$480 · 2/7 days · Sun, Mon", "lifetimePurchase": "$12,874", "lifetimeHold": "69.9%", "lifetimePurchasedNum": 12874.23, "favouriteGame7d": "Lucky Ducky", "urgency": "48h", "reason": "Same weekday skip", "reasonTable": "Same weekday skip  ●  $0 vs Prior $1,420  ●  Last Purchase Mon 31 Aug $70", "reasonParts": ["Same weekday skip", "$0 vs Prior $1,420", "Last Purchase Mon 31 Aug $70"], "recommendation": "Push purchase", "ticketEnabled": true, "ticketSubject": "You've Been Chosen 🎁", "ticketBody": "Hey Jaicee,\n\nNoticed things were quiet on Jackpota lately, and I wanted to check in personally 👋\n\nI've activated an exclusive offer for you: just grab the {GC_package_name} and reply once you do, I'll personally add a little extra on top 🎁\n\nSometimes one spin is all you need to win BIG.\n\nHave a good one,", "zendeskUrl": "https://jackpotahelp.zendesk.com/agent/tickets/new/1?requester_id=28171973381532", "tone": "warning"}, {"aid": "237445373", "aidUrl": "https://lookerpatrianna.cloud.looker.com/dashboards/5207?Account+ID+=237445373", "name": "Tolgahan Gulec", "agent": "coral_s", "agentName": "Coral", "thisDay": "$0", "priorDay": "$630", "priorPriorNum": 629.96, "sortGap": 629.96, "zeroDay": true, "purchase7d": "None In 7D", "lifetimePurchase": "$42,651", "lifetimeHold": "40.8%", "lifetimePurchasedNum": 42651.12, "favouriteGame7d": "Celestial Flame Coin Rise (94%)", "urgency": "48h", "reason": "Churn - needs reactivation", "reasonTable": "Churn - needs reactivation  ●  Last Purchase Sat 29 Aug $630  ●  No Purchases In 7D  ●  23 Aug A Sunday Sweetener 💗", "reasonParts": ["Churn - needs reactivation", "Last Purchase Sat 29 Aug $630", "No Purchases In 7D", "23 Aug A Sunday Sweetener 💗"], "recommendation": "Push purchase", "ticketEnabled": true, "ticketSubject": "You've Been Chosen 🎁", "ticketBody": "Hey Tolgahan,\n\nNoticed things were quiet on Jackpota lately, and I wanted to check in personally 👋\n\nI've activated an exclusive offer for you: just grab the {GC_package_name} and reply once you do, I'll personally add a little extra on top 🎁\n\nSometimes one spin is all you need to win BIG.\n\nHave a good one,", "zendeskUrl": "https://jackpotahelp.zendesk.com/agent/tickets/new/1?requester_id=20905961702812", "tone": "danger"}, {"aid": "447628609", "aidUrl": "https://lookerpatrianna.cloud.looker.com/dashboards/5207?Account+ID+=447628609", "name": "KURT HAGUE", "agent": "coral_s", "agentName": "Coral", "thisDay": "$0", "priorDay": "$1,395", "priorPriorNum": 1394.9, "sortGap": 1394.9, "zeroDay": true, "purchase7d": "$775 · 4/7 days · missed Sun, Tue, Sat", "lifetimePurchase": "$73,283", "lifetimeHold": "72.0%", "lifetimePurchasedNum": 73282.65, "favouriteGame7d": "Piggy Bankroll Vault Smash", "urgency": "Watch", "reason": "Same weekday skip", "reasonTable": "Same weekday skip  ●  $0 vs Prior $1,395  ●  Played Today - No Purchase", "reasonParts": ["Same weekday skip", "$0 vs Prior $1,395", "Played Today - No Purchase"], "recommendation": "Push purchase", "ticketEnabled": true, "ticketSubject": "You've Been Chosen 🎁", "ticketBody": "Hey KURT,\n\nNoticed things were quiet on Jackpota lately, and I wanted to check in personally 👋\n\nI've activated an exclusive offer for you: just grab the {GC_package_name} and reply once you do, I'll personally add a little extra on top 🎁\n\nSometimes one spin is all you need to win BIG.\n\nHave a good one,", "zendeskUrl": "https://jackpotahelp.zendesk.com/agent/tickets/new/1?requester_id=27050550754588", "tone": "warning"}], "dayShort": "Sat"}], "agentOptions": [{"value": "alon_tish", "label": "Alon"}, {"value": "coral_s", "label": "Coral"}, {"value": "gabriel_e", "label": "Gabriel"}, {"value": "lee_t", "label": "Lee"}, {"value": "rachel_a", "label": "Rachel"}], "urgencyLegend": "Urgency: Today (contact today: Redeem pending, payment failed, account lock, or red flag) · 48h (reach out within 2 days: Churn, spend slowing, or 2+ days without purchase) · Watch (monitor only: Skipped purchase day or post-win) · None (do not contact: Self-exclusion)"};
+    const isWeekend = DATA.report && DATA.report.mode === "weekend";
+
+    if (isWeekend) {
+      renderWeekend(DATA);
+    } else {
+      renderDaily(DATA);
+    }
+
+    function renderDaily(DATA) {
+    const { report: REPORT, segments: SEGMENTS, players: TOP10, titles: TITLES, agents: AGENTS, dayShort } = DATA;
+
+    const REASON_EMPHASIS = [
+      "Redemption Blocked", "Redemption in progress", "Needs ", "Same weekday skip",
+      "Spend Softening", "Offline Since", "Pending RD", "RD $", "Redeem Status ",
+      "Take a break", "No Purchases", "Played Today", "Account locked", "Red flag",
+    ];
+    const URGENCY_RANK = { Today: 0, "48h": 1, Watch: 2, None: 3 };
+    const REASONS = [...new Set(TOP10.map(p => p.reason))].sort();
+
+    function reasonPartEmoji(part) {
+      const pl = part.toLowerCase();
+      if (part.startsWith("Red flag")) return "🚩 ";
+      if (part.startsWith("Redemption Blocked")) return "🚫 ";
+      if (part.startsWith("Redemption in progress")) return "⏳ ";
+      if (part.startsWith("Account locked") || part.includes("Suspended")) return "🔒 ";
+      if (part.startsWith("Needs Recent Acceptable POA") || pl.includes("poa")) return "📄 ";
+      if (part.startsWith("Needs KYC") || pl.includes("verification document")) return "📋 ";
+      if (part.startsWith("RD $") || part.startsWith("Pending RD")) return "💸 ";
+      if (part.startsWith("Same weekday skip")) return "📅 ";
+      if (part.startsWith("Payment failed")) return "❌ ";
+      if (part.startsWith("No Purchases")) return "⚠️ ";
+      if (part.startsWith("Played Today")) return "🎰 ";
+      if (part.startsWith("Redeem Status")) return "📋 ";
+      if (part.startsWith("Take a break")) return "⏰ ";
+      if (part.startsWith("Spend Softening")) return "📉 ";
+      return "";
+    }
+    function actionHeadEmoji(head) {
+      const hl = head.toLowerCase();
+      if (head.startsWith("Escalate Ops")) return "➡️ ";
+      if (head.startsWith("Escalate Compliance")) return "⚖️ ";
+      if (head.startsWith("Push purchase")) return "💰 ";
+      if (head.startsWith("Fix payment method")) return "💳 ";
+      if (head.startsWith("Remove restriction")) return "🔓 ";
+      if (head.startsWith("Send to Ops")) return "🔧 ";
+      if (head.startsWith("Soft check-in")) return "💬 ";
+      if (head.startsWith("Agent call")) return "📞 ";
+      if (head.startsWith("Reactivation")) return "📞 ";
+      if (head.startsWith("No action")) return "✓ ";
+      if (hl.includes("no outreach") || hl.includes("no purchase push")) return "🛑 ";
+      return "";
+    }
+    function reasonPartClass(part) {
+      if (part.startsWith("Red flag")) return "t-danger w-semibold";
+      if (part.startsWith("Needs ") || part.includes("Blocked")) return "t-warning w-semibold";
+      if (part.startsWith("Escalate") || part.includes("Suspended")) return "t-danger w-semibold";
+      if (part.startsWith("Same weekday skip") || part.startsWith("Played Today")) return "t-info";
+      return "";
+    }
+    function esc(s) {
+      return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+    }
+    function marker(tone) {
+      const t = tone || "neutral";
+      return `<span class="marker marker-${t}" aria-hidden="true"></span>`;
+    }
+    function markerCell(tone, content) {
+      return `<span class="cell-marker">${marker(tone)}<span>${content}</span></span>`;
+    }
+    function renderReason(parts, text) {
+      const segments = (parts && parts.length) ? parts : text.split("●").map(p => p.trim()).filter(Boolean);
+      return segments.map((part, i) => {
+        const emphasize = i === 0 || REASON_EMPHASIS.some(pfx => part.startsWith(pfx));
+        const emoji = reasonPartEmoji(part);
+        const cls = emphasize ? (reasonPartClass(part) || "w-semibold") : "";
+        const sep = i > 0 ? '<span class="sep">●</span>' : '';
+        return sep + `<span class="${cls}">${emoji}${esc(part)}</span>`;
+      }).join("");
+    }
+    function renderAction(text) {
+      const chunks = text.split(" · ").filter(Boolean);
+      const head = chunks[0] || text;
+      const tail = chunks.slice(1).join(" · ");
+      return `<span class="w-semibold">${actionHeadEmoji(head)}${esc(head)}</span>` +
+        (tail ? ` · ${esc(tail)}` : "");
+    }
+    function fmtTotalMoney(n) { return "$" + Math.round(n).toLocaleString(); }
+    function holdHtml(value) {
+      const pct = parseFloat(value);
+      const high = !Number.isNaN(pct) && pct >= 70;
+      return `<span class="${high ? "t-success w-semibold" : ""}">${esc(value)}</span>`;
+    }
+    function moneyHtml(value, emphasize) {
+      return `<span class="${emphasize ? "t-danger w-semibold" : ""}">${esc(value)}</span>`;
+    }
+    function p7dHtml(value) {
+      const none = value === "None In 7D";
+      return `<span class="${none ? "t-warning w-semibold" : ""}">${esc(value)}</span>`;
+    }
+    function urgencyHtml(u) {
+      if (u === "Today") return '<span class="t-danger w-semibold">⚡ Today</span>';
+      return esc(u);
+    }
+    function wowHtml(value) {
+      const v = String(value || "").trim();
+      const pct = (v.match(/\(([+-]?\d+(?:\.\d+)?)%\)/) || [])[1];
+      const n = pct != null ? Number(pct) : NaN;
+      const up = (!Number.isNaN(n) && n > 0) || (v.startsWith("+") && !v.startsWith("+$0") && !v.startsWith("+0"));
+      const down = (!Number.isNaN(n) && n < 0) || v.startsWith("-") || v.startsWith("$-");
+      const cls = up ? "t-success w-semibold" : down ? "t-danger w-semibold" : "";
+      return `<span class="${cls}">${esc(value)}</span>`;
+    }
+    function sortPlayers(rows, mode) {
+      const copy = [...rows];
+      if (mode === "priorHigh") return copy.sort((a,b) => b.priorPriorNum - a.priorPriorNum);
+      if (mode === "lifetimeHigh") return copy.sort((a,b) => b.lifetimePurchasedNum - a.lifetimePurchasedNum);
+      if (mode === "gapHigh") return copy.sort((a,b) => b.sortGap - a.sortGap);
+      return copy.sort((a,b) => {
+        const ra = URGENCY_RANK[a.urgency] ?? 9;
+        const rb = URGENCY_RANK[b.urgency] ?? 9;
+        if (ra !== rb) return ra - rb;
+        return b.sortGap - a.sortGap;
+      });
+    }
+    function aidHtml(p) {
+      const aid = esc(p.aid);
+      if (p.aidUrl) {
+        return `<a href="${esc(p.aidUrl)}" target="_blank" rel="noopener noreferrer">${aid}</a>`;
+      }
+      return aid;
+    }
+    function ticketHtml(p) {
+      if (!p.ticketEnabled) return '<span class="t-quaternary">—</span>';
+      const subj = p.ticketSubject || "";
+      const preview = subj.length > 28 ? subj.slice(0, 27) + "…" : (subj || "Draft");
+      return `<div><button type="button" class="pill ticket-draft-btn" data-ticket-aid="${esc(p.aid)}">Draft</button><div class="ticket-preview">${esc(preview)}</div></div>`;
+    }
+    async function copyText(text) {
+      try { await navigator.clipboard.writeText(text); } catch (_) { /* ignore */ }
+    }
+    function renderTicketModal() {
+      const root = document.getElementById("ticketModalRoot");
+      if (!ticketDraft) {
+        root.innerHTML = "";
+        return;
+      }
+      const p = ticketDraft.player;
+      root.innerHTML = `
+        <div class="modal-backdrop" id="ticketModalBackdrop">
+          <div class="modal-card">
+            <div class="w-semibold">Zendesk ticket draft · ${esc(p.name)} (AID ${esc(p.aid)})</div>
+            <div class="t-small t-quaternary" style="margin:4px 0 12px">Review only. Edit, copy, then open Zendesk and send manually. Never auto-sent.</div>
+            <label class="t-small w-medium">Subject</label>
+            <input type="text" id="ticketSubjectInput" value="${esc(ticketDraft.subject)}">
+            <label class="t-small w-medium">Message</label>
+            <textarea id="ticketBodyInput">${esc(ticketDraft.body)}</textarea>
+            <div class="row">
+              <button type="button" class="pill" id="ticketCopySubject">Copy subject</button>
+              <button type="button" class="pill" id="ticketCopyBody">Copy message</button>
+              <button type="button" class="pill" id="ticketCopyAll">Copy subject + message</button>
+              <button type="button" class="pill" id="ticketOpenZendesk">Open Zendesk</button>
+              <div class="spacer"></div>
+              <button type="button" class="pill" id="ticketClose">Close</button>
+            </div>
+          </div>
+        </div>`;
+      document.getElementById("ticketSubjectInput").addEventListener("input", e => { ticketDraft.subject = e.target.value; });
+      document.getElementById("ticketBodyInput").addEventListener("input", e => { ticketDraft.body = e.target.value; });
+      document.getElementById("ticketCopySubject").addEventListener("click", () => copyText(ticketDraft.subject));
+      document.getElementById("ticketCopyBody").addEventListener("click", () => copyText(ticketDraft.body));
+      document.getElementById("ticketCopyAll").addEventListener("click", () => copyText(`Subject: ${ticketDraft.subject}\n\n${ticketDraft.body}`));
+      document.getElementById("ticketOpenZendesk").addEventListener("click", () => { if (p.zendeskUrl) window.open(p.zendeskUrl, "_blank", "noopener,noreferrer"); });
+      document.getElementById("ticketClose").addEventListener("click", () => { ticketDraft = null; renderTicketModal(); });
+      document.getElementById("ticketModalBackdrop").addEventListener("click", e => {
+        if (e.target.id === "ticketModalBackdrop") { ticketDraft = null; renderTicketModal(); }
+      });
+    }
+    function openTicketDraft(p) {
+      ticketDraft = {
+        player: p,
+        subject: p.ticketSubject || "",
+        body: p.ticketBody || "",
+      };
+      renderTicketModal();
+    }
+    function matchesSearch(row, query) {
+      if (!query.trim()) return true;
+      const q = query.trim().toLowerCase();
+      return [row.name, row.aid, row.agent, row.agentName, row.reason, row.reasonTable,
+        row.purchase7d, row.favouriteGame7d, row.recommendation].join(" ").toLowerCase().includes(q);
+    }
+    function tableHtml(headers, aligns, rows) {
+      const th = headers.map((h, i) => `<th class="${aligns[i] || ""}">${esc(h)}</th>`).join("");
+      const tb = rows.map((row, ri) => {
+        const stripe = ri % 2 === 1 ? " striped" : "";
+        return `<tr class="${stripe}">${row.map((cell, ci) => `<td class="${aligns[ci] || ""}">${cell}</td>`).join("")}</tr>`;
+      }).join("");
+      return `<div class="table-frame"><table class="canvas"><thead><tr>${th}</tr></thead><tbody>${tb}</tbody></table></div>`;
+    }
+
+    let state = { search: "", agent: "all", reason: "all", sortBy: "urgency" };
+    let ticketDraft = null;
+
+    function render() {
+      const filtered = sortPlayers(TOP10.filter(row => {
+        if (state.agent !== "all" && row.agent !== state.agent) return false;
+        if (state.reason !== "all" && row.reason !== state.reason) return false;
+        return matchesSearch(row, state.search);
+      }), state.sortBy);
+      const priorTotal = filtered.reduce((s, p) => s + p.priorPriorNum, 0);
+      const filterActive = state.search.trim() || state.agent !== "all" || state.reason !== "all" || state.sortBy !== "urgency";
+
+      const segHeaders = [
+        "Segment",
+        `This ${dayShort} Purchase`, `Prior ${dayShort} Purchase`, "Purchase WoW",
+        `This ${dayShort} Purchased Players`, `Prior ${dayShort} Purchased Players`,
+        "Purchased Players WoW", "Share"
+      ];
+      const segAligns = ["", "num", "num", "num", "num", "num", "num", ""];
+      const segRows = SEGMENTS.map(s => [
+        markerCell(s.tone, `<span class="w-semibold">${esc(s.label)}</span>`),
+        esc(s.revThis), esc(s.revPrior), wowHtml(s.revWow),
+        esc(s.plyThis), esc(s.plyPrior), wowHtml(s.plyWow), esc(s.share)
+      ]);
+
+      const playerAligns = ["center", "", "", "", "num", "num", "num", "num", "", "", "center", "", "", "center"];
+      const playerRows = filtered.map((p, i) => [
+        markerCell(p.tone, esc(String(i + 1))),
+        esc(p.agentName), aidHtml(p), esc(p.name),
+        moneyHtml(p.lifetimePurchase, p.lifetimePurchasedNum >= 50000),
+        holdHtml(p.lifetimeHold),
+        moneyHtml(p.thisDay, p.zeroDay),
+        moneyHtml(p.priorDay, p.sortGap >= 2000),
+        p7dHtml(p.purchase7d),
+        esc(p.favouriteGame7d || "—"),
+        urgencyHtml(p.urgency),
+        renderReason(p.reasonParts, p.reasonTable),
+        renderAction(p.recommendation),
+        ticketHtml(p),
+      ]);
+      if (filtered.length) {
+        playerRows.push([
+          "", "", "", '<span class="w-semibold">Total</span>', "", "", "",
+          `<span class="w-semibold">${fmtTotalMoney(priorTotal)}</span>`,
+          "", "", "", "", "", ""
+        ]);
+      }
+
+      const playerHeaders = [
+        "#", "Agent Name", "AID", "Name",
+        TITLES.lifetimePurchase, TITLES.lifetimeHold,
+        TITLES.thisPurchase, TITLES.priorPurchase,
+        TITLES.purchase7d, TITLES.favouriteGame7d,
+        "Urgency", "Reason", "Recommendation", "Ticket"
+      ];
+
+      const pills = ['<button type="button" class="pill' + (state.reason === "all" ? " active" : "") + '" data-reason-idx="-1">All reasons</button>']
+        .concat(REASONS.map((r, idx) =>
+          `<button type="button" class="pill${state.reason === r ? " active" : ""}" data-reason-idx="${idx}">${esc(r)}</button>`
+        )).join("");
+
+      const agentOpts = ['<option value="all">All agents</option>']
+        .concat(AGENTS.map(a => `<option value="${esc(a)}"${state.agent === a ? " selected" : ""}>${esc(a)}</option>`))
+        .join("");
+
+      document.getElementById("app").innerHTML = `
+        <div class="stack-8">
+          <h1>Elite Daily Decline Dashboard</h1>
+          <div class="t-small t-tertiary">${esc(REPORT.weekday)} ${esc(REPORT.date)} vs prior ${esc(REPORT.weekday)} ${esc(REPORT.priorDate)}</div>
+        </div>
+        <div class="stack-8">
+          <h2>${esc(REPORT.weekday)} vs last ${esc(REPORT.weekday)} · Elite &amp; Jackpota</h2>
+          ${tableHtml(segHeaders, segAligns, segRows)}
+          <div class="t-small t-secondary">${esc(REPORT.headline)}</div>
+        </div>
+        <div class="stack-8">
+          <div class="row">
+            <h2>Top 20 · WoW Purchase Gaps</h2>
+            <div class="spacer"></div>
+            <div class="t-small t-tertiary">${filterActive ? `Showing ${filtered.length} of ${TOP10.length}` : `${TOP10.length} players`}</div>
+          </div>
+          <div class="row">
+            <input type="search" id="search" placeholder="Search name, AID, agent, reason…" value="${esc(state.search)}">
+            <span class="select-wrap" style="flex:0 0 140px"><select id="agentFilter">${agentOpts}</select></span>
+            <span class="select-wrap" style="flex:0 0 180px"><select id="sortBy">
+              <option value="urgency"${state.sortBy === "urgency" ? " selected" : ""}>Sort: Urgency + gap</option>
+              <option value="priorHigh"${state.sortBy === "priorHigh" ? " selected" : ""}>Prior purchase ↓</option>
+              <option value="lifetimeHigh"${state.sortBy === "lifetimeHigh" ? " selected" : ""}>Lifetime purchase ↓</option>
+              <option value="gapHigh"${state.sortBy === "gapHigh" ? " selected" : ""}>WoW gap ↓</option>
+            </select></span>
+          </div>
+          <div class="pills" id="reasonPills">${pills}</div>
+          <div class="table-frame"><table class="canvas players-table"><thead><tr>${playerHeaders.map((h,i)=>`<th class="${playerAligns[i]||""}">${esc(h)}</th>`).join("")}</tr></thead><tbody>${
+            playerRows.length ? playerRows.map((row, ri) => `<tr class="${ri % 2 === 1 ? "striped" : ""}">${row.map((cell, ci) => `<td class="${playerAligns[ci]||""} ${ci===11?"reason-cell":""} ${ci===12?"action-cell":""} ${ci===8?"p7d-cell":""}">${cell}</td>`).join("")}</tr>`).join("")
+            : `<tr><td colspan="14" class="t-small t-secondary">No players match the current filters.</td></tr>`
+          }</tbody></table></div>
+        </div>
+      `;
+
+      document.getElementById("search").addEventListener("input", e => { state.search = e.target.value; render(); });
+      document.getElementById("agentFilter").addEventListener("change", e => { state.agent = e.target.value; render(); });
+      document.getElementById("sortBy").addEventListener("change", e => { state.sortBy = e.target.value; render(); });
+      document.querySelectorAll("#reasonPills .pill").forEach(el => {
+        el.addEventListener("click", () => {
+          const idx = parseInt(el.dataset.reasonIdx, 10);
+          state.reason = idx < 0 ? "all" : REASONS[idx];
+          render();
+        });
+      });
+      document.querySelectorAll(".ticket-draft-btn").forEach(el => {
+        el.addEventListener("click", () => {
+          const aid = el.dataset.ticketAid;
+          const player = TOP10.find(p => p.aid === aid);
+          if (player) openTicketDraft(player);
+        });
+      });
+      document.title = `Elite Daily Decline Dashboard · ${REPORT.date}`;
+    }
+    render();
+    }
+
+    function renderWeekend(DATA) {
+      const { report: REPORT, dayBlocks: DAY_BLOCKS, agentOptions: AGENT_OPTIONS } = DATA;
+      const ALL_PLAYERS = DAY_BLOCKS.flatMap(b => b.players);
+      const REASON_EMPHASIS = [
+        "Redemption Blocked", "Redemption in progress", "Needs ", "Same weekday skip",
+        "Spend Softening", "Offline Since", "Pending RD", "RD $", "Redeem Status ",
+        "Take a break", "No Purchases", "Played Today", "Account locked", "Red flag",
+      ];
+      const URGENCY_RANK = { Today: 0, "48h": 1, Watch: 2, None: 3 };
+      const REASONS = [...new Set(ALL_PLAYERS.map(p => p.reason))].sort();
+      const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+      let ticketDraft = null;
+
+      function reasonPartEmoji(part) {
+        const pl = part.toLowerCase();
+        if (part.startsWith("Red flag")) return "🚩 ";
+        if (part.startsWith("Redemption Blocked")) return "🚫 ";
+        if (part.startsWith("Redemption in progress")) return "⏳ ";
+        if (part.startsWith("Account locked") || part.includes("Suspended")) return "🔒 ";
+        if (part.startsWith("Needs Recent Acceptable POA") || pl.includes("poa")) return "📄 ";
+        if (part.startsWith("Needs KYC") || pl.includes("verification document")) return "📋 ";
+        if (part.startsWith("RD $") || part.startsWith("Pending RD")) return "💸 ";
+        if (part.startsWith("Same weekday skip")) return "📅 ";
+        if (part.startsWith("Payment failed")) return "❌ ";
+        if (part.startsWith("No Purchases")) return "⚠️ ";
+        if (part.startsWith("Played Today")) return "🎰 ";
+        if (part.startsWith("Redeem Status")) return "📋 ";
+        return "";
+      }
+      function actionHeadEmoji(head) {
+        const hl = head.toLowerCase();
+        if (head.startsWith("Escalate Ops")) return "➡️ ";
+        if (head.startsWith("Escalate Compliance")) return "⚖️ ";
+        if (head.startsWith("Push purchase")) return "💰 ";
+        if (head.startsWith("Fix payment method")) return "💳 ";
+        if (head.startsWith("Send to Ops")) return "🔧 ";
+        if (head.startsWith("Soft check-in")) return "💬 ";
+        if (head.startsWith("Agent call")) return "📞 ";
+        if (head.startsWith("No action")) return "✓ ";
+        return "";
+      }
+      function esc(s) { return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+      function wowHtml(value) {
+        const v = String(value || "").trim();
+        const pct = (v.match(/\(([+-]?\d+(?:\.\d+)?)%\)/) || [])[1];
+        const n = pct != null ? Number(pct) : NaN;
+        const up = (!Number.isNaN(n) && n > 0) || (v.startsWith("+") && !v.startsWith("+$0") && !v.startsWith("+0"));
+        const down = (!Number.isNaN(n) && n < 0) || v.startsWith("-") || v.startsWith("$-");
+        const cls = up ? "t-success w-semibold" : down ? "t-danger w-semibold" : "";
+        return `<span class="${cls}">${esc(value)}</span>`;
+      }
+      function daySelectLabel(block) {
+        const d = block.report.date;
+        return `${block.report.weekday} ${d.slice(8, 10)} ${MONTHS[parseInt(d.slice(5, 7), 10) - 1]}`;
+      }
+      function renderReason(parts, text) {
+        const segments = (parts && parts.length) ? parts : text.split("●").map(p => p.trim()).filter(Boolean);
+        return segments.map((part, i) => {
+          const emphasize = i === 0 || REASON_EMPHASIS.some(pfx => part.startsWith(pfx));
+          const sep = i > 0 ? '<span class="sep">●</span>' : '';
+          return sep + `<span class="${emphasize ? "w-semibold" : ""}">${reasonPartEmoji(part)}${esc(part)}</span>`;
+        }).join("");
+      }
+      function renderAction(text) {
+        const chunks = text.split(" · ").filter(Boolean);
+        const head = chunks[0] || text;
+        const tail = chunks.slice(1).join(" · ");
+        return `<span class="w-semibold">${actionHeadEmoji(head)}${esc(head)}</span>` + (tail ? ` · ${esc(tail)}` : "");
+      }
+      function fmtTotalMoney(n) { return "$" + Math.round(n).toLocaleString(); }
+      function sortPlayers(rows, mode) {
+        const copy = [...rows];
+        if (mode === "priorHigh") return copy.sort((a,b) => b.priorPriorNum - a.priorPriorNum);
+        if (mode === "lifetimeHigh") return copy.sort((a,b) => b.lifetimePurchasedNum - a.lifetimePurchasedNum);
+        if (mode === "gapHigh") return copy.sort((a,b) => b.sortGap - a.sortGap);
+        return copy.sort((a,b) => {
+          const ra = URGENCY_RANK[a.urgency] ?? 9;
+          const rb = URGENCY_RANK[b.urgency] ?? 9;
+          if (ra !== rb) return ra - rb;
+          return b.sortGap - a.sortGap;
+        });
+      }
+      function matchesSearch(row, query) {
+        if (!query.trim()) return true;
+        const q = query.trim().toLowerCase();
+        return [row.name, row.aid, row.agent, row.agentName, row.reason, row.reasonTable,
+          row.purchase7d, row.favouriteGame7d, row.recommendation].join(" ").toLowerCase().includes(q);
+      }
+      function tableHtml(headers, aligns, rows) {
+        const th = headers.map((h, i) => `<th class="${aligns[i] || ""}">${esc(h)}</th>`).join("");
+        const tb = rows.map((row, ri) => {
+          const stripe = ri % 2 === 1 ? " striped" : "";
+          return `<tr class="${stripe}">${row.map((cell, ci) => `<td class="${aligns[ci] || ""}">${cell}</td>`).join("")}</tr>`;
+        }).join("");
+        return `<div class="table-frame"><table class="canvas"><thead><tr>${th}</tr></thead><tbody>${tb}</tbody></table></div>`;
+      }
+      function aidHtml(p) {
+        const aid = esc(p.aid);
+        return p.aidUrl ? `<a href="${esc(p.aidUrl)}" target="_blank" rel="noopener noreferrer">${aid}</a>` : aid;
+      }
+      function ticketHtml(p) {
+        if (!p.ticketEnabled) return '<span class="t-quaternary">—</span>';
+        const subj = p.ticketSubject || "";
+        const preview = subj.length > 28 ? subj.slice(0, 27) + "…" : (subj || "Draft");
+        return `<div><button type="button" class="pill ticket-draft-btn" data-ticket-aid="${esc(p.aid)}">Draft</button><div class="ticket-preview">${esc(preview)}</div></div>`;
+      }
+      async function copyText(text) {
+        try { await navigator.clipboard.writeText(text); } catch (_) { /* ignore */ }
+      }
+      function renderTicketModal() {
+        const root = document.getElementById("ticketModalRoot");
+        if (!ticketDraft) { root.innerHTML = ""; return; }
+        const p = ticketDraft.player;
+        root.innerHTML = `
+          <div class="modal-backdrop" id="ticketModalBackdrop">
+            <div class="modal-card">
+              <div class="w-semibold">Zendesk ticket draft · ${esc(p.name)} (AID ${esc(p.aid)})</div>
+              <div class="t-small t-quaternary" style="margin:4px 0 12px">Review only. Edit, copy, then open Zendesk and send manually. Never auto-sent.</div>
+              <label class="t-small w-medium">Subject</label>
+              <input type="text" id="ticketSubjectInput" value="${esc(ticketDraft.subject)}">
+              <label class="t-small w-medium">Message</label>
+              <textarea id="ticketBodyInput">${esc(ticketDraft.body)}</textarea>
+              <div class="row">
+                <button type="button" class="pill" id="ticketCopySubject">Copy subject</button>
+                <button type="button" class="pill" id="ticketCopyBody">Copy message</button>
+                <button type="button" class="pill" id="ticketCopyAll">Copy subject + message</button>
+                <button type="button" class="pill" id="ticketOpenZendesk">Open Zendesk</button>
+                <div class="spacer"></div>
+                <button type="button" class="pill" id="ticketClose">Close</button>
+              </div>
+            </div>
+          </div>`;
+        document.getElementById("ticketSubjectInput").addEventListener("input", e => { ticketDraft.subject = e.target.value; });
+        document.getElementById("ticketBodyInput").addEventListener("input", e => { ticketDraft.body = e.target.value; });
+        document.getElementById("ticketCopySubject").addEventListener("click", () => copyText(ticketDraft.subject));
+        document.getElementById("ticketCopyBody").addEventListener("click", () => copyText(ticketDraft.body));
+        document.getElementById("ticketCopyAll").addEventListener("click", () => copyText(`Subject: ${ticketDraft.subject}\n\n${ticketDraft.body}`));
+        document.getElementById("ticketOpenZendesk").addEventListener("click", () => { if (p.zendeskUrl) window.open(p.zendeskUrl, "_blank", "noopener,noreferrer"); });
+        document.getElementById("ticketClose").addEventListener("click", () => { ticketDraft = null; renderTicketModal(); });
+        document.getElementById("ticketModalBackdrop").addEventListener("click", e => {
+          if (e.target.id === "ticketModalBackdrop") { ticketDraft = null; renderTicketModal(); }
+        });
+      }
+      function openTicketDraft(p) {
+        ticketDraft = { player: p, subject: p.ticketSubject || "", body: p.ticketBody || "" };
+        renderTicketModal();
+      }
+      function filterPlayers(rows) {
+        return rows.filter(row => {
+          if (state.agent !== "all" && row.agent !== state.agent) return false;
+          if (state.reason !== "all" && row.reason !== state.reason) return false;
+          return matchesSearch(row, state.search);
+        });
+      }
+      function dayMatchesFilter(block) {
+        return state.dayFilter === "all" || block.report.date === state.dayFilter;
+      }
+
+      let state = { search: "", agent: "all", reason: "all", sortBy: "urgency", dayFilter: "all" };
+
+      function renderSegmentBlock(block) {
+        const short = block.dayShort;
+        const segHeaders = [
+          "Segment", `This ${short} Purchase`, `Prior ${short} Purchase`, "Purchase WoW",
+          `This ${short} Purchased Players`, `Prior ${short} Purchased Players`, "Purchased Players WoW", "Share"
+        ];
+        const segRows = block.segments.map(s => [
+          esc(s.label), esc(s.revThis), esc(s.revPrior), wowHtml(s.revWow),
+          esc(s.plyThis), esc(s.plyPrior), wowHtml(s.plyWow), esc(s.share)
+        ]);
+        return `
+          <div class="stack-8">
+            <h2>${esc(block.report.weekday)} vs last ${esc(block.report.weekday)} · Elite &amp; Jackpota</h2>
+            ${tableHtml(segHeaders, ["","","num","num","num","num","num","num",""], segRows)}
+          </div>`;
+      }
+
+      function renderPlayerBlock(block) {
+        const T = block.titles;
+        const filtered = sortPlayers(filterPlayers(block.players), state.sortBy);
+        const priorTotal = filtered.reduce((s, p) => s + p.priorPriorNum, 0);
+        const filterActive = state.search.trim() || state.agent !== "all" || state.reason !== "all" || state.sortBy !== "urgency";
+        const playerHeaders = [
+          "#", "Agent Name", "AID", "Name", T.lifetimePurchase, T.lifetimeHold,
+          T.thisPurchase, T.priorPurchase, T.purchase7d, T.favouriteGame7d,
+          "Urgency", "Reason", "Recommendation", "Ticket"
+        ];
+        const playerAligns = ["center","","","","num","num","num","num","","","center","","","center"];
+        const playerRows = filtered.map((p, i) => [
+          esc(String(i + 1)), esc(p.agentName), aidHtml(p), esc(p.name),
+          `<span class="${p.lifetimePurchasedNum >= 50000 ? "t-danger w-semibold" : ""}">${esc(p.lifetimePurchase)}</span>`,
+          esc(p.lifetimeHold),
+          `<span class="${p.zeroDay ? "t-danger w-semibold" : ""}">${esc(p.thisDay)}</span>`,
+          `<span class="${p.sortGap >= 2000 ? "t-danger w-semibold" : ""}">${esc(p.priorDay)}</span>`,
+          esc(p.purchase7d), esc(p.favouriteGame7d || "—"),
+          p.urgency === "Today" ? '<span class="t-danger w-semibold">⚡ Today</span>' : esc(p.urgency),
+          renderReason(p.reasonParts, p.reasonTable), renderAction(p.recommendation), ticketHtml(p),
+        ]);
+        if (filtered.length) {
+          playerRows.push(["","","",`<span class="w-semibold">Total (${filtered.length})</span>`,"","","",`<span class="w-semibold">${fmtTotalMoney(priorTotal)}</span>`,"","","","","",""]);
+        }
+        return `
+          <div class="stack-8">
+            <div class="row">
+              <h2>${esc(block.report.weekday)} · Top 20</h2>
+              <div class="spacer"></div>
+              <div class="t-small t-tertiary">${filterActive ? `Showing ${filtered.length} of ${block.players.length}` : `${block.players.length} players`}</div>
+            </div>
+            ${tableHtml(playerHeaders, playerAligns, playerRows.length ? playerRows : [["","","","","","","","","","","","","No matches",""]])}
+          </div>`;
+      }
+
+      function render() {
+        const visibleBlocks = DAY_BLOCKS.filter(dayMatchesFilter);
+        const visibleCount = visibleBlocks.reduce((sum, b) => sum + filterPlayers(b.players).length, 0);
+        const filterActive = state.search.trim() || state.agent !== "all" || state.reason !== "all" || state.sortBy !== "urgency";
+        const agentOpts = ['<option value="all">All agents</option>']
+          .concat((AGENT_OPTIONS || []).map(o => `<option value="${esc(o.value)}"${state.agent === o.value ? " selected" : ""}>${esc(o.label)}</option>`)).join("");
+        const daySelectOpts = ['<option value="all">All days</option>']
+          .concat(DAY_BLOCKS.map(b => `<option value="${esc(b.report.date)}"${state.dayFilter === b.report.date ? " selected" : ""}>${esc(daySelectLabel(b))}</option>`)).join("");
+        const dayPills = ['<button type="button" class="pill' + (state.dayFilter === "all" ? " active" : "") + '" data-day="all">All</button>']
+          .concat(DAY_BLOCKS.map(b => `<button type="button" class="pill${state.dayFilter === b.report.date ? " active" : ""}" data-day="${esc(b.report.date)}">${esc(b.dayShort)}</button>`)).join("");
+        const reasonPills = ['<button type="button" class="pill' + (state.reason === "all" ? " active" : "") + '" data-reason="all">All reasons</button>']
+          .concat(REASONS.map(r => `<button type="button" class="pill${state.reason === r ? " active" : ""}" data-reason="${esc(r)}">${esc(r)}</button>`)).join("");
+
+        document.getElementById("app").innerHTML = `
+          <div class="stack-8">
+            <h1>Elite Daily Decline Dashboard</h1>
+          </div>
+          <div class="stack">
+            ${DAY_BLOCKS.map(renderSegmentBlock).join("")}
+          </div>
+          <div class="stack-8">
+            <div class="row">
+              <h2>Top 20 · WoW Purchase Gaps</h2>
+              <div class="spacer"></div>
+              <div class="t-small t-tertiary">${filterActive ? `Showing ${visibleCount} of ${REPORT.playerCount}` : `${REPORT.playerCount} players`}</div>
+            </div>
+            <div class="row">
+              <div class="pills" id="dayPills">${dayPills}</div>
+              <span class="select-wrap"><select id="dayFilter">${daySelectOpts}</select></span>
+            </div>
+            <div class="row">
+              <input type="search" id="search" placeholder="Search name, AID, agent, reason…" value="${esc(state.search)}">
+              <span class="select-wrap" style="flex:0 0 140px"><select id="agentFilter">${agentOpts}</select></span>
+              <span class="select-wrap"><select id="sortBy">
+                <option value="urgency"${state.sortBy === "urgency" ? " selected" : ""}>Sort: Urgency + gap</option>
+                <option value="priorHigh"${state.sortBy === "priorHigh" ? " selected" : ""}>Prior purchase ↓</option>
+                <option value="lifetimeHigh"${state.sortBy === "lifetimeHigh" ? " selected" : ""}>Lifetime purchase ↓</option>
+                <option value="gapHigh"${state.sortBy === "gapHigh" ? " selected" : ""}>WoW gap ↓</option>
+              </select></span>
+            </div>
+            <div class="pills" id="reasonPills">${reasonPills}</div>
+          </div>
+          ${visibleBlocks.map(renderPlayerBlock).join("")}`;
+
+        document.getElementById("search").addEventListener("input", e => { state.search = e.target.value; render(); });
+        document.getElementById("agentFilter").addEventListener("change", e => { state.agent = e.target.value; render(); });
+        document.getElementById("sortBy").addEventListener("change", e => { state.sortBy = e.target.value; render(); });
+        document.getElementById("dayFilter").addEventListener("change", e => { state.dayFilter = e.target.value; render(); });
+        document.querySelectorAll("#dayPills .pill").forEach(el => {
+          el.addEventListener("click", () => { state.dayFilter = el.dataset.day; render(); });
+        });
+        document.querySelectorAll("#reasonPills .pill").forEach(el => {
+          el.addEventListener("click", () => { state.reason = el.dataset.reason; render(); });
+        });
+        document.querySelectorAll(".ticket-draft-btn").forEach(el => {
+          el.addEventListener("click", () => {
+            const player = ALL_PLAYERS.find(p => p.aid === el.dataset.ticketAid);
+            if (player) openTicketDraft(player);
+          });
+        });
+        document.title = `Elite Daily Decline Dashboard · ${REPORT.dateStart}`;
+      }
+      render();
+    }
+  </script>
+</body>
+</html>
