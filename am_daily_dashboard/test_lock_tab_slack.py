@@ -75,7 +75,7 @@ class ThresholdTests(unittest.TestCase):
         self.assertIn("• AID: 123456789", text)
         self.assertIn(
             "<https://lookerpatrianna.cloud.looker.com/dashboards/5207?"
-            "Account+ID+=123456789&Timeframe=last+30+days|Jane Doe>",
+            "Account+ID+=123456789&Purchase+filter+date=30+day|Jane Doe>",
             text,
         )
         self.assertIn("• AM: Coral", text)

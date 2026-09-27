@@ -74,8 +74,8 @@ the 9/24 win still in window.
 
 Account Portal (dashboard **5207**) opens with a **30-day** timeframe param on every
 AID click (`elite_lib.format.looker_account_portal_url`, `web/src/looker.ts`,
-`cells.ts::aidHtml`). Override via `LOOKER_ACCOUNT_PORTAL_TIMEFRAME` or full
-`LOOKER_ACCOUNT_PORTAL_URL` if the filter label on 5207 differs.
+`cells.ts::aidHtml`). Override via `LOOKER_ACCOUNT_PORTAL_PURCHASE_DATE` or full
+`LOOKER_ACCOUNT_PORTAL_URL` if the filter on 5207 differs.
 
 ## Code Map
 

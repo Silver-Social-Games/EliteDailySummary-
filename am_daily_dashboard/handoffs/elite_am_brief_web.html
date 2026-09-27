@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <!-- am-brief-build sources sha256:d0de14b12469ae136344be606736a010635148a398430dca561ffaae40786d9d output sha256:41135eb6e265513fc941c3f39f628a75b58a46906f99a125de038f2aaa5c2b9c -->
+  <!-- am-brief-build sources sha256:0b4e7f2dcda2ea828e3bc73b5296a3668638516c20124cfab879026c8c403d2f output sha256:f913b321ff106df7eeaa44cccc0a1aab9e2e0d7fe05e44099647b904e491c4af -->
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Elite Dashboard</title>
   <style>
@@ -1356,11 +1356,11 @@
 
   // src/looker.ts
   var ACCOUNT_PORTAL_BASE = "https://lookerpatrianna.cloud.looker.com/dashboards/5207";
-  var LOOKER_ACCOUNT_PORTAL_TIMEFRAME = "last+30+days";
+  var LOOKER_ACCOUNT_PORTAL_PURCHASE_DATE = "30+day";
   function lookerAccountPortalUrl(aid) {
     const id = String(aid != null ? aid : "").trim();
     if (!id) return "";
-    return `${ACCOUNT_PORTAL_BASE}?Account+ID+=${encodeURIComponent(id)}&Timeframe=${LOOKER_ACCOUNT_PORTAL_TIMEFRAME}`;
+    return `${ACCOUNT_PORTAL_BASE}?Account+ID+=${encodeURIComponent(id)}&Purchase+filter+date=${LOOKER_ACCOUNT_PORTAL_PURCHASE_DATE}`;
   }
 
   // src/cells.ts

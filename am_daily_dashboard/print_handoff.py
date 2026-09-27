@@ -65,7 +65,7 @@ Plan + rollback: am_daily_dashboard/AM_BRIEF_EXPANSION_PLAN.md
 Daily catch-up: python am_daily_dashboard/generate_am_brief_range.py --catch-up --verify
 
 Git: am-brief-expansion — eae2fe0 (expansion), cc9a99b (Big Winners dedupe + Looker 30d wiring).
-Looker UI: confirm Last 30 Days on 5207 — python am_daily_dashboard/scripts/capture_looker_portal_url.py <AID>; update data/looker_account_portal_query.tsv if still 7d.{verify_hint}
+Looker 5207: Purchase+filter+date=30+day (calibrated 2026-09-27) — capture_looker_portal_url.py <AID>.{verify_hint}
 """
     print(block)
     if EXPANSION_PLAN.exists():

@@ -1,2 +1,2 @@
 verified_date	filter_name	filter_value_ui	filter_value_url	ui_confirmed_30d	notes
-2026-09-27	Timeframe	last 30 days	last+30+days	pending	Open dashboard 5207 via capture_looker_portal_url.py; if UI still Last 7 Days, paste address bar here and update elite_lib/format.py + web/src/looker.ts
+2026-09-27	Purchase filter date	30 day	30+day	yes	Calibrated from browser URL (AID 183747038); wrong token was Timeframe=last+30+days

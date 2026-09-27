@@ -11,12 +11,12 @@ import os
 from datetime import date
 
 # S-Jackpota Account Portal (Looker dashboard 5207). Override full template via
-# LOOKER_ACCOUNT_PORTAL_URL, or only the timeframe token via LOOKER_ACCOUNT_PORTAL_TIMEFRAME
-# (must match the dashboard filter label, e.g. Last+30+Days in the browser URL bar).
-DEFAULT_LOOKER_ACCOUNT_PORTAL_TIMEFRAME = "last+30+days"
+# LOOKER_ACCOUNT_PORTAL_URL, or only the purchase-date value via
+# LOOKER_ACCOUNT_PORTAL_PURCHASE_DATE (filter name is fixed — see LOOKER_ACCOUNT_PORTAL.md).
+DEFAULT_LOOKER_ACCOUNT_PORTAL_PURCHASE_DATE = "30+day"
 DEFAULT_LOOKER_ACCOUNT_PORTAL_URL = (
     "https://lookerpatrianna.cloud.looker.com/dashboards/5207?"
-    f"Account+ID+={{aid}}&Timeframe={DEFAULT_LOOKER_ACCOUNT_PORTAL_TIMEFRAME}"
+    f"Account+ID+={{aid}}&Purchase+filter+date={DEFAULT_LOOKER_ACCOUNT_PORTAL_PURCHASE_DATE}"
 )
 DEFAULT_ZENDESK_AGENT_BASE = "https://jackpotahelp.zendesk.com"
 
@@ -52,12 +52,12 @@ def looker_account_portal_url(aid: object) -> str:
     aid_s = str(aid or "").strip()
     if not aid_s:
         return ""
-    timeframe = os.environ.get(
-        "LOOKER_ACCOUNT_PORTAL_TIMEFRAME", DEFAULT_LOOKER_ACCOUNT_PORTAL_TIMEFRAME
+    purchase_date = os.environ.get(
+        "LOOKER_ACCOUNT_PORTAL_PURCHASE_DATE", DEFAULT_LOOKER_ACCOUNT_PORTAL_PURCHASE_DATE
     )
     template = os.environ.get("LOOKER_ACCOUNT_PORTAL_URL") or (
         "https://lookerpatrianna.cloud.looker.com/dashboards/5207?"
-        f"Account+ID+={{aid}}&Timeframe={timeframe}"
+        f"Account+ID+={{aid}}&Purchase+filter+date={purchase_date}"
     )
     return template.format(aid=aid_s, account_id=aid_s)
 
