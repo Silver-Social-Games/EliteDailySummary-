@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <!-- am-brief-build sources sha256:80ff99756b4f5ba6aad214d2f67120263ca5a78788f1489c4eb11c6efc1cd096 output sha256:e7718cf5003c09e0dea73a54022ddd0f34805219733c8d13e5e5e3987d137f65 -->
+  <!-- am-brief-build sources sha256:02f03263dafc09a2318786c842a2136e78c8c571bb1c46269ffd2ca7c4cf0efa output sha256:bf4e58813299461d330e13d0ff972efbd134c3d2a980d67adaec9dbef7ccec11 -->
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Elite Dashboard</title>
   <style>
@@ -434,26 +434,52 @@
     .segment-empty { padding: 12px 0; }
 
     .segment-metric-foot { margin-top: 4px; line-height: 1.35; }
-    .geo-panel .geo-chart-body {
-      display: flex; flex-direction: column; gap: 8px; min-width: 0; flex: 1; padding: 4px 0 8px;
+    /* purchase trend — hero panel */
+    button.trend-hero {
+      display: flex; flex-direction: column; align-items: stretch; text-align: left;
+      width: 100%; min-width: 0; font: inherit; color: inherit; cursor: pointer;
+      background: transparent; border: none; border-right: none; transition: background .12s;
     }
-    .geo-bar-chart { display: flex; flex-direction: column; gap: 6px; width: 100%; min-width: 220px; }
-    .geo-bar-head, .geo-bar-row {
-      display: grid; grid-template-columns: 34px minmax(0, 1fr) 38px 44px; gap: 6px; align-items: center;
+    button.trend-hero:hover { background: var(--line-soft); }
+    .trend-hero .segment-panel-head { margin-bottom: 8px; }
+    .trend-open {
+      display: inline-flex; align-items: center; gap: 3px;
+      font-size: 11.5px; font-weight: 650; color: var(--brand);
     }
-    .geo-bar-row-other { margin-top: 2px; padding-top: 6px; border-top: 1px dashed var(--line-soft); }
-    .geo-bar-row-other .geo-bar-label { color: var(--ink-3); }
-    .geo-bar-head { padding: 0 2px 4px; }
-    .geo-bar-head span:not(:first-child) { text-align: right; }
-    .geo-bar-label { font-weight: 700; color: var(--ink-2); font-size: 12px; }
-    .geo-bar-track {
-      height: 10px; border-radius: 999px; background: var(--surface-2); overflow: hidden;
+    .trend-spark { margin: 8px 0 6px; height: 64px; }
+    .spark { display: block; width: 100%; height: 64px; }
+    .trend-hero-foot { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; color: var(--ink-2); }
+    .trend-legend { display: inline-flex; flex-wrap: wrap; gap: 4px 12px; font-size: 12px; color: var(--ink-2); }
+    .trend-legend-item { display: inline-flex; align-items: center; gap: 5px; }
+    .trend-dot { width: 8px; height: 8px; border-radius: 999px; display: inline-block; flex: none; }
+
+    /* purchase trend — view */
+    .trend-toolbar .toolbar { flex-wrap: wrap; gap: 10px 14px; }
+    .trend-modes { display: inline-flex; gap: 6px; }
+    .trend-series { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+    .trend-series-label {
+      font-size: 10.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+      color: var(--ink-3); margin-right: 2px;
     }
-    .geo-bar-fill { display: block; height: 100%; border-radius: 999px; min-width: 4px; }
-    .geo-bar-fill-muted { opacity: .55; }
-    .geo-bar-pct { font-weight: 700; font-size: 12px; color: var(--ink); text-align: right; font-variant-numeric: tabular-nums; }
-    .geo-bar-count { font-size: 11px; color: var(--ink-3); text-align: right; font-variant-numeric: tabular-nums; }
-    .geo-bar-foot, .geo-period { margin-top: 2px; line-height: 1.35; }
+    .trend-chip { display: inline-flex; align-items: center; gap: 6px; }
+    .trend-chart-card .trend-legend { margin-bottom: 8px; }
+    .line-chart { display: block; width: 100%; height: auto; }
+    .lc-grid { stroke: var(--line-soft); stroke-width: 1; }
+    .lc-axis { font-size: 11px; fill: var(--ink-4); font-variant-numeric: tabular-nums; }
+    .lc-hit { fill: transparent; }
+    .lc-hit:hover { fill: rgba(20,20,26,.05); }
+    .wk-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap: 18px; }
+    .wk-title { display: flex; align-items: center; gap: 7px; font-weight: 650; font-size: 13px; margin-bottom: 8px; }
+    .wk-bars { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 6px; align-items: end; }
+    .wk-col { display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 0; }
+    .wk-val { font-size: 11px; font-weight: 650; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+    .wk-track { width: 100%; max-width: 38px; height: 140px; display: flex; align-items: flex-end; }
+    .wk-bar { display: block; width: 100%; border-radius: 6px 6px 2px 2px; background: var(--ink-4); opacity: .4; }
+    .wk-col.latest .wk-bar { background: var(--gold); opacity: 1; }
+    .wk-col.latest .wk-val, .wk-col.latest .wk-label { color: var(--ink); font-weight: 700; }
+    .wk-label { font-size: 11px; color: var(--ink-3); white-space: nowrap; }
+    .wk-col .wow-pill { font-size: 10.5px; padding: 1px 6px; }
+    @media (max-width: 720px) { .wk-grid { grid-template-columns: 1fr; } }
     .ticket-when { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 14px; min-width: 210px; }
     .ticket-when-line { display: flex; flex-direction: column; gap: 1px; font-size: 11.5px; line-height: 1.25; min-width: 0; }
     .ticket-when-label { font-size: 10px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; color: var(--ink-4); }
@@ -585,10 +611,15 @@
     .metric-cell.t-warning .metric-value { color: var(--warning); }
     .metric-cell.t-info    .metric-value { color: var(--info); }
     .metric-cell.t-brand   .metric-value { color: var(--brand); }
+    .metric-band-grid.wrap .metric-cell { border-bottom: 1px solid var(--line-soft); }
+    .metric-band-grid.wrap .metric-cell.row-end { border-right: none; }
+    .metric-band-grid.wrap .metric-cell.last-row { border-bottom: none; }
     @media (max-width: 1100px) {
       .metric-band-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .metric-cell:nth-child(2n) { border-right: none; }
       .metric-cell { border-bottom: 1px solid var(--line-soft); }
+      .metric-band-grid.wrap .metric-cell.row-end:nth-child(2n+1) { border-right: 1px solid var(--line-soft); }
+      .metric-band-grid.wrap .metric-cell.last-row { border-bottom: 1px solid var(--line-soft); }
     }
 
     .hero {
@@ -1504,86 +1535,186 @@
     "#64748B",
     "#EC4899"
   ];
-  function normalizeGeoSlices(slices) {
-    const rows = slices.filter((sl) => String(sl.state || "").toUpperCase() !== "TOTAL");
-    let unknown = 0;
-    let knownOther = 0;
-    const named = [];
-    for (const sl of rows) {
-      const state = String(sl.state || "").trim();
-      const bettors = Number(sl.bettors) || 0;
-      if (state.toUpperCase() === "UNKNOWN") {
-        unknown += bettors;
-        continue;
+  function niceMax(v) {
+    if (!(v > 0)) return 1;
+    const p = Math.pow(10, Math.floor(Math.log10(v)));
+    const m = v / p;
+    const nice = m <= 1 ? 1 : m <= 2 ? 2 : m <= 2.5 ? 2.5 : m <= 5 ? 5 : 10;
+    return nice * p;
+  }
+  function pathD(values, x, y) {
+    return values.map((v, i) => `${i ? "L" : "M"}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join("");
+  }
+  function lineAttrs(l, fallbackWidth) {
+    var _a;
+    return `fill="none" stroke="${esc(l.color)}" stroke-width="${(_a = l.width) != null ? _a : fallbackWidth}" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"` + (l.dashed ? ` stroke-dasharray="3 3"` : "");
+  }
+  function sparklineSvg(lines, w = 300, h = 64) {
+    const pad = 3;
+    const paths = lines.map((l) => {
+      const vals = l.values;
+      if (!vals.length) return "";
+      const lo = Math.min(...vals);
+      const hi = Math.max(...vals);
+      const span = hi - lo || 1;
+      const x = (i) => vals.length <= 1 ? w / 2 : i * w / (vals.length - 1);
+      const y = (v) => pad + (h - 2 * pad) * (1 - (v - lo) / span);
+      return `<path d="${pathD(vals, x, y)}" ${lineAttrs(l, 1.5)}></path>`;
+    }).join("");
+    return `<svg class="spark" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" aria-hidden="true">${paths}</svg>`;
+  }
+  function lineChartSvg(lines, labels, height = 280) {
+    const W = 960;
+    const H = height;
+    const hasRight = lines.some((l) => l.axis === "right");
+    const pl = 62, pr = hasRight ? 62 : 18, pt = 14, pb = 30;
+    const iw = W - pl - pr;
+    const ih = H - pt - pb;
+    const n = labels.length;
+    const x = (i) => pl + (n <= 1 ? iw / 2 : i * iw / (n - 1));
+    const axisMax = (axis) => niceMax(Math.max(0, ...lines.filter((l) => (l.axis || "left") === axis).flatMap((l) => l.values)));
+    const lMax = axisMax("left");
+    const rMax = axisMax("right");
+    const yFor = (max) => (v) => pt + ih - (max > 0 ? v / max * ih : 0);
+    let grid = "";
+    for (let k = 0; k <= 4; k++) {
+      const yy = pt + ih - k / 4 * ih;
+      grid += `<line class="lc-grid" x1="${pl}" x2="${W - pr}" y1="${yy}" y2="${yy}"></line>`;
+      grid += `<text class="lc-axis" x="${pl - 8}" y="${yy + 4}" text-anchor="end">${esc(compactMoney(lMax * k / 4))}</text>`;
+      if (hasRight) {
+        grid += `<text class="lc-axis" x="${W - pr + 8}" y="${yy + 4}" text-anchor="start">${esc(compactMoney(rMax * k / 4))}</text>`;
       }
-      if (state === "Other") {
-        knownOther += bettors;
-        continue;
-      }
-      named.push({ ...sl, state, bettors, share: 0 });
     }
-    named.sort((a, b) => b.bettors - a.bettors);
-    const otherBettors = knownOther + unknown;
-    const other = otherBettors ? { state: "Other", bettors: otherBettors, share: 0 } : null;
-    const total = named.reduce((s, x) => s + x.bettors, 0) + ((other == null ? void 0 : other.bettors) || 0);
-    const withShare = (sl) => ({
-      ...sl,
-      share: total > 0 ? Math.round(sl.bettors / total * 1e3) / 10 : 0
+    const step = Math.max(1, Math.ceil(n / 8));
+    let xl = "";
+    labels.forEach((lab, i) => {
+      const last = i === n - 1;
+      if (i % step === 0 && (last || n - 1 - i >= step / 2) || last) {
+        xl += `<text class="lc-axis" x="${x(i)}" y="${H - 8}" text-anchor="middle">${esc(lab)}</text>`;
+      }
     });
+    const paths = lines.map((l) => {
+      if (!l.values.length) return "";
+      const y = yFor(l.axis === "right" ? rMax : lMax);
+      const lastI = l.values.length - 1;
+      return `<path d="${pathD(l.values, x, y)}" ${lineAttrs(l, 2)}></path><circle cx="${x(lastI)}" cy="${y(l.values[lastI])}" r="3.5" fill="${esc(l.color)}"></circle>`;
+    }).join("");
+    const colW = n > 1 ? iw / (n - 1) : iw;
+    const hits = labels.map((lab, i) => {
+      const tip = [lab, ...lines.map((l) => `${l.label}: ${money(l.values[i] || 0)}`)].join("\n");
+      return `<rect class="lc-hit" x="${(x(i) - colW / 2).toFixed(1)}" y="${pt}" width="${colW.toFixed(1)}" height="${ih}"><title>${esc(tip)}</title></rect>`;
+    }).join("");
+    return `<svg class="line-chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Purchase trend chart">
+        ${grid}${xl}${paths}${hits}
+      </svg>`;
+  }
+  function weekdayBarsHtml(title, color, values, labels) {
+    const max = Math.max(1, ...values);
+    const cols = values.map((v, i) => {
+      const prev = i > 0 ? values[i - 1] : 0;
+      const pct = i > 0 && prev > 0 ? (v - prev) / prev * 100 : null;
+      const pill = pct == null ? wowPillHtml("") : wowPillHtml(`${pct >= 0 ? "+" : ""}${pct.toFixed(1)}%`);
+      const latest = i === values.length - 1;
+      const h = Math.max(2, v / max * 100);
+      return `<div class="wk-col${latest ? " latest" : ""}">
+          <div class="wk-val">${esc(compactMoney(v))}</div>
+          <div class="wk-track"><span class="wk-bar" style="height:${h.toFixed(1)}%"></span></div>
+          <div class="wk-label">${esc(labels[i] || "")}</div>
+          ${pill}
+        </div>`;
+    }).join("");
+    return `<div class="wk-card">
+        <div class="wk-title"><span class="trend-dot" style="background:${esc(color)}"></span>${esc(title)}</div>
+        <div class="wk-bars">${cols}</div>
+      </div>`;
+  }
+
+  // src/trend.ts
+  var GOLD = "#D4AF37";
+  var MUTED = "#9490A0";
+  var MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  var TREND = REPORT.purchaseTrend && Array.isArray(REPORT.purchaseTrend.dates) && REPORT.purchaseTrend.dates.length ? REPORT.purchaseTrend : null;
+  function trendSeries() {
+    if (!TREND) return [];
+    const out = [
+      { id: "elite", label: "Elite", values: TREND.elite || [], color: GOLD },
+      { id: "jackpota", label: "Jackpota", values: TREND.jackpota || [], color: MUTED }
+    ];
+    AGENTS.forEach((a, i) => {
+      var _a;
+      const values = (_a = a.purchaseTrend) == null ? void 0 : _a.values;
+      if (Array.isArray(values)) {
+        out.push({
+          id: `am:${a.agentName}`,
+          label: a.agentName,
+          values,
+          color: BAR_COLORS[i % BAR_COLORS.length]
+        });
+      }
+    });
+    return out;
+  }
+  function seriesById(id) {
+    return trendSeries().find((s) => s.id === id);
+  }
+  function primarySeries() {
+    return (HIDE_MANAGER ? seriesById(`am:${app.agent}`) : void 0) || seriesById("elite");
+  }
+  function trendSeriesKey() {
+    return HIDE_MANAGER ? `trend_series_${app.agent}` : "trend_series";
+  }
+  function defaultSeriesIds() {
+    return HIDE_MANAGER ? [`am:${app.agent}`, "elite"] : ["elite", "jackpota"];
+  }
+  function sum(values) {
+    return values.reduce((s, v) => s + (Number(v) || 0), 0);
+  }
+  function dailyDays() {
+    return Number(TREND == null ? void 0 : TREND.dailyDays) || 30;
+  }
+  function windowStats(values, days = dailyDays()) {
+    const n = values.length;
+    const start = Math.max(0, n - days);
+    const last = values.slice(start);
+    const prior = values.slice(Math.max(0, n - 2 * days), start);
+    const total = sum(last);
+    const priorTotal = prior.length === days ? sum(prior) : 0;
+    let bestIndex = start;
+    for (let i = start; i < n; i++) if ((values[i] || 0) > (values[bestIndex] || 0)) bestIndex = i;
     return {
-      named: named.map(withShare),
-      other: other ? withShare(other) : null,
-      otherKnown: knownOther,
-      otherUnknown: unknown,
-      total
+      total,
+      avg: last.length ? total / last.length : 0,
+      pct: priorTotal > 0 ? (total - priorTotal) / priorTotal * 100 : null,
+      bestIndex,
+      bestValue: values[bestIndex] || 0
     };
   }
-  function geoBarRow(sl, i, maxShare, summary = false) {
-    const pct = Number(sl.share) || 0;
-    const width = summary ? Math.min(100, Math.max(4, pct / maxShare * 100)) : Math.max(4, pct / maxShare * 100);
-    const color = summary ? "var(--ink-4)" : BAR_COLORS[i % BAR_COLORS.length];
-    const rowCls = summary ? "geo-bar-row geo-bar-row-other" : "geo-bar-row";
-    const fillCls = summary ? "geo-bar-fill geo-bar-fill-muted" : "geo-bar-fill";
-    return `<div class="${rowCls}">
-          <span class="geo-bar-label">${esc(String(sl.state))}</span>
-          <div class="geo-bar-track"><span class="${fillCls}" style="width:${width.toFixed(1)}%;background:${color}"></span></div>
-          <span class="geo-bar-pct">${pct.toFixed(1)}%</span>
-          <span class="geo-bar-count">${(Number(sl.bettors) || 0).toLocaleString()}</span>
-        </div>`;
+  function pctLabel(p) {
+    if (p == null || !Number.isFinite(p)) return "\u2014";
+    return `${p >= 0 ? "+" : ""}${p.toFixed(1)}%`;
   }
-  function donutChartHtml(chart) {
-    if (!chart || !chart.slices || !chart.slices.length) {
-      return `<div class="segment-panel geo-panel empty">
-        <div class="segment-panel-head">
-          <span class="segment-panel-title">${esc((chart == null ? void 0 : chart.title) || "Elite Player by State")}</span>
-        </div>
-        <div class="segment-empty t-tertiary t-small">No state data.</div>
-      </div>`;
-    }
-    const geo = normalizeGeoSlices(chart.slices || []);
-    if (!geo.total) {
-      return `<div class="segment-panel geo-panel empty">
-        <div class="segment-panel-head">
-          <span class="segment-panel-title">${esc(chart.title || "Elite Player by State")}</span>
-        </div>
-        <div class="segment-empty t-tertiary t-small">No state data.</div>
-      </div>`;
-    }
-    const topNamed = geo.named.slice(0, 8);
-    const barRows = geo.other ? [...topNamed, geo.other] : topNamed;
-    const maxShare = Math.max(...barRows.map((sl) => Number(sl.share) || 0), 1);
-    const bars = topNamed.map((sl, i) => geoBarRow(sl, i, maxShare)).join("");
-    const otherBar = geo.other ? geoBarRow(geo.other, topNamed.length, maxShare, true) : "";
-    return `<div class="segment-panel geo-panel">
-        <div class="segment-panel-head">
-          <span class="segment-panel-title">${esc(chart.title || "Elite Player by State")}</span>
-        </div>
-        <div class="geo-bar-chart">
-          <div class="geo-bar-head t-small t-tertiary"><span>State</span><span>Share</span><span>Players</span></div>
-          ${bars}
-          ${otherBar}
-        </div>
-      </div>`;
+  function dayLabel(i, withWeekday = true) {
+    var _a, _b;
+    const iso = String(((_a = TREND == null ? void 0 : TREND.dates) == null ? void 0 : _a[i]) || "");
+    if (!iso) return "";
+    const body = `${Number(iso.slice(8, 10))} ${MONTHS[Number(iso.slice(5, 7)) - 1] || ""}`;
+    return withWeekday ? `${((_b = TREND == null ? void 0 : TREND.weekdays) == null ? void 0 : _b[i]) || ""} ${body}`.trim() : body;
+  }
+  function lastIndices(days = dailyDays()) {
+    var _a;
+    const n = ((_a = TREND == null ? void 0 : TREND.dates) == null ? void 0 : _a.length) || 0;
+    const out = [];
+    for (let i = Math.max(0, n - days); i < n; i++) out.push(i);
+    return out;
+  }
+  function weekdayIndices(weekday2, weeks = 8) {
+    const wd = (TREND == null ? void 0 : TREND.weekdays) || [];
+    const hits = wd.map((w, i) => w === weekday2 ? i : -1).filter((i) => i >= 0);
+    return hits.slice(-weeks);
+  }
+  function reportWeekday() {
+    const wd = (TREND == null ? void 0 : TREND.weekdays) || [];
+    return String(REPORT.dayShort || wd[wd.length - 1] || "Mon");
   }
 
   // src/assets/elite-club-logo.png
@@ -1625,12 +1756,12 @@
       return d ? bv - av : av - bv;
     });
   }
-  function sortPlayers(rows, mode) {
+  function sortPlayers(rows, mode2) {
     const copy = [...rows];
-    if (mode === "priorHigh") return copy.sort((a, b) => (b.priorPriorNum || 0) - (a.priorPriorNum || 0));
-    if (mode === "lifetimeHigh")
+    if (mode2 === "priorHigh") return copy.sort((a, b) => (b.priorPriorNum || 0) - (a.priorPriorNum || 0));
+    if (mode2 === "lifetimeHigh")
       return copy.sort((a, b) => (b.lifetimePurchasedNum || 0) - (a.lifetimePurchasedNum || 0));
-    if (mode === "gapHigh") return copy.sort((a, b) => (b.sortGap || 0) - (a.sortGap || 0));
+    if (mode2 === "gapHigh") return copy.sort((a, b) => (b.sortGap || 0) - (a.sortGap || 0));
     return copy.sort((a, b) => {
       var _a, _b;
       const ra = (_a = URGENCY_RANK[a.urgency]) != null ? _a : 9;
@@ -1753,7 +1884,7 @@
     });
     const filtered = q.trim() !== "";
     const countBadge = filtered ? `<span class="badge brand">${ordered.length} of ${all.length}</span>` : `<span class="badge">${all.length} ${all.length === 1 ? "player" : "players"}</span>`;
-    const toolbar = searchEnabled || sortEnabled ? `<div class="toolbar">
+    const toolbar2 = searchEnabled || sortEnabled ? `<div class="toolbar">
         ${searchEnabled ? `<label class="search">${icon("search", "ic-sm")}
           <input type="search" placeholder="Search name, AID\u2026" value="${esc(q)}" data-state="${esc(qKey)}">
         </label>` : ""}
@@ -1767,7 +1898,7 @@
     const heading = opts.title ? `<div class="card-head table-section-head"><div class="card-title">${esc(opts.title)}</div></div>` : note;
     return `<div class="card${opts.cardClass ? ` ${opts.cardClass}` : ""}${opts.compact ? " fit-content" : ""}">
         ${heading}
-        ${toolbar}
+        ${toolbar2}
         ${tableHtml(opts.headers, slice.map(opts.renderRow), opts.align, slice.map((r) => r.tone || "neutral"), {
       markerCol: opts.markerCol,
       empty: opts.empty,
@@ -1822,12 +1953,49 @@
         </div>
       </div>`;
   }
+  function trendHeroPanel() {
+    const days = dailyDays();
+    const primary = primarySeries();
+    const secondary = seriesById(HIDE_MANAGER ? "elite" : "jackpota");
+    if (!TREND || !primary) {
+      return `<div class="segment-panel">
+          <div class="segment-panel-head"><span class="segment-panel-title">Last ${days} Days Purchase</span></div>
+          <div class="segment-empty t-tertiary t-small">No trend data.</div>
+        </div>`;
+    }
+    const st = windowStats(primary.values, days);
+    const tail = (v) => v.slice(-days);
+    const lines = [
+      ...secondary && secondary.id !== primary.id ? [{ label: secondary.label, values: tail(secondary.values), color: MUTED, width: 1.25, dashed: true }] : [],
+      { label: primary.label, values: tail(primary.values), color: GOLD, width: 2.25 }
+    ];
+    const legend = lines.slice().reverse().map(
+      (l) => `<span class="trend-legend-item"><span class="trend-dot" style="background:${l.color}"></span>${esc(l.label)}</span>`
+    ).join("");
+    return `<button type="button" class="segment-panel trend-hero" data-go="trends">
+        <div class="segment-panel-head">
+          <span class="segment-panel-title">Last ${days} Days Purchase</span>
+          <span class="spacer"></span>
+          <span class="trend-open">Open ${icon("chev-right", "ic-xs")}</span>
+        </div>
+        <div class="segment-metric-row">
+          <span class="segment-metric-value">${esc(compactMoney(st.total))}</span>
+          ${wowPillHtml(pctLabel(st.pct))}
+        </div>
+        <div class="segment-metric-foot t-tertiary t-small">${esc(primary.label)} \xB7 ${days}D total vs prior ${days}D</div>
+        <div class="trend-spark">${sparklineSvg(lines)}</div>
+        <div class="trend-hero-foot t-small">
+          <span class="trend-legend">${legend}</span>
+          <span class="spacer"></span>
+          <span><span class="t-tertiary">Best Day</span> <strong>${esc(dayLabel(st.bestIndex))} ${esc(compactMoney(st.bestValue))}</strong></span>
+        </div>
+      </button>`;
+  }
   function segmentHero() {
     const segments = REPORT.segments || [];
     const title = REPORT.segmentTitle || "WoW Purchase";
     const jackpota = segmentByLabel(segments, "Jackpota") || segments[0];
     const elite = segmentByLabel(segments, "Elite") || segments[1];
-    const geo = REPORT.geoChart || null;
     return `<div class="segment-hero card gold-top">
         <div class="segment-hero-head">
           <div class="card-title">${esc(title)}</div>
@@ -1835,7 +2003,7 @@
         <div class="segment-hero-body segment-hero-body-3">
           ${segmentPanel(jackpota, "jackpota")}
           ${segmentPanel(elite, "elite", jackpota)}
-          ${donutChartHtml(geo)}
+          ${trendHeroPanel()}
         </div>
       </div>`;
   }
@@ -1848,6 +2016,9 @@
     const purchaserCount = (purchasers == null ? void 0 : purchasers.actual) != null ? Number(purchasers.actual) : null;
     const mtdActivePct = purchaserCount != null && portfolio > 0 ? Math.min(100, purchaserCount / portfolio * 100) : null;
     const activeDisplay = mtdActivePct != null ? formatGoalPct(mtdActivePct) : String(((_a = kpi("pct_active")) == null ? void 0 : _a.actualDisplay) || "\u2014");
+    const mtdPurchase = Number(goals.mtdPurchase || 0);
+    const mtdNet = Number(goals.mtdNetPurchase || 0);
+    const holdDisplay = mtdPurchase > 0 ? formatGoalPct(mtdNet / mtdPurchase * 100) : "\u2014";
     return [
       {
         label: "Portfolio",
@@ -1856,6 +2027,13 @@
         tone: neutral
       },
       {
+        label: "MTD Purchasers",
+        value: String((purchasers == null ? void 0 : purchasers.actualDisplay) || "\u2014"),
+        icon: "users",
+        tone: neutral
+      },
+      { label: "Active % of Portfolio", value: activeDisplay, icon: "pie", tone: neutral },
+      {
         label: "Yesterday Purchase",
         value: yesterday.purchase || "\u2014",
         icon: "dollar",
@@ -1863,20 +2041,8 @@
       },
       {
         label: "MTD Purchase",
-        value: money(Number(goals.mtdPurchase || 0)),
+        value: money(mtdPurchase),
         icon: "dollar",
-        tone: neutral
-      },
-      {
-        label: "MTD Net Purchase",
-        value: money(Number(goals.mtdNetPurchase || 0)),
-        icon: "banknote",
-        tone: neutral
-      },
-      {
-        label: "MTD Purchasers",
-        value: String((purchasers == null ? void 0 : purchasers.actualDisplay) || "\u2014"),
-        icon: "users",
         tone: neutral
       },
       {
@@ -1886,12 +2052,18 @@
         tone: neutral
       },
       {
+        label: "MTD Net Purchase",
+        value: money(mtdNet),
+        icon: "banknote",
+        tone: neutral
+      },
+      {
         label: "Daily Avg Net",
         value: String(((_c = kpi("daily_avg_net_purchase")) == null ? void 0 : _c.actualDisplay) || "\u2014"),
         icon: "banknote",
         tone: neutral
       },
-      { label: "Active % of Portfolio", value: activeDisplay, icon: "pie", tone: neutral }
+      { label: "This Month Hold %", value: holdDisplay, icon: "pie", tone: neutral }
     ];
   }
   function personalSnapshotCards(agent) {
@@ -1974,10 +2146,13 @@
   }
   function metricBand(title, items, opts) {
     const cols = (opts == null ? void 0 : opts.cols) || items.length;
-    const cells = items.map((o) => {
+    const wraps = items.length > cols;
+    const lastRowStart = Math.floor((items.length - 1) / cols) * cols;
+    const cells = items.map((o, i) => {
       const tag = o.view ? "button" : "div";
       const typeAttr = o.view ? ' type="button"' : "";
-      return `<${tag}${typeAttr} class="metric-cell t-${o.tone || "neutral"}"${o.view ? ` data-go="${esc(o.view)}"` : ""}>
+      const pos = wraps ? `${(i + 1) % cols === 0 ? " row-end" : ""}${i >= lastRowStart ? " last-row" : ""}` : "";
+      return `<${tag}${typeAttr} class="metric-cell t-${o.tone || "neutral"}${pos}"${o.view ? ` data-go="${esc(o.view)}"` : ""}>
           <div class="metric-label">${esc(o.label)}</div>
           <div class="metric-value${o.small ? " sm" : ""}">${esc(o.value)}</div>
           ${o.foot ? `<div class="metric-foot">${o.foot}</div>` : ""}
@@ -1988,7 +2163,7 @@
           <div class="card-title">${esc(title)}</div>
           ${(opts == null ? void 0 : opts.subtitle) ? `<div class="card-sub">${esc(opts.subtitle)}</div>` : ""}
         </div>
-        <div class="metric-band-grid" style="--metric-cols:${cols}">${cells}</div>
+        <div class="metric-band-grid${wraps ? " wrap" : ""}" style="--metric-cols:${cols}">${cells}</div>
       </div>`;
   }
   function emptyState(ico, title, body) {
@@ -2029,7 +2204,7 @@
         esc(k.actualDisplay || "\u2014"),
         `<span class="badge ${k.statusTone || ""}">${esc(k.status || "")}</span>`
       ]);
-      const table = tableHtml(
+      const table2 = tableHtml(
         ["KPI", "Weight", "Goal", "Actual", "Status"],
         rows,
         ["left", "right", "right", "right", "left"],
@@ -2044,7 +2219,7 @@
             <span class="spacer"></span>
             <span class="hist-quick t-tertiary t-small">${esc(quick)}</span>
           </summary>
-          <div class="hist-detail">${table}</div>
+          <div class="hist-detail">${table2}</div>
         </details>`;
     }).join("");
     return `<div class="card">
@@ -2227,7 +2402,7 @@
         </div>` : "";
     return `<div class="stack">
         ${segmentHero()}
-        ${metricBand("Elite Snapshot", eliteSnapshotCards(), { cols: 4 })}
+        ${metricBand("Elite Snapshot", eliteSnapshotCards(), { cols: 3 })}
         ${metricBand("Daily Triggers", triggerMetrics, { subtitle: "Cross-AM roll-up \xB7 click a metric to open the section", cols: 7 })}
 
         <div class="grid-2 goals-pair">
@@ -2357,7 +2532,7 @@
         ${amIntro(b.greetingLines || [])}
         ${segmentHero()}
         ${metricBand("Today's focus", dailyTriggerMetrics(f), { subtitle: "Click a metric to open the section", cols: 7 })}
-        ${metricBand("Personal Snapshot", personalSnapshotCards(b), { cols: 4 })}
+        ${metricBand("Personal Snapshot", personalSnapshotCards(b), { cols: 3 })}
         ${goalsSummaryCard(b.goals)}
       </div>`;
   }
@@ -2603,7 +2778,7 @@
     const reasons = [...new Set(players.map((p) => p.reason).filter(Boolean))].sort();
     const ordered = sortPlayers(players.filter((row) => (reason === "all" || row.reason === reason) && matchesDecline(row, search)), sortBy);
     const { slice, pager, total } = paginate(ordered, stateKey, { forceOn: true, defaultSize: 10 });
-    const priorTotal = ordered.reduce((sum, p) => sum + (p.priorPriorNum || 0), 0);
+    const priorTotal = ordered.reduce((sum2, p) => sum2 + (p.priorPriorNum || 0), 0);
     const active = search.trim() !== "" || reason !== "all";
     const headers = [
       "#",
@@ -2668,6 +2843,154 @@
       }
     )}
         ${total ? pager : ""}
+      </div>`;
+  }
+
+  // src/views/trends.ts
+  var WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  function mode() {
+    return getState("trend_mode", "daily") === "weekday" ? "weekday" : "daily";
+  }
+  function weekday() {
+    return String(getState("trend_weekday", reportWeekday()));
+  }
+  function selectedSeries(all) {
+    const ids = getState(trendSeriesKey(), defaultSeriesIds());
+    return all.filter((s) => ids.includes(s.id));
+  }
+  function rowIndices(m) {
+    return m === "daily" ? lastIndices() : weekdayIndices(weekday());
+  }
+  function trendTableData() {
+    const t = TREND;
+    if (!t) return { headers: [], rows: [] };
+    const all = trendSeries();
+    const ams = all.filter((s) => s.id.startsWith("am:"));
+    const jp = t.jackpota || [];
+    const el2 = t.elite || [];
+    const headers = ["Date", "Weekday", "Jackpota", "Elite", "Elite %", ...ams.map((s) => s.label)];
+    const rows = rowIndices(mode()).slice().reverse().map((i) => {
+      var _a;
+      return [
+        String(t.dates[i]),
+        String(((_a = t.weekdays) == null ? void 0 : _a[i]) || ""),
+        money(jp[i] || 0),
+        money(el2[i] || 0),
+        jp[i] > 0 ? `${(el2[i] / jp[i] * 100).toFixed(1)}%` : "\u2014",
+        ...ams.map((s) => money(s.values[i] || 0))
+      ];
+    });
+    return { headers, rows };
+  }
+  function toolbar(m, all, selected) {
+    const modeBtn = (id, label) => `<button type="button" class="btn-ghost${m === id ? " active" : ""}" data-trend-mode="${id}" aria-pressed="${m === id ? "true" : "false"}">${label}</button>`;
+    const wd = weekday();
+    const picker = m === "weekday" ? `<span class="select-wrap"><select data-state="trend_weekday" aria-label="Weekday">` + WEEKDAYS.map((d) => `<option value="${d}" ${d === wd ? "selected" : ""}>${d}</option>`).join("") + `</select>${icon("chev-down", "ic-xs")}</span>` : "";
+    const chips = all.map((s) => {
+      const on = selected.some((x) => x.id === s.id);
+      return `<button type="button" class="chip trend-chip${on ? " active" : ""}" aria-pressed="${on ? "true" : "false"}" data-trend-series="${esc(s.id)}"><span class="trend-dot" style="background:${s.color}"></span>${esc(s.label)}</button>`;
+    }).join("");
+    return `<div class="card trend-toolbar">
+        <div class="toolbar">
+          <div class="trend-modes">${modeBtn("daily", "Daily")}${modeBtn("weekday", "Same Weekday")}</div>
+          ${picker}
+          <div class="trend-series"><span class="trend-series-label">Series</span>${chips}</div>
+        </div>
+      </div>`;
+  }
+  function band(primary) {
+    const days = dailyDays();
+    const st = windowStats(primary.values, days);
+    const wd = weekday();
+    const wdIdx = weekdayIndices(wd);
+    const wdAvg = wdIdx.length ? sum(wdIdx.map((i) => primary.values[i] || 0)) / wdIdx.length : 0;
+    const pct = pctLabel(st.pct);
+    const pctTone = st.pct == null ? "neutral" : st.pct >= 0 ? "success" : "danger";
+    return metricBand(`${primary.label} \xB7 Purchase Trend`, [
+      { label: `${days}D Purchase`, value: compactMoney(st.total) },
+      { label: "Daily Avg", value: compactMoney(st.avg) },
+      { label: "Best Day", value: compactMoney(st.bestValue), foot: esc(dayLabel(st.bestIndex)) },
+      { label: `vs Prior ${days}D`, value: pct, tone: pctTone },
+      { label: `${wd} Avg (Last ${wdIdx.length})`, value: compactMoney(wdAvg) }
+    ], { cols: 5 });
+  }
+  function chart(m, shown) {
+    if (!shown.length) {
+      return `<div class="card"><div class="card-body t-tertiary t-small">Pick at least one series.</div></div>`;
+    }
+    if (m === "daily") {
+      const idx2 = lastIndices();
+      const mixed = shown.some((s) => s.id === "jackpota") && shown.some((s) => s.id !== "jackpota");
+      const lines = shown.map((s) => ({
+        label: s.label,
+        values: idx2.map((i) => s.values[i] || 0),
+        color: s.color,
+        axis: mixed && s.id === "jackpota" ? "right" : "left",
+        width: s.id === "elite" ? 2.5 : 2,
+        dashed: s.id === "jackpota"
+      }));
+      const legend = shown.map(
+        (s) => `<span class="trend-legend-item"><span class="trend-dot" style="background:${s.color}"></span>${esc(s.label)}${mixed && s.id === "jackpota" ? ` <span class="t-tertiary">(right axis)</span>` : ""}</span>`
+      ).join("");
+      return `<div class="card gold-top trend-chart-card">
+          <div class="card-head">
+            <span class="card-icon">${icon("trend-up", "ic-sm")}</span>
+            <div><div class="card-title">Last ${idx2.length} Days \xB7 Daily Purchase</div>
+            <div class="card-sub">Hover a day for every series</div></div>
+          </div>
+          <div class="card-body">
+            <div class="trend-legend">${legend}</div>
+            ${lineChartSvg(lines, idx2.map((i) => dayLabel(i, false)))}
+          </div>
+        </div>`;
+    }
+    const wd = weekday();
+    const idx = weekdayIndices(wd);
+    const cards = shown.map(
+      (s) => weekdayBarsHtml(s.label, s.color, idx.map((i) => s.values[i] || 0), idx.map((i) => dayLabel(i, false)))
+    ).join("");
+    return `<div class="card gold-top trend-chart-card">
+        <div class="card-head">
+          <span class="card-icon">${icon("calendar", "ic-sm")}</span>
+          <div><div class="card-title">Last ${idx.length} ${esc(wd)}s \xB7 Same Weekday</div>
+          <div class="card-sub">Latest week in gold \xB7 pill = change vs the prior ${esc(wd)}</div></div>
+        </div>
+        <div class="card-body wk-grid">${cards}</div>
+      </div>`;
+  }
+  function table(m) {
+    const { headers, rows } = trendTableData();
+    const { slice, pager, total } = paginate(rows.map((cells) => ({ cells })), `trend_tbl_${m}`);
+    const align = headers.map((_, i) => i < 2 ? "left" : "right");
+    return `<div class="card">
+        <div class="card-head table-section-head"><div class="card-title">${m === "daily" ? "Daily Purchase" : `${esc(weekday())} Purchase`}</div></div>
+        ${tableHtml(
+      headers,
+      slice.map((r) => r.cells.map(esc)),
+      align,
+      void 0,
+      { empty: "No trend data.", tableClass: "trend-grid" }
+    )}
+        ${total ? pager : ""}
+      </div>`;
+  }
+  function viewTrends() {
+    const primary = primarySeries();
+    if (!TREND || !primary) {
+      return emptyState(
+        "trend-up",
+        "No Purchase Trend Yet",
+        "This brief was generated before Purchase Trends existed. Re-run the generator for this date."
+      );
+    }
+    const m = mode();
+    const all = trendSeries();
+    const shown = selectedSeries(all);
+    return `<div class="stack trends-view">
+        ${toolbar(m, all, shown)}
+        ${band(primary)}
+        ${chart(m, shown)}
+        ${table(m)}
       </div>`;
   }
 
@@ -2793,25 +3116,49 @@
   }
 
   // src/views/locksMtd.ts
+  var LOCKS_TABLE_HEADERS = [
+    "AID",
+    "Name",
+    "Email",
+    "Lock Reason",
+    "Locked Date",
+    "LTP",
+    "Hold %",
+    "Days Remaining / Unlock"
+  ];
+  var LOCKS_TABLE_ALIGN = [
+    "left",
+    "left",
+    "left",
+    "left",
+    "left",
+    "right",
+    "right",
+    "left"
+  ];
+  function lockTableRowCells(p) {
+    return [
+      aidHtml(p),
+      esc(p.name),
+      esc(p.email || "\u2014"),
+      `<span class="t-${p.tone || "warning"}">${esc(p.lockReason)}</span>`,
+      `<span class="t-small">${esc(p.created || p.lockedAt || "\u2014")}</span>`,
+      esc(p.lifetimePurchase || "\u2014"),
+      esc(p.lifetimeHold || "\u2014"),
+      unlockHtml(p.unlockDetail, p.unlockRemainingDays)
+    ];
+  }
   function locksMtdTableCard() {
     return tableCard({
       rows: rowsFor("locksMtd"),
       stateKey: `lkm_${app.agent}`,
       showSearch: true,
       title: "Locked \xB7 MTD \xB7 this calendar month",
-      headers: ["AID", "Name", "Email", "Lock Reason", "Locked Date", "LTP", "Hold %"],
-      align: ["left", "left", "left", "left", "left", "right", "right"],
+      headers: [...LOCKS_TABLE_HEADERS],
+      align: [...LOCKS_TABLE_ALIGN],
       markerCol: 3,
       empty: "No accounts locked this month.",
-      renderRow: (p) => [
-        aidHtml(p),
-        esc(p.name),
-        esc(p.email || "\u2014"),
-        `<span class="t-${p.tone || "warning"}">${esc(p.lockReason)}</span>`,
-        `<span class="t-small">${esc(p.created || p.lockedAt || "\u2014")}</span>`,
-        esc(p.lifetimePurchase || "\u2014"),
-        esc(p.lifetimeHold || "\u2014")
-      ]
+      renderRow: (p) => lockTableRowCells(p)
     });
   }
 
@@ -2820,20 +3167,14 @@
     return tableCard({
       rows: rowsFor("locks"),
       stateKey: `lk_${app.agent}`,
-      showSearch: false,
+      showSearch: true,
       sortFn: (rows) => sortBySoonestUnlock(rows),
       title: "Locked & Take A Break \xB7 Last 3 Days",
-      headers: ["AID", "Name", "Lock Reason", "Created", "Days Remaining / Unlock"],
-      align: ["left", "left", "left", "left", "left"],
-      markerCol: 2,
+      headers: [...LOCKS_TABLE_HEADERS],
+      align: [...LOCKS_TABLE_ALIGN],
+      markerCol: 3,
       empty: "No new locks or breaks due in the Last 3 Days.",
-      renderRow: (p) => [
-        aidHtml(p),
-        esc(p.name),
-        `<span class="t-${p.tone || "warning"}">${esc(p.lockReason)}</span>`,
-        `<span class="t-small">${esc(p.created || p.lockedAt || "\u2014")}</span>`,
-        unlockHtml(p.unlockDetail, p.unlockRemainingDays)
-      ]
+      renderRow: (p) => lockTableRowCells(p)
     });
   }
   function viewLocks() {
@@ -3102,15 +3443,15 @@
   function bandFor(leadLow) {
     return CRM_BANDS.find((b) => leadLow >= b.min) || CRM_BANDS[CRM_BANDS.length - 1];
   }
-  function cellFor(cycle, weekday) {
-    return cycle.cells.find((c) => c.day === weekday);
+  function cellFor(cycle, weekday2) {
+    return cycle.cells.find((c) => c.day === weekday2);
   }
   function crmBoxHtml(cell, opts) {
-    const band = bandFor(cell.lead_low);
+    const band2 = bandFor(cell.lead_low);
     const muted = !!opts.muted;
     const today = !!opts.today;
-    const tint = muted ? "" : `background:rgba(${band.rgb},.07);border-color:rgba(${band.rgb},.55);border-left-color:${band.hue};`;
-    const headTint = muted ? "" : `background:rgba(${band.rgb},.16);`;
+    const tint = muted ? "" : `background:rgba(${band2.rgb},.07);border-color:rgba(${band2.rgb},.55);border-left-color:${band2.hue};`;
+    const headTint = muted ? "" : `background:rgba(${band2.rgb},.16);`;
     const follow = cell.follow_label ? `<div class="crm-box-follow">${esc(cell.follow_label)} <strong>${esc(cell.follow_value || "")}</strong></div>` : "";
     const name = esc(cell.campaign);
     const heading = cell.link ? `<a href="${esc(cell.link)}" target="_blank" rel="noopener noreferrer" class="crm-box-link"
@@ -3226,13 +3567,13 @@
   }
 
   // src/views/anniversary.ts
-  function sortAnniversary(rows, mode) {
+  function sortAnniversary(rows, mode2) {
     const copy = [...rows];
-    if (mode === "ltpHigh")
+    if (mode2 === "ltpHigh")
       return copy.sort((a, b) => (b.lifetimePurchasedNum || 0) - (a.lifetimePurchasedNum || 0));
-    if (mode === "p7dHigh")
+    if (mode2 === "p7dHigh")
       return copy.sort((a, b) => (b.purchase7dNum || 0) - (a.purchase7dNum || 0));
-    if (mode === "name")
+    if (mode2 === "name")
       return copy.sort((a, b) => String(a.lastName || a.name).localeCompare(String(b.lastName || b.name)));
     return copy;
   }
@@ -3283,13 +3624,13 @@
   }
 
   // src/views/birthdayGift.ts
-  function sortBirthdayGift(rows, mode) {
+  function sortBirthdayGift(rows, mode2) {
     const copy = [...rows];
-    if (mode === "ltpHigh")
+    if (mode2 === "ltpHigh")
       return copy.sort((a, b) => (b.lifetimePurchasedNum || 0) - (a.lifetimePurchasedNum || 0));
-    if (mode === "holdHigh")
+    if (mode2 === "holdHigh")
       return copy.sort((a, b) => (b.holdPctNum || 0) - (a.holdPctNum || 0));
-    if (mode === "name")
+    if (mode2 === "name")
       return copy.sort((a, b) => String(a.lastName || a.name).localeCompare(String(b.lastName || b.name)));
     return copy;
   }
@@ -3382,11 +3723,11 @@
     [450, 450],
     [500, 500]
   ];
-  function vlookupApprox(key, table, valueIndex = 1) {
+  function vlookupApprox(key, table2, valueIndex = 1) {
     var _a, _b;
-    if (!table.length) return 0;
-    let chosen = (_a = table[0][valueIndex]) != null ? _a : 0;
-    for (const row of table) {
+    if (!table2.length) return 0;
+    let chosen = (_a = table2[0][valueIndex]) != null ? _a : 0;
+    for (const row of table2) {
       if (key + 1e-9 >= row[0]) chosen = (_b = row[valueIndex]) != null ? _b : 0;
       else break;
     }
@@ -3541,12 +3882,12 @@
   }
 
   // src/views/bonusCalculator.ts
-  function pctLabel(n) {
+  function pctLabel2(n) {
     return `${(n * 100).toFixed(1)}%`;
   }
   function pctBonusToGgr(bonus, ggr) {
     if (!ggr) return "\u2014";
-    return pctLabel(bonus / ggr);
+    return pctLabel2(bonus / ggr);
   }
   function wfRow(label, value, muted = false) {
     return `<div class="bonus-wf-row${muted ? " muted" : ""}">
@@ -3603,8 +3944,8 @@
       sheetRow(`Purchased $ \xB7 ${winLabel.toLowerCase()}`, moneyHtml(row.purchaseAmountWindow), "emph"),
       sheetRow(`Purchases (#) \xB7 ${winLabel.toLowerCase()}`, esc(String((_i = row.purchaseCountWindow) != null ? _i : "\u2014")), "soft"),
       sheetRow(`Avg purchase \xB7 ${winLabel.toLowerCase()}`, moneyHtml(row.avgPurchaseWindow)),
-      sheetRow(`% Bonus / purchase \xB7 ${winLabel.toLowerCase()}`, esc(pctLabel(Number(row.bonusPctWindow || 0))), "emph"),
-      sheetRow("% Bonus / purchase \xB7 lifetime", esc(pctLabel(Number(row.bonusPctLifetime || 0))), "soft"),
+      sheetRow(`% Bonus / purchase \xB7 ${winLabel.toLowerCase()}`, esc(pctLabel2(Number(row.bonusPctWindow || 0))), "emph"),
+      sheetRow("% Bonus / purchase \xB7 lifetime", esc(pctLabel2(Number(row.bonusPctLifetime || 0))), "soft"),
       sheetRow("Bonus status", esc(result.bonusStatus || "\u2014"))
     ].join(""))}
       ${sheetSection("Lifetime", [
@@ -3739,7 +4080,7 @@
       id: "performance",
       label: "Performance",
       accent: "performance",
-      entries: [{ kind: "view", id: "goals" }, { kind: "view", id: "top10" }]
+      entries: [{ kind: "view", id: "goals" }, { kind: "view", id: "top10" }, { kind: "view", id: "trends" }]
     },
     {
       id: "daily",
@@ -3819,6 +4160,12 @@
       key: "top10",
       sub: "Yesterday's biggest spenders"
     },
+    trends: {
+      label: "Purchase Trends",
+      icon: "trend-up",
+      group: "Performance",
+      sub: "Last 30 days and the last 8 same weekdays"
+    },
     top20: {
       label: "Top 20 Dropping",
       icon: "trend-down",
@@ -3871,7 +4218,7 @@
       icon: "lock",
       group: "Daily Triggers",
       key: "locks",
-      sub: "Last 3 days locks and Locked MTD"
+      sub: "Last 3 days due review + Locked MTD"
     },
     birthdays: {
       label: "Birthdays \xB7 Last 3 Days",
@@ -3928,6 +4275,7 @@
     home: viewHome,
     goals: viewGoals,
     top10: viewTop10,
+    trends: viewTrends,
     top20: viewTop20,
     bigwinners: viewBigWinners,
     biglosers: viewBigLosers,
@@ -4176,6 +4524,7 @@
     const slug = (v.short || v.label).replace(/[^\w]+/g, "_").slice(0, 40);
     let pack = null;
     if (app.view === "top20") pack = top20Rows();
+    else if (app.view === "trends") pack = trendTableData();
     else if (app.view === "top10") {
       pack = genericRows(
         "top10",
@@ -4214,9 +4563,9 @@
       );
     } else if (app.view === "locks") {
       pack = genericRows(
-        "locksMtd",
-        ["AID", "Name", "Email", "Lock Reason", "Locked Date", "LTP", "Hold %"],
-        ["aid", "name", "email", "lockReason", "created", "lifetimePurchase", "lifetimeHold"]
+        "locks",
+        ["AID", "Name", "Email", "Lock Reason", "Locked Date", "LTP", "Hold %", "Unlock"],
+        ["aid", "name", "email", "lockReason", "created", "lifetimePurchase", "lifetimeHold", "unlockDetail"]
       );
     }
     if (!pack || !pack.rows.length) {
@@ -4227,7 +4576,7 @@
     toast("CSV downloaded");
   }
   function viewSupportsCsvExport(viewId) {
-    return ["top20", "top10", "tickets", "rd", "birthdays", "anniversary", "birthdayGift", "locks"].includes(viewId);
+    return ["top20", "top10", "trends", "tickets", "rd", "birthdays", "anniversary", "birthdayGift", "locks"].includes(viewId);
   }
 
   // src/calendar.ts
@@ -4480,6 +4829,18 @@
           if (!bands.length) bands = allBands.slice();
           setState("crm_bands", bands);
         }
+      };
+    });
+    document.querySelectorAll("[data-trend-mode]").forEach((el2) => {
+      el2.onclick = () => setState("trend_mode", el2.getAttribute("data-trend-mode"));
+    });
+    document.querySelectorAll("[data-trend-series]").forEach((el2) => {
+      el2.onclick = () => {
+        const id = el2.getAttribute("data-trend-series") || "";
+        const key = trendSeriesKey();
+        const ids = getState(key, defaultSeriesIds());
+        const next = ids.includes(id) ? ids.filter((x) => x !== id) : ids.concat(id);
+        if (next.length) setState(key, next);
       };
     });
     document.querySelectorAll("[data-crm-quick]").forEach((el2) => {

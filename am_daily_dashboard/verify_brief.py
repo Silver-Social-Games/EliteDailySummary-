@@ -263,6 +263,64 @@ def verify_anniversary(payload: dict, report: Report) -> None:
             report.check("anniversaryDate" in row, f"{name} anniversary row has 'anniversaryDate'")
 
 
+def verify_purchase_trend(payload: dict, report: Report) -> None:
+    """Purchase Trends: aligned series ending on the report date; the hero's
+    Elite panel and the trend's last Elite point come from the same book."""
+    trend = (payload.get("report") or {}).get("purchaseTrend")
+    print("\nPurchase trend")
+    if not report.check(bool(trend), "report.purchaseTrend present"):
+        return
+    dates = trend.get("dates") or []
+    n = len(dates)
+    report.check(n >= 50, "trend covers 8 same weekdays", f"{n} days")
+    report.check(
+        bool(dates) and dates[-1] == (payload.get("report") or {}).get("date"),
+        "trend ends on report date",
+        dates[-1] if dates else "",
+    )
+    for key in ("jackpota", "elite", "weekdays"):
+        report.check(len(trend.get(key) or []) == n, f"trend {key} aligned to dates")
+    report.check(
+        set(trend) <= {"dates", "weekdays", "dailyDays", "jackpota", "elite"},
+        "report trend carries no per-AM series",
+        str(sorted(set(trend))),
+    )
+    for agent in payload.get("agents") or []:
+        values = (agent.get("purchaseTrend") or {}).get("values") or []
+        report.check(len(values) == n, f"{agent.get('agentName')} trend aligned", f"{len(values)}")
+    elite = trend.get("elite") or []
+    jp = trend.get("jackpota") or []
+    if elite and jp:
+        report.check(elite[-1] <= jp[-1] + 0.01, "Elite day <= Jackpota day",
+                     f"elite={elite[-1]:,.0f} jackpota={jp[-1]:,.0f}")
+    seg = next(
+        (s for s in (payload.get("report") or {}).get("segments") or []
+         if str(s.get("label", "")).lower() == "elite"),
+        None,
+    )
+    hero = _parse_short_money(str((seg or {}).get("revThis") or ""))
+    if hero and elite:
+        report.check(
+            abs(elite[-1] - hero) <= max(0.06 * hero, 1000),
+            "trend's last Elite point matches the hero Elite purchase",
+            f"trend={elite[-1]:,.0f} hero={seg.get('revThis')}",
+        )
+
+
+def _parse_short_money(text: str) -> float | None:
+    """'$24K' / '$1.2M' / '$9,870' -> float; None when unparseable."""
+    t = text.replace("$", "").replace(",", "").strip().upper()
+    mult = 1.0
+    if t.endswith("K"):
+        mult, t = 1_000.0, t[:-1]
+    elif t.endswith("M"):
+        mult, t = 1_000_000.0, t[:-1]
+    try:
+        return float(t) * mult
+    except ValueError:
+        return None
+
+
 def _parse_lookup_from_html(html_path: Path) -> dict | None:
     text = html_path.read_text(encoding="utf-8")
     marker = 'id="am-brief-lookup">'
@@ -390,6 +448,15 @@ def verify_isolation(date_str: str, report: Report) -> None:
         else:
             others = [n for n in agent_names if n != name]
             report.check(not others, f"{slug} file holds only {name}", str(others))
+        trend_owners = [
+            a.get("agentName") for a in data.get("agents") or [] if a.get("purchaseTrend")
+        ]
+        if not data.get("peerMode"):
+            report.check(
+                trend_owners == [name],
+                f"{slug} file carries only {name}'s trend series",
+                str(trend_owners),
+            )
         leaked = [k for k in MANAGER_ONLY if data.get(k)]
         report.check(not leaked, f"{slug} file has no manager-only keys", str(leaked))
         html = EXPORTS / f"{date_str}_elite_am_brief_{slug}.html"
@@ -478,6 +545,7 @@ def main() -> None:
     verify_goals_history(payload, report)
     verify_birthday_gift(payload, report)
     verify_anniversary(payload, report)
+    verify_purchase_trend(payload, report)
     verify_bonus_lookup(date_str, report)
     verify_isolation(date_str, report)
     if args.render_check:

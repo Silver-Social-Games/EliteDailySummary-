@@ -96,10 +96,11 @@ class DedupeTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             state = Path(tmp) / "sent.json"
             with patch.object(alerts, "SENT_STATE", state):
-                alerts.save_sent_keys({key})
-                loaded = alerts.load_sent_keys()
-                self.assertIn(key, loaded)
-                pending = [row] if key not in loaded else []
+                alerts.save_state({key}, {key: {"channel": "C123", "ts": "1.2"}})
+                sent, posts = alerts.load_state()
+                self.assertIn(key, sent)
+                self.assertEqual(posts[key]["ts"], "1.2")
+                pending = [row] if key not in sent else []
                 self.assertEqual(pending, [])
 
 

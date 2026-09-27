@@ -35,6 +35,7 @@ PROJECTS: dict[str, str] = {
     "purchase_lookup": "Purchase Lookup",
     "queries": "Queries and Definitions",
     "roster": "Roster and Drop Lists",
+    "roundtable": "Elite Roundtable",
     "vip_event": "VIP Event",
     "wow_drop": "WoW Drop Analysis",
 }

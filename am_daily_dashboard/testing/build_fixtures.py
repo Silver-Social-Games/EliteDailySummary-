@@ -26,8 +26,14 @@ for _p in (PROJECT_ROOT, PACKAGE_DIR):
     if str(_p) not in sys.path:
         sys.path.insert(0, str(_p))
 
+import canvas_to_html  # noqa: E402
 from canvas_to_html import write_am_brief_html  # noqa: E402
 from payload_builders import strip_bonus_lookup_for_payload  # noqa: E402
+
+# write_am_brief_html rebuilds report.archive by listing the real exports/
+# folder, which made the calendar test depend on whatever briefs are on disk.
+# Fixtures already carry their own per-audience archive, so keep it.
+canvas_to_html.with_archive = lambda payload, slug="": payload
 
 from testing.payload_fixtures import (  # noqa: E402
     build_bonus_lookup_fixture,

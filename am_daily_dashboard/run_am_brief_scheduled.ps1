@@ -51,8 +51,8 @@ $env:PYTHONUTF8 = '1'
 $env:PYTHONIOENCODING = 'utf-8'
 
 $CatchUp = Join-Path $ProjectRoot 'am_daily_dashboard\generate_am_brief_range.py'
-Write-Log "Running catch-up: $Python $CatchUp --catch-up --verify"
-& $Python $CatchUp --catch-up --verify 2>&1 | ForEach-Object {
+Write-Log "Running catch-up: $Python $CatchUp --catch-up --verify --max-days 2"
+& $Python $CatchUp --catch-up --verify --max-days 2 2>&1 | ForEach-Object {
     Write-Log $_
     $_
 }

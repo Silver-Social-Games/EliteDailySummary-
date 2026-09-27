@@ -238,39 +238,35 @@ describe("manager dashboard gate", () => {
   });
 });
 
+// GOALS_DISPLAY.md (locked 2026-08-25): one KPI track, headline = KPI points
+// ÷ 80 as a percent. No manager track, no "Manager Pending", no "/100" —
+// for scored and unscored AMs alike.
 describe("score meter", () => {
-  test("scored AM (Coral) never reads Manager Pending", () => {
+  function goalsHtmlFor(agent) {
     const { dom } = loadBoard("manager");
-    clickNav(dom, "goals"); // default agent is AM_ORDER[0] = Coral
-    const html = content(dom).innerHTML;
-    assert.ok(
-      !html.includes("Manager Pending"),
-      "Coral is scored by the fixture and must not read Manager Pending"
-    );
-    assert.ok(
-      !/trk mgr pending/.test(html),
-      "Coral's manager track must not carry the dashed pending class"
-    );
-  });
-
-  test("unscored AM (Gabriel) reads Manager Pending with a dashed empty track", () => {
-    const { dom } = loadBoard("manager");
-    const chip = [...dom.window.document.querySelectorAll("[data-agent]")].find(
-      (b) => b.getAttribute("data-agent") === "Gabriel"
-    );
-    assert.ok(chip, "expected an AM switch chip for Gabriel");
-    chip.onclick();
+    if (agent !== "Coral") {
+      const chip = [...dom.window.document.querySelectorAll("[data-agent]")].find(
+        (b) => b.getAttribute("data-agent") === agent
+      );
+      assert.ok(chip, `expected an AM switch chip for ${agent}`);
+      chip.onclick();
+    }
     clickNav(dom, "goals");
-    const html = content(dom).innerHTML;
-    assert.ok(
-      html.includes("Manager Pending"),
-      "Gabriel is unscored by the fixture and must read Manager Pending"
-    );
-    assert.ok(
-      /trk mgr pending/.test(html),
-      "Gabriel's manager track must carry the dashed pending class"
-    );
-  });
+    return content(dom);
+  }
+
+  for (const agent of ["Coral", "Gabriel"]) {
+    test(`${agent} shows a single KPI track and a percent-only headline`, () => {
+      const el = goalsHtmlFor(agent);
+      const html = el.innerHTML;
+      assert.ok(html.includes("score-meter single"), "expected the single-track meter");
+      assert.ok(!/trk mgr/.test(html), "no manager track on the personal meter");
+      assert.ok(!html.includes("Manager Pending"), "Manager Pending was retired");
+      assert.ok(!html.includes("/100"), "never spend the manager's 20 points as /100");
+      const headline = el.querySelector(".goal-pct")?.textContent.trim() || "";
+      assert.match(headline, /^\d+(\.\d)?%$/, "headline is KPI points ÷ 80 as a percent");
+    });
+  }
 });
 
 describe("goals history", () => {
@@ -467,5 +463,60 @@ describe("search, sort and pagination (Open Tickets, 30-row fixture)", () => {
       filteredRows.length >= 1 && filteredRows.length < 25,
       `search should narrow the list (got ${filteredRows.length} rows)`
     );
+  });
+});
+
+describe("purchase trends + hold tile", () => {
+  test("snapshot band is 3x3 with This Month Hold %", () => {
+    const { dom, errors } = loadBoard("single_am_coral");
+    clickNav(dom, "home");
+    const band = [...dom.window.document.querySelectorAll(".content .metric-band")]
+      .find((b) => b.querySelector(".card-title")?.textContent.trim() === "Personal Snapshot");
+    assert.ok(band, "expected the Personal Snapshot band");
+    const labels = [...band.querySelectorAll(".metric-band-grid.wrap .metric-label")]
+      .map((el) => el.textContent.trim());
+    assert.equal(labels.length, 9, `expected 9 snapshot tiles, got ${labels.length}`);
+    assert.equal(labels[8], "This Month Hold %");
+    assert.deepEqual(errors, []);
+  });
+
+  test("hero shows the 30-day trend panel instead of the state chart", () => {
+    const { dom } = loadBoard("single_am_coral");
+    clickNav(dom, "home");
+    const doc = dom.window.document;
+    assert.ok(doc.querySelector(".content button.trend-hero[data-go='trends'] svg.spark"),
+      "expected a clickable trend sparkline in the hero");
+    assert.ok(!doc.querySelector(".geo-panel"), "state chart must be gone");
+  });
+
+  test("manager view: daily line chart, weekday bars, AM overlay toggle", () => {
+    const { dom, meta, errors } = loadBoard("manager", { seedGate: null });
+    const doc = dom.window.document;
+    assert.ok(clickNav(dom, "trends"), "Purchase Trends nav item expected");
+    assert.ok(doc.querySelector(".content svg.line-chart"), "daily line chart expected");
+    assert.equal(doc.querySelectorAll(".content svg.line-chart path").length, 2,
+      "manager default is Elite + Jackpota");
+    assert.equal(doc.querySelectorAll(".content .trend-grid tbody tr").length, 25,
+      "30 daily rows paginate at 25");
+    doc.querySelector('[data-trend-series="am:Coral"]').onclick();
+    assert.equal(doc.querySelectorAll(".content svg.line-chart path").length, 3,
+      "toggling Coral overlays a third line");
+    doc.querySelector('[data-trend-mode="weekday"]').onclick();
+    const cols = doc.querySelectorAll(".content .wk-card:first-child .wk-col");
+    assert.equal(cols.length, 8, "last 8 same weekdays");
+    assert.ok(cols[7].classList.contains("latest"), "latest week is highlighted");
+    assert.equal(doc.querySelectorAll(".content .trend-grid tbody tr").length, 8);
+    assert.deepEqual(errors, []);
+  });
+
+  test("single-AM file carries only its own AM series", () => {
+    const { dom } = loadBoard("single_am_coral");
+    clickNav(dom, "trends");
+    const ids = [...dom.window.document.querySelectorAll("[data-trend-series]")]
+      .map((b) => b.getAttribute("data-trend-series"));
+    assert.deepEqual(ids, ["elite", "jackpota", "am:Coral"]);
+    const on = [...dom.window.document.querySelectorAll("[data-trend-series][aria-pressed='true']")]
+      .map((b) => b.getAttribute("data-trend-series"));
+    assert.deepEqual(on.sort(), ["am:Coral", "elite"]);
   });
 });

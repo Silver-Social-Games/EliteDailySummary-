@@ -88,6 +88,7 @@ from payload_builders import (  # noqa: E402
     build_bonus_lookup,
     build_lock_mtd_section,
     build_lock_section,
+    build_purchase_trend,
     build_rd_section,
     build_top10_section,
     build_zd_section,
@@ -283,19 +284,6 @@ def build_goals_blocks(
     return goals_by_display, team_block
 
 
-GEO_STATE_PATH = PACKAGE_DIR / "data" / "elite_players_by_state.json"
-
-
-def load_geo_chart() -> dict | None:
-    """Book-wide Elite player state mix — bundled JSON, refreshed from export."""
-    if not GEO_STATE_PATH.is_file():
-        return None
-    try:
-        return json.loads(GEO_STATE_PATH.read_text(encoding="utf-8"))
-    except (json.JSONDecodeError, OSError):
-        return None
-
-
 def build_payload(report_date: date, client) -> dict:
     print(f"Fetching AM Brief data for {report_date}...")
     top10_raw = run_query(client, am_queries.top10_purchasers_sql(report_date))
@@ -315,6 +303,8 @@ def build_payload(report_date: date, client) -> dict:
     print(f"  Big Winners (≥$20K GGR win): {len(bw_raw)}")
     bl_raw = run_query(client, am_queries.big_losers_sql(report_date))
     print(f"  Big Losers (≥$5K GGR loss): {len(bl_raw)}")
+    locks_raw = run_query(client, am_queries.locked_players_sql())
+    print(f"  Locked players (raw): {len(locks_raw)}")
     locks_mtd_raw: list[dict] = []
     if LOCKS_MTD_ENABLED:
         locks_mtd_raw = run_query(client, am_queries.locked_mtd_sql(report_date))
@@ -331,7 +321,18 @@ def build_payload(report_date: date, client) -> dict:
             continue
     # rd5k_raw is in here for its missing-document status and account context,
     # not for a ticket draft — Pending RD stays view-only.
-    for r in (*top10_raw, *rd5k_raw, *rd_first_raw, *bday_raw, *anniv_raw, *bgift_raw, *bw_raw, *bl_raw, *locks_mtd_raw):
+    for r in (
+        *top10_raw,
+        *rd5k_raw,
+        *rd_first_raw,
+        *bday_raw,
+        *anniv_raw,
+        *bgift_raw,
+        *bw_raw,
+        *bl_raw,
+        *locks_raw,
+        *locks_mtd_raw,
+    ):
         try:
             ticket_aids.add(int(r["AID"]))
         except (TypeError, ValueError, KeyError):
@@ -349,13 +350,14 @@ def build_payload(report_date: date, client) -> dict:
     zd = build_zd_section(zd_raw, shared_enrich, report_date=report_date)
     big_winners = build_big_winners_section(bw_raw, shared_enrich)
     big_losers = build_big_losers_section(bl_raw, shared_enrich)
-    locks_raw = run_query(client, am_queries.locked_players_sql())
-    print(f"  Locked players (raw): {len(locks_raw)}")
     purchase_raw = run_query(client, am_queries.agent_day_purchase_sql(report_date))
     purchase_by_tag = {r["agent"]: r for r in purchase_raw}
     book_raw = run_query(client, am_queries.agent_book_size_sql())
     book_by_tag = {r["agent"]: int(r.get("total_players") or 0) for r in book_raw}
     print(f"  AM book sizes: {len(book_by_tag)} agents")
+    trend_raw = run_query(client, am_queries.purchase_trend_sql(report_date))
+    report_trend, trend_by_am = build_purchase_trend(trend_raw, report_date, AM_ORDER)
+    print(f"  Purchase trend: {len(trend_raw)} rows over {len(report_trend['dates'])} days")
 
     goals_by_display, team_goals = build_goals_blocks(report_date, client)
 
@@ -399,9 +401,9 @@ def build_payload(report_date: date, client) -> dict:
     birthdays = build_birthday_section(bday_raw, ticket_enrich=shared_enrich)
     anniversary = build_anniversary_section(anniv_raw, enrich_map=shared_enrich)
     birthday_gift = build_birthday_gift_section(bgift_raw, enrich_map=shared_enrich)
-    locks = build_lock_section(locks_raw, report_date)
+    locks = build_lock_section(locks_raw, report_date, enrich_map=shared_enrich)
     locks_mtd = build_lock_mtd_section(locks_mtd_raw, report_date, enrich_map=shared_enrich)
-    print(f"  Locked after past-day window filter: {len(locks)}")
+    print(f"  Locked (Last 3 Days / due review): {len(locks)}")
     if LOCKS_MTD_ENABLED:
         print(f"  Locked MTD (report month): {len(locks_mtd)}")
 
@@ -442,6 +444,7 @@ def build_payload(report_date: date, client) -> dict:
                 elite_rev=elite_rev,
                 elite_ply=elite_ply,
                 goals=goals_by_display.get(name),
+                purchase_trend=trend_by_am.get(name),
             )
         )
 
@@ -456,7 +459,7 @@ def build_payload(report_date: date, client) -> dict:
             "title": PRODUCT_TITLE,
             "headline": decline_report.get("headline") or "",
             "segmentTitle": "WoW Purchase",
-            "geoChart": load_geo_chart(),
+            "purchaseTrend": report_trend,
             "overviewGreetingLines": [
                 "Good morning.",
                 f"Here is your {weekday} summary.",
@@ -607,9 +610,7 @@ def rebuild_html_from_json(
     report = payload.setdefault("report", {})
     report["title"] = PRODUCT_TITLE
     report["segmentTitle"] = "WoW Purchase"
-    geo = load_geo_chart()
-    if geo:
-        report["geoChart"] = geo
+    report.pop("geoChart", None)
     # Refresh prior-month Goals history from the current history file so an
     # html-only rebuild picks up any month closed since this JSON was written.
     attach_history_to_payload(payload)

@@ -1,107 +1,131 @@
 /** Lightweight SVG charts — no external library. */
-import type { Dict } from "./types";
-import { esc } from "./format";
+import { esc, compactMoney, money } from "./format";
+import { wowPillHtml } from "./cells";
 
-const BAR_COLORS = [
+export const BAR_COLORS = [
   "#6366F1", "#0E9F6E", "#3B82F6", "#D97706", "#8B5CF6", "#E11D48",
   "#14B8A6", "#F59E0B", "#64748B", "#EC4899",
 ];
 
-type GeoSlice = Dict & { state: string; bettors: number; share: number };
+export interface ChartLine {
+  label: string;
+  values: number[];
+  color: string;
+  /** Right axis carries a series on a different scale (Jackpota vs a book). */
+  axis?: "left" | "right";
+  width?: number;
+  dashed?: boolean;
+}
 
-type GeoNormalized = {
-  named: GeoSlice[];
-  other: GeoSlice | null;
-  otherKnown: number;
-  otherUnknown: number;
-  total: number;
-};
+function niceMax(v: number): number {
+  if (!(v > 0)) return 1;
+  const p = Math.pow(10, Math.floor(Math.log10(v)));
+  const m = v / p;
+  const nice = m <= 1 ? 1 : m <= 2 ? 2 : m <= 2.5 ? 2.5 : m <= 5 ? 5 : 10;
+  return nice * p;
+}
 
-/** Merge UNKNOWN sign-in state into Other so the chart matches the export file. */
-function normalizeGeoSlices(slices: Dict[]): GeoNormalized {
-  const rows = slices.filter((sl) => String(sl.state || "").toUpperCase() !== "TOTAL");
-  let unknown = 0;
-  let knownOther = 0;
-  const named: GeoSlice[] = [];
-  for (const sl of rows) {
-    const state = String(sl.state || "").trim();
-    const bettors = Number(sl.bettors) || 0;
-    if (state.toUpperCase() === "UNKNOWN") {
-      unknown += bettors;
-      continue;
+function pathD(values: number[], x: (i: number) => number, y: (v: number) => number): string {
+  return values.map((v, i) => `${i ? "L" : "M"}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join("");
+}
+
+function lineAttrs(l: ChartLine, fallbackWidth: number): string {
+  return `fill="none" stroke="${esc(l.color)}" stroke-width="${l.width ?? fallbackWidth}"` +
+    ` stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"` +
+    (l.dashed ? ` stroke-dasharray="3 3"` : "");
+}
+
+/** Axis-free sparkline. Each line is scaled to its own range, so a book and
+ *  the whole platform can share one panel and both show their shape. */
+export function sparklineSvg(lines: ChartLine[], w = 300, h = 64): string {
+  const pad = 3;
+  const paths = lines.map((l) => {
+    const vals = l.values;
+    if (!vals.length) return "";
+    const lo = Math.min(...vals);
+    const hi = Math.max(...vals);
+    const span = hi - lo || 1;
+    const x = (i: number) => (vals.length <= 1 ? w / 2 : (i * w) / (vals.length - 1));
+    const y = (v: number) => pad + (h - 2 * pad) * (1 - (v - lo) / span);
+    return `<path d="${pathD(vals, x, y)}" ${lineAttrs(l, 1.5)}></path>`;
+  }).join("");
+  return `<svg class="spark" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" aria-hidden="true">${paths}</svg>`;
+}
+
+/** Multi-series line chart with a $ left axis, optional right axis, and one
+ *  hover column per point whose native tooltip lists every series. */
+export function lineChartSvg(lines: ChartLine[], labels: string[], height = 280): string {
+  const W = 960;
+  const H = height;
+  const hasRight = lines.some((l) => l.axis === "right");
+  const pl = 62, pr = hasRight ? 62 : 18, pt = 14, pb = 30;
+  const iw = W - pl - pr;
+  const ih = H - pt - pb;
+  const n = labels.length;
+  const x = (i: number) => pl + (n <= 1 ? iw / 2 : (i * iw) / (n - 1));
+  const axisMax = (axis: "left" | "right") =>
+    niceMax(Math.max(0, ...lines.filter((l) => (l.axis || "left") === axis).flatMap((l) => l.values)));
+  const lMax = axisMax("left");
+  const rMax = axisMax("right");
+  const yFor = (max: number) => (v: number) => pt + ih - (max > 0 ? (v / max) * ih : 0);
+
+  let grid = "";
+  for (let k = 0; k <= 4; k++) {
+    const yy = pt + ih - (k / 4) * ih;
+    grid += `<line class="lc-grid" x1="${pl}" x2="${W - pr}" y1="${yy}" y2="${yy}"></line>`;
+    grid += `<text class="lc-axis" x="${pl - 8}" y="${yy + 4}" text-anchor="end">${esc(compactMoney((lMax * k) / 4))}</text>`;
+    if (hasRight) {
+      grid += `<text class="lc-axis" x="${W - pr + 8}" y="${yy + 4}" text-anchor="start">${esc(compactMoney((rMax * k) / 4))}</text>`;
     }
-    if (state === "Other") {
-      knownOther += bettors;
-      continue;
-    }
-    named.push({ ...sl, state, bettors, share: 0 });
   }
-  named.sort((a, b) => b.bettors - a.bettors);
-  const otherBettors = knownOther + unknown;
-  const other: GeoSlice | null = otherBettors
-    ? { state: "Other", bettors: otherBettors, share: 0 }
-    : null;
-  const total = named.reduce((s, x) => s + x.bettors, 0) + (other?.bettors || 0);
-  const withShare = (sl: GeoSlice): GeoSlice => ({
-    ...sl,
-    share: total > 0 ? Math.round((sl.bettors / total) * 1000) / 10 : 0,
+  const step = Math.max(1, Math.ceil(n / 8));
+  let xl = "";
+  labels.forEach((lab, i) => {
+    const last = i === n - 1;
+    if ((i % step === 0 && (last || n - 1 - i >= step / 2)) || last) {
+      xl += `<text class="lc-axis" x="${x(i)}" y="${H - 8}" text-anchor="middle">${esc(lab)}</text>`;
+    }
   });
-  return {
-    named: named.map(withShare),
-    other: other ? withShare(other) : null,
-    otherKnown: knownOther,
-    otherUnknown: unknown,
-    total,
-  };
+
+  const paths = lines.map((l) => {
+    if (!l.values.length) return "";
+    const y = yFor(l.axis === "right" ? rMax : lMax);
+    const lastI = l.values.length - 1;
+    return `<path d="${pathD(l.values, x, y)}" ${lineAttrs(l, 2)}></path>` +
+      `<circle cx="${x(lastI)}" cy="${y(l.values[lastI])}" r="3.5" fill="${esc(l.color)}"></circle>`;
+  }).join("");
+
+  const colW = n > 1 ? iw / (n - 1) : iw;
+  const hits = labels.map((lab, i) => {
+    const tip = [lab, ...lines.map((l) => `${l.label}: ${money(l.values[i] || 0)}`)].join("\n");
+    return `<rect class="lc-hit" x="${(x(i) - colW / 2).toFixed(1)}" y="${pt}" width="${colW.toFixed(1)}" height="${ih}">` +
+      `<title>${esc(tip)}</title></rect>`;
+  }).join("");
+
+  return `<svg class="line-chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Purchase trend chart">
+        ${grid}${xl}${paths}${hits}
+      </svg>`;
 }
 
-function geoBarRow(sl: GeoSlice, i: number, maxShare: number, summary = false): string {
-  const pct = Number(sl.share) || 0;
-  const width = summary ? Math.min(100, Math.max(4, (pct / maxShare) * 100)) : Math.max(4, (pct / maxShare) * 100);
-  const color = summary ? "var(--ink-4)" : BAR_COLORS[i % BAR_COLORS.length];
-  const rowCls = summary ? "geo-bar-row geo-bar-row-other" : "geo-bar-row";
-  const fillCls = summary ? "geo-bar-fill geo-bar-fill-muted" : "geo-bar-fill";
-  return `<div class="${rowCls}">
-          <span class="geo-bar-label">${esc(String(sl.state))}</span>
-          <div class="geo-bar-track"><span class="${fillCls}" style="width:${width.toFixed(1)}%;background:${color}"></span></div>
-          <span class="geo-bar-pct">${pct.toFixed(1)}%</span>
-          <span class="geo-bar-count">${(Number(sl.bettors) || 0).toLocaleString()}</span>
+/** Same-weekday bars: one column per week, WoW pill vs the prior week, the
+ *  latest week in gold and earlier weeks muted. */
+export function weekdayBarsHtml(title: string, color: string, values: number[], labels: string[]): string {
+  const max = Math.max(1, ...values);
+  const cols = values.map((v, i) => {
+    const prev = i > 0 ? values[i - 1] : 0;
+    const pct = i > 0 && prev > 0 ? ((v - prev) / prev) * 100 : null;
+    const pill = pct == null ? wowPillHtml("") : wowPillHtml(`${pct >= 0 ? "+" : ""}${pct.toFixed(1)}%`);
+    const latest = i === values.length - 1;
+    const h = Math.max(2, (v / max) * 100);
+    return `<div class="wk-col${latest ? " latest" : ""}">
+          <div class="wk-val">${esc(compactMoney(v))}</div>
+          <div class="wk-track"><span class="wk-bar" style="height:${h.toFixed(1)}%"></span></div>
+          <div class="wk-label">${esc(labels[i] || "")}</div>
+          ${pill}
         </div>`;
-}
-
-export function donutChartHtml(chart: Dict | null | undefined): string {
-  if (!chart || !chart.slices || !chart.slices.length) {
-    return `<div class="segment-panel geo-panel empty">
-        <div class="segment-panel-head">
-          <span class="segment-panel-title">${esc(chart?.title || "Elite Player by State")}</span>
-        </div>
-        <div class="segment-empty t-tertiary t-small">No state data.</div>
-      </div>`;
-  }
-  const geo = normalizeGeoSlices(chart.slices || []);
-  if (!geo.total) {
-    return `<div class="segment-panel geo-panel empty">
-        <div class="segment-panel-head">
-          <span class="segment-panel-title">${esc(chart.title || "Elite Player by State")}</span>
-        </div>
-        <div class="segment-empty t-tertiary t-small">No state data.</div>
-      </div>`;
-  }
-  const topNamed = geo.named.slice(0, 8);
-  const barRows = geo.other ? [...topNamed, geo.other] : topNamed;
-  const maxShare = Math.max(...barRows.map((sl) => Number(sl.share) || 0), 1);
-  const bars = topNamed.map((sl, i) => geoBarRow(sl, i, maxShare)).join("");
-  const otherBar = geo.other
-    ? geoBarRow(geo.other, topNamed.length, maxShare, true)
-    : "";
-  return `<div class="segment-panel geo-panel">
-        <div class="segment-panel-head">
-          <span class="segment-panel-title">${esc(chart.title || "Elite Player by State")}</span>
-        </div>
-        <div class="geo-bar-chart">
-          <div class="geo-bar-head t-small t-tertiary"><span>State</span><span>Share</span><span>Players</span></div>
-          ${bars}
-          ${otherBar}
-        </div>
+  }).join("");
+  return `<div class="wk-card">
+        <div class="wk-title"><span class="trend-dot" style="background:${esc(color)}"></span>${esc(title)}</div>
+        <div class="wk-bars">${cols}</div>
       </div>`;
 }

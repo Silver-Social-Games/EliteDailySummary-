@@ -45,6 +45,7 @@ from payload_builders import (  # noqa: E402
     build_bonus_lookup_row,
     build_lock_mtd_section,
     build_lock_section,
+    build_purchase_trend,
     build_rd_section,
     build_top10_section,
     build_zd_section,
@@ -257,6 +258,20 @@ def _decline_rows(raw: list[dict]) -> list[dict]:
 
 
 
+def _trend_raw() -> list[dict]:
+    """60 days of synthetic purchase_trend_sql rows, weekday-shaped so the
+    Same Weekday bars and WoW pills have something to show."""
+    rows: list[dict] = []
+    for i in range(60):
+        d = REPORT_DATE - timedelta(days=i)
+        lift = 1.0 + 0.08 * d.weekday() + 0.002 * (59 - i)
+        rows.append({"date": d, "series": "jackpota", "purchased": round(40_000 * lift, 2)})
+        rows.append({"date": d, "series": "elite", "purchased": round(24_000 * lift, 2)})
+        for tag, base in (("coral_s", 12_000), ("gabriel_e", 9_000), ("alon_tish", 3_000)):
+            rows.append({"date": d, "series": tag, "purchased": round(base * lift, 2)})
+    return rows
+
+
 def _archive(slug: str = "") -> list[dict]:
     """Hand-written, deterministic archive list (3 days across 2 months) —
     unlike canvas_to_html.archive_entries(), this never touches the real
@@ -399,7 +414,7 @@ def build_manager_payload(*, ticket_count_for_coral: int = 1) -> dict:
     anniversary = build_anniversary_section(anniversary_raw, enrich_map={})
     birthday_gift = build_birthday_gift_section(birthday_gift_raw, enrich_map={})
     zd = build_zd_section(zd_raw, enrich_map={})
-    locks = build_lock_section(lock_raw, REPORT_DATE)
+    locks = build_lock_section(lock_raw, REPORT_DATE, enrich_map={})
     locks_mtd = build_lock_mtd_section(locks_mtd_raw, REPORT_DATE, enrich_map={})
     big_winners = build_big_winners_section(bw_raw, enrich_map={})
     decline_by_am = {name: _decline_rows(raw) for name, raw in decline_raw.items()}
@@ -412,6 +427,9 @@ def build_manager_payload(*, ticket_count_for_coral: int = 1) -> dict:
     total_players_by_agent = {"Coral": 560, "Gabriel": 646, "Alon": 120}
     elite_rev = sum(p["purchased"] for p in purchase_by_agent.values())
     elite_ply = sum(p["purchased_players"] for p in purchase_by_agent.values())
+    report_trend, trend_by_am = build_purchase_trend(
+        _trend_raw(), REPORT_DATE, AM_ORDER
+    )
 
     goals_blocks = {
         "Coral": build_agent_goals_block(
@@ -437,6 +455,7 @@ def build_manager_payload(*, ticket_count_for_coral: int = 1) -> dict:
             big_winners=big_winners, big_losers=[],
             purchase=purchase_by_agent[name], total_players=total_players_by_agent[name],
             elite_rev=elite_rev, elite_ply=elite_ply, goals=goals_blocks.get(name),
+            purchase_trend=trend_by_am.get(name),
         )
         for name in AM_ORDER
     ]
@@ -455,11 +474,7 @@ def build_manager_payload(*, ticket_count_for_coral: int = 1) -> dict:
             "subtitle": f"{WEEKDAY} {REPORT_DATE.strftime('%d %b %Y')}", "title": "Elite Dashboard",
             "headline": "Fixture headline — Elite steady vs last week.",
             "segmentTitle": "WoW Purchase",
-            "geoChart": json.loads(
-                (Path(__file__).resolve().parent.parent / "data" / "elite_players_by_state.json").read_text(
-                    encoding="utf-8"
-                )
-            ) if (Path(__file__).resolve().parent.parent / "data" / "elite_players_by_state.json").is_file() else None,
+            "purchaseTrend": report_trend,
             "overviewGreetingLines": ["Good morning.", f"Here is your {WEEKDAY} summary.", "Good luck \U0001f680"],
             "segments": [
                 {"label": "Jackpota", "revThis": "$41K", "revPrior": "$39K", "revWow": "+5.1%",

@@ -7,6 +7,7 @@ import { viewHome } from "./views/home";
 import { viewGoals } from "./views/goals";
 import { viewTop10 } from "./views/top10";
 import { viewTop20 } from "./views/top20";
+import { viewTrends } from "./views/trends";
 import { viewPendingRd } from "./views/pendingRd";
 import { viewFirstRd } from "./views/firstRd";
 import { viewTickets } from "./views/tickets";
@@ -39,7 +40,7 @@ export const NAV_GROUPS: NavGroup[] = [
     id: "performance",
     label: "Performance",
     accent: "performance",
-    entries: [{ kind: "view", id: "goals" }, { kind: "view", id: "top10" }],
+    entries: [{ kind: "view", id: "goals" }, { kind: "view", id: "top10" }, { kind: "view", id: "trends" }],
   },
   {
     id: "daily",
@@ -96,6 +97,8 @@ export const VIEWS: Record<string, ViewDef> = {
                 sub: "Personal goals progress" },
   top10:      { label: "Top 10 Purchasers", icon: "crown", group: "Performance",
                 key: "top10", sub: "Yesterday's biggest spenders" },
+  trends:     { label: "Purchase Trends", icon: "trend-up", group: "Performance",
+                sub: "Last 30 days and the last 8 same weekdays" },
   top20:      { label: "Top 20 Dropping", icon: "trend-down", group: "Declining & Churn",
                 key: "decline", sub: `Same-weekday drops vs last ${day}` },
   bigwinners: { label: "Big Winners · ≥$20K · Last 3 Days", short: "Big Winners", icon: "trend-up",
@@ -114,7 +117,7 @@ export const VIEWS: Record<string, ViewDef> = {
                 key: "zendesk", sub: "Open Zendesk tickets on your book" },
   locks:      { label: "Locked & Take A Break · Last 3 Days", short: "Lock & TAB", icon: "lock",
                 group: "Daily Triggers", key: "locks",
-                sub: "Last 3 days locks and Locked MTD" },
+                sub: "Last 3 days due review + Locked MTD" },
   birthdays:  { label: "Birthdays · Last 3 Days", short: "Birthdays", icon: "gift",
                 group: "Daily Triggers", key: "birthdays", sub: "A reason to reach out" },
   crmCalendar: { label: "CRM Calendar", icon: "calendar", group: "CRM",
@@ -138,7 +141,7 @@ export const NAV_ORDER: string[] = NAV_GROUPS.flatMap((g) =>
 
 export const VIEW_FN: Record<string, () => string> = {
   dashboard: viewDashboard, team: viewTeamGoals, home: viewHome, goals: viewGoals,
-  top10: viewTop10, top20: viewTop20, bigwinners: viewBigWinners, biglosers: viewBigLosers,
+  top10: viewTop10, trends: viewTrends, top20: viewTop20, bigwinners: viewBigWinners, biglosers: viewBigLosers,
   rd: viewPendingRd, rdfirst: viewFirstRd,
   tickets: viewTickets, locks: viewLocks, birthdays: viewBirthdays,
   crmCalendar: viewCrmCalendar, gamesSticky: viewGamesSticky, gamesNew: viewGamesNew,

@@ -24,6 +24,7 @@ from config import (
     GOALS_REACTIVATION_GAP_DAYS,
     PENDING_RD_LOOKBACK_DAYS,
     PENDING_RD_MIN_AMOUNT,
+    PURCHASE_TREND_DAYS,
     TICKET_INACTIVITY_DAYS,
     TRIGGER_LOOKBACK_DAYS,
 )
@@ -725,13 +726,24 @@ SELECT
     ua.email,
     CAST(e.account_id AS STRING)
   ) AS name,
+  per.first_name,
+  per.last_name,
+  ua.email,
   COALESCE(ua.locked, FALSE) AS locked,
   COALESCE(ua.lock_reason, '') AS lock_reason,
   COALESCE(ua.lock_reason_comment, '') AS lock_reason_comment,
-  DATE(ua.locked_at) AS locked_at
+  DATE(ua.locked_at) AS locked_at,
+  se.se_start_at,
+  se.se_end_at
 FROM elite_am e
 INNER JOIN `{PROJECT_ID}.transactional_data.uam_accounts` ua ON ua.id = e.account_id
 LEFT JOIN `{PROJECT_ID}.transactional_data.uam_persons` per ON per.id = ua.person_id
+LEFT JOIN (
+  SELECT account_id, DATE(start_at) AS se_start_at, DATE(end_at) AS se_end_at
+  FROM `{PROJECT_ID}.transactional_data.uam_account_session_restrictions`
+  WHERE type = 'self_exclusion'
+  QUALIFY ROW_NUMBER() OVER (PARTITION BY account_id ORDER BY start_at DESC) = 1
+) se ON se.account_id = e.account_id
 WHERE COALESCE(ua.locked, FALSE) = TRUE
 ORDER BY e.agent, name
 """.strip()
@@ -839,10 +851,17 @@ SELECT
   COALESCE(ua.locked, FALSE) AS locked,
   COALESCE(ua.lock_reason, '') AS lock_reason,
   COALESCE(ua.lock_reason_comment, '') AS lock_reason_comment,
-  DATE(ua.locked_at) AS locked_at
+  DATE(ua.locked_at) AS locked_at,
+  se.se_end_at
 FROM elite_am e
 INNER JOIN `{PROJECT_ID}.transactional_data.uam_accounts` ua ON ua.id = e.account_id
 LEFT JOIN `{PROJECT_ID}.transactional_data.uam_persons` per ON per.id = ua.person_id
+LEFT JOIN (
+  SELECT account_id, DATE(end_at) AS se_end_at
+  FROM `{PROJECT_ID}.transactional_data.uam_account_session_restrictions`
+  WHERE type = 'self_exclusion'
+  QUALIFY ROW_NUMBER() OVER (PARTITION BY account_id ORDER BY start_at DESC) = 1
+) se ON se.account_id = e.account_id
 WHERE COALESCE(ua.locked, FALSE) = TRUE
   AND DATE(ua.locked_at) BETWEEN DATE '{month_start}' AND DATE '{d}'
 ORDER BY e.agent, locked_at, name
@@ -1068,10 +1087,56 @@ WITH
 {_elite_am_book_ctes()}
 SELECT
   agent,
-  COUNT(DISTINCT account_id) AS total_players
+    COUNT(DISTINCT account_id) AS total_players
 FROM elite_am
 GROUP BY agent
 ORDER BY agent
+""".strip()
+
+
+def purchase_trend_sql(report_date: date) -> str:
+    """Daily purchase $ for Jackpota, Elite and each AM over PURCHASE_TREND_DAYS.
+
+    One row per (date, series). `series` is 'jackpota' (every account — same as
+    the hero's Jackpota panel), 'elite' (unpinned `dbt_aninditac.elite`, same
+    book as the hero's Elite panel, so the last point matches it), or an AM tag.
+    AM books are pinned to report_date so a past date reproduces.
+    """
+    d = _iso(report_date)
+    start = _iso(report_date - timedelta(days=PURCHASE_TREND_DAYS - 1))
+    elite_live = dashboard_elite_ctes(
+        latest_name="trend_live_snapshot",
+        elite_name="trend_elite_live",
+        aid_alias="account_id",
+        agent_alias="agent",
+    )
+    return f"""
+WITH
+{_elite_am_book_ctes(as_of=report_date)},
+{elite_live},
+elite_ids AS (
+  SELECT DISTINCT account_id FROM trend_elite_live
+),
+day_kpi AS (
+  SELECT account_id, date, SUM(CAST(purchased AS FLOAT64)) AS purchased
+  FROM `{PROJECT_ID}.jackpota_agg.daily_player_revenue_kpis`
+  WHERE date BETWEEN DATE '{start}' AND DATE '{d}'
+  GROUP BY account_id, date
+)
+SELECT date, 'jackpota' AS series, SUM(purchased) AS purchased
+FROM day_kpi
+GROUP BY date
+UNION ALL
+SELECT k.date, 'elite' AS series, SUM(k.purchased) AS purchased
+FROM day_kpi k
+INNER JOIN elite_ids e ON e.account_id = k.account_id
+GROUP BY k.date
+UNION ALL
+SELECT k.date, e.agent AS series, SUM(k.purchased) AS purchased
+FROM day_kpi k
+INNER JOIN elite_am e ON e.account_id = k.account_id
+GROUP BY k.date, e.agent
+ORDER BY date, series
 """.strip()
 
 

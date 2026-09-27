@@ -18,8 +18,11 @@ from typing import TYPE_CHECKING
 from config import (  # noqa: E402
     BONUS_CALC_ACTIVITY_DAYS,
     LOCKS_REVIEW_WINDOW_DAYS,
+    LOCKS_SELF_EXCLUSION_LEAD_DAYS,
     LOCKS_TAB_EXPIRE_DAYS,
     LOCKS_WINDOW_DAYS,
+    PURCHASE_TREND_DAILY_DAYS,
+    PURCHASE_TREND_DAYS,
     TICKET_TOPIC_BASE_LABEL,
     TICKET_TOPIC_BASE_MULTIPLIER,
     TICKET_TOPIC_TIERS,
@@ -200,13 +203,28 @@ def unlock_info(
     lock_comment: str,
     locked_at: date | None,
     report_date: date,
+    exclusion_end: date | None = None,
 ) -> tuple[str, int | None]:
-    """Display text and remaining days for a take-a-break lock.
+    """Display text and remaining days for a take-a-break or timed self-exclusion.
 
     remaining_days <= 0  → today/overdue; the restriction should be removed.
-    None                 → no calculable unlock date (self-exclusion, other
-                           locked, or a break with no locked_at timestamp).
+    None                 → no calculable unlock date (other locked, a
+                           self-exclusion with no restriction end, or a break
+                           with no locked_at timestamp).
+
+    exclusion_end is the self-exclusion end from
+    uam_account_session_restrictions; used only for the Self-exclusion bucket.
     """
+    bucket, _ = lock_bucket(lock_reason, lock_comment)
+    if bucket == "Self-exclusion":
+        if not exclusion_end:
+            return "", None
+        remaining = (exclusion_end - report_date).days
+        if remaining > 0:
+            return f"{remaining}d left · unlock {exclusion_end.isoformat()}", remaining
+        if remaining == 0:
+            return "Exclusion ends today", 0
+        return f"Ended {exclusion_end.isoformat()} — review unlock", remaining
     days = _take_a_break_days(lock_reason or "") or _take_a_break_days(lock_comment or "")
     if not days:
         return "", None
@@ -852,15 +870,22 @@ def build_zd_section(
     return out
 
 
-def build_lock_section(rows: list[dict], report_date: date) -> list[dict]:
+def build_lock_section(
+    rows: list[dict],
+    report_date: date,
+    *,
+    enrich_map: dict[int, dict] | None = None,
+) -> list[dict]:
     """Format raw Locked Players rows into payload dicts.
 
     Two selection paths (config.py), so a stale take-a-break is never missed
     just because it's no longer "new":
     - Any lock reason: locked_at within the trailing LOCKS_WINDOW_DAYS ending
       on report_date (1 = locked today) — the "what just happened" feed.
-    - Take a break only: unlock date within LOCKS_REVIEW_WINDOW_DAYS days, or
-      already passed — regardless of how long ago the lock started.
+    - Take a break: unlock date within LOCKS_REVIEW_WINDOW_DAYS days, or already
+      passed — regardless of how long ago the lock started.
+    - Timed self-exclusion: unlock within LOCKS_SELF_EXCLUSION_LEAD_DAYS or
+      already passed; stays until the account unlocks (no TAB expire).
     """
     out = []
     for r in rows:
@@ -879,32 +904,48 @@ def build_lock_section(rows: list[dict], report_date: date) -> list[dict]:
             r.get("lock_reason_comment") or "",
             locked_at_d,
             report_date,
+            exclusion_end=parse_date_val(r.get("se_end_at")),
         )
         locked_today = age_days < LOCKS_WINDOW_DAYS
         due_for_review = (
             remaining_days is not None and remaining_days <= LOCKS_REVIEW_WINDOW_DAYS
         )
-        if bucket == "Take a break" and remaining_days is not None:
+        if bucket == "Self-exclusion":
+            if remaining_days is None:
+                continue
+            if remaining_days > LOCKS_SELF_EXCLUSION_LEAD_DAYS:
+                continue
+        elif bucket == "Take a break" and remaining_days is not None:
             if remaining_days < -LOCKS_TAB_EXPIRE_DAYS:
                 continue
-        if not (locked_today or due_for_review):
+            if not (locked_today or due_for_review):
+                continue
+        elif not (locked_today or due_for_review):
             continue
         # Emphasize take-a-break locks whose window has already ended (or ends
         # today) — the restriction is stale and should be removed.
         if remaining_days is not None and remaining_days <= 0:
             tone = "danger"
+        enrich = (enrich_map or {}).get(int(r.get("AID") or 0), {})
         out.append(
             aid_row(
                 r.get("AID"),
                 r.get("name") or "n/a",
                 agent=r.get("agent") or "",
                 agentName=agent_display(r.get("agent") or ""),
+                firstName=r.get("first_name") or "",
+                lastName=r.get("last_name") or "",
+                email=r.get("email") or "",
                 bucket=bucket,
                 lockReason=r.get("lock_reason") or "",
                 unlockDetail=unlock,
                 unlockRemainingDays=remaining_days,
                 lockedAt=locked_at_d.isoformat() if locked_at_d else "",
                 created=locked_at_d.isoformat() if locked_at_d else "",
+                lifetimePurchase=format_lifetime_purchased(enrich)
+                if enrich
+                else fmt_money_short(0),
+                lifetimeHold=format_lifetime_hold(enrich) if enrich else "n/a",
                 tone=tone,
             )
         )
@@ -931,6 +972,15 @@ def build_lock_mtd_section(
             r.get("lock_reason_comment") or "",
         )
         enrich = (enrich_map or {}).get(int(r.get("AID") or 0), {})
+        unlock, remaining_days = unlock_info(
+            r.get("lock_reason") or "",
+            r.get("lock_reason_comment") or "",
+            locked_at_d,
+            report_date,
+            exclusion_end=parse_date_val(r.get("se_end_at")),
+        )
+        if remaining_days is not None and remaining_days <= 0:
+            tone = "danger"
         out.append(
             aid_row(
                 r.get("AID"),
@@ -942,6 +992,8 @@ def build_lock_mtd_section(
                 email=r.get("email") or "",
                 bucket=bucket,
                 lockReason=r.get("lock_reason") or "",
+                unlockDetail=unlock,
+                unlockRemainingDays=remaining_days,
                 lockedAt=locked_at_d.isoformat(),
                 created=locked_at_d.isoformat(),
                 lifetimePurchase=format_lifetime_purchased(enrich)
@@ -1012,6 +1064,7 @@ def focus_for_agent(
     elite_rev: float,
     elite_ply: int,
     goals: dict | None = None,
+    purchase_trend: dict | None = None,
 ) -> dict:
     """Assemble the full per-AM payload block from pre-built section lists."""
 
@@ -1086,7 +1139,57 @@ def focus_for_agent(
         "bigWinners": bw_a,
         "bigLosers": bl_a,
         "goals": goals,
+        "purchaseTrend": purchase_trend,
     }
+
+
+def build_purchase_trend(
+    raw_rows: list[dict], report_date: date, am_names: list[str]
+) -> tuple[dict, dict[str, dict]]:
+    """Purchase Trends payload from purchase_trend_sql rows.
+
+    Returns (report-level block, per-AM blocks keyed by display name). Every
+    series is aligned to the same `dates` list, oldest first, with missing days
+    filled as 0 so a quiet day never shifts the axis. AM tags that share a
+    display name (gabriel / gabriel_e) are summed. The report block carries
+    only Jackpota and Elite, which every AM already sees in the hero, so
+    per-AM isolation stays with the agent blocks.
+    """
+    dates = [
+        report_date - timedelta(days=PURCHASE_TREND_DAYS - 1 - i)
+        for i in range(PURCHASE_TREND_DAYS)
+    ]
+    index = {d: i for i, d in enumerate(dates)}
+    jackpota = [0.0] * len(dates)
+    elite = [0.0] * len(dates)
+    by_am: dict[str, list[float]] = {name: [0.0] * len(dates) for name in am_names}
+    for r in raw_rows:
+        d = parse_date_val(r.get("date"))
+        i = index.get(d) if d else None
+        if i is None:
+            continue
+        amount = float(r.get("purchased") or 0)
+        series = str(r.get("series") or "")
+        if series == "jackpota":
+            jackpota[i] += amount
+        elif series == "elite":
+            elite[i] += amount
+        else:
+            name = agent_display(series)
+            if name in by_am:
+                by_am[name][i] += amount
+    report_block = {
+        "dates": [d.isoformat() for d in dates],
+        "weekdays": [d.strftime("%a") for d in dates],
+        "dailyDays": PURCHASE_TREND_DAILY_DAYS,
+        "jackpota": [round(v, 2) for v in jackpota],
+        "elite": [round(v, 2) for v in elite],
+    }
+    agent_blocks = {
+        name: {"values": [round(v, 2) for v in values]}
+        for name, values in by_am.items()
+    }
+    return report_block, agent_blocks
 
 
 def build_am_shares_and_overview(agents: list[dict]) -> tuple[list[dict], list[dict]]:

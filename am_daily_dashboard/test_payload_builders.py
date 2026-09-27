@@ -38,6 +38,7 @@ from payload_builders import (  # noqa: E402
     build_lock_mtd_section,
     build_lock_section,
     build_package_fit,
+    build_purchase_trend,
     build_rd_section,
     build_responsiveness_section,
     build_top10_section,
@@ -1014,13 +1015,14 @@ class BuildLockSectionTests(unittest.TestCase):
         self.assertEqual(len(out), 1)
         self.assertEqual(out[0]["bucket"], "Take a break")
 
-    def test_self_exclusion_today_included(self) -> None:
+    def test_self_exclusion_today_without_end_date_excluded(self) -> None:
+        # Self-exclusion surfaces only near its end (LOCKS_SELF_EXCLUSION_LEAD_DAYS),
+        # never on the day it is placed.
         out = build_lock_section(
             [_lock_row(lock_reason="Exclusion", lock_reason_comment="", days_ago=0)],
             REPORT_DATE,
         )
-        self.assertEqual(len(out), 1)
-        self.assertEqual(out[0]["bucket"], "Self-exclusion")
+        self.assertEqual(out, [])
 
     def test_non_tab_lock_two_days_ago_included(self) -> None:
         out = build_lock_section(
@@ -1063,6 +1065,55 @@ class BuildLockSectionTests(unittest.TestCase):
             REPORT_DATE,
         )
         self.assertEqual(len(out), 1)
+
+    def _se_row(self, *, days_ago: int, ends_in: int) -> dict:
+        from datetime import timedelta
+        row = _lock_row(
+            lock_reason="self_excluded_account",
+            lock_reason_comment="self_excluded_account",
+            days_ago=days_ago,
+        )
+        row["se_end_at"] = (REPORT_DATE + timedelta(days=ends_in)).isoformat()
+        return row
+
+    def test_self_exclusion_due_soon_shows_days_left(self) -> None:
+        out = build_lock_section([self._se_row(days_ago=60, ends_in=2)], REPORT_DATE)
+        self.assertEqual(len(out), 1)
+        self.assertEqual(out[0]["bucket"], "Self-exclusion")
+        self.assertEqual(out[0]["unlockRemainingDays"], 2)
+        self.assertTrue(out[0]["unlockDetail"].startswith("2d left · unlock "))
+
+    def test_self_exclusion_not_yet_due_excluded(self) -> None:
+        out = build_lock_section([self._se_row(days_ago=30, ends_in=30)], REPORT_DATE)
+        self.assertEqual(len(out), 0)
+
+    def test_self_exclusion_seven_days_left_included(self) -> None:
+        out = build_lock_section([self._se_row(days_ago=30, ends_in=7)], REPORT_DATE)
+        self.assertEqual(len(out), 1)
+
+    def test_self_exclusion_eight_days_left_excluded(self) -> None:
+        out = build_lock_section([self._se_row(days_ago=0, ends_in=8)], REPORT_DATE)
+        self.assertEqual(len(out), 0)
+
+    def test_self_exclusion_ends_today_danger(self) -> None:
+        out = build_lock_section([self._se_row(days_ago=60, ends_in=0)], REPORT_DATE)
+        self.assertEqual(len(out), 1)
+        self.assertEqual(out[0]["unlockDetail"], "Exclusion ends today")
+        self.assertEqual(out[0]["tone"], "danger")
+
+    def test_self_exclusion_ended_within_grace_shown(self) -> None:
+        out = build_lock_section([self._se_row(days_ago=60, ends_in=-6)], REPORT_DATE)
+        self.assertEqual(len(out), 1)
+        self.assertIn("review unlock", out[0]["unlockDetail"])
+
+    def test_self_exclusion_ended_still_locked_stays_shown(self) -> None:
+        out = build_lock_section([self._se_row(days_ago=60, ends_in=-13)], REPORT_DATE)
+        self.assertEqual(len(out), 1)
+        self.assertIn("review unlock", out[0]["unlockDetail"])
+
+    def test_new_self_exclusion_far_end_excluded(self) -> None:
+        out = build_lock_section([self._se_row(days_ago=0, ends_in=61)], REPORT_DATE)
+        self.assertEqual(len(out), 0)
 
     def test_missing_locked_at_skipped(self) -> None:
         row = {"AID": 999, "name": "X", "agent": "coral_s", "lock_reason": "Fraud",
@@ -1430,6 +1481,57 @@ class BonusLookupTests(unittest.TestCase):
         )
         agents = {r["agent"] for r in scoped["rows"]}
         self.assertEqual(agents, {"Coral"})
+
+
+class BuildPurchaseTrendTests(unittest.TestCase):
+    AMS = ["Coral", "Gabriel", "Alon"]
+
+    def test_dates_cover_window_oldest_first_ending_on_report_date(self):
+        report, _ = build_purchase_trend([], REPORT_DATE, self.AMS)
+        self.assertEqual(len(report["dates"]), 60)
+        self.assertEqual(report["dates"][-1], REPORT_DATE.isoformat())
+        self.assertEqual(report["dates"][0], "2026-06-21")
+        self.assertEqual(report["weekdays"][-1], REPORT_DATE.strftime("%a"))
+        self.assertEqual(report["dailyDays"], 30)
+
+    def test_missing_days_fill_zero_and_series_align(self):
+        rows = [
+            {"date": REPORT_DATE, "series": "jackpota", "purchased": 1000.0},
+            {"date": REPORT_DATE, "series": "elite", "purchased": 600.0},
+            {"date": date(2026, 8, 12), "series": "coral_s", "purchased": 250.5},
+        ]
+        report, by_am = build_purchase_trend(rows, REPORT_DATE, self.AMS)
+        self.assertEqual(report["jackpota"][-1], 1000.0)
+        self.assertEqual(report["elite"][-1], 600.0)
+        self.assertEqual(report["elite"][-2], 0.0)
+        coral = by_am["Coral"]["values"]
+        self.assertEqual(len(coral), 60)
+        self.assertEqual(coral[report["dates"].index("2026-08-12")], 250.5)
+        self.assertEqual(sum(by_am["Gabriel"]["values"]), 0.0)
+
+    def test_gabriel_tag_spellings_are_summed(self):
+        rows = [
+            {"date": REPORT_DATE, "series": "gabriel_e", "purchased": 100.0},
+            {"date": REPORT_DATE, "series": "gabriel", "purchased": 50.0},
+        ]
+        _, by_am = build_purchase_trend(rows, REPORT_DATE, self.AMS)
+        self.assertEqual(by_am["Gabriel"]["values"][-1], 150.0)
+
+    def test_rows_outside_window_and_unknown_tags_are_dropped(self):
+        rows = [
+            {"date": date(2026, 6, 1), "series": "elite", "purchased": 999.0},
+            {"date": REPORT_DATE, "series": "someone_else", "purchased": 999.0},
+        ]
+        report, by_am = build_purchase_trend(rows, REPORT_DATE, self.AMS)
+        self.assertEqual(sum(report["elite"]), 0.0)
+        self.assertEqual(set(by_am), set(self.AMS))
+        self.assertTrue(all(sum(b["values"]) == 0.0 for b in by_am.values()))
+
+    def test_report_block_carries_no_per_am_series(self):
+        report, _ = build_purchase_trend([], REPORT_DATE, self.AMS)
+        self.assertEqual(
+            set(report), {"dates", "weekdays", "dailyDays", "jackpota", "elite"}
+        )
 
 
 class QueriesIsoTests(unittest.TestCase):

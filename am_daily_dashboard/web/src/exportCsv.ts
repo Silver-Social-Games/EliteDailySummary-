@@ -5,6 +5,7 @@ import { VIEWS } from "./registry";
 import { rowsFor } from "./selectors";
 import { matchesDecline, sortPlayers } from "./filters";
 import { toast } from "./toast";
+import { trendTableData } from "./views/trends";
 
 function csvEscape(v: unknown): string {
   const s = String(v ?? "").replace(/"/g, '""');
@@ -66,6 +67,7 @@ export function exportCurrentViewCsv(): void {
   let pack: { headers: string[]; rows: string[][] } | null = null;
 
   if (app.view === "top20") pack = top20Rows();
+  else if (app.view === "trends") pack = trendTableData();
   else if (app.view === "top10") {
     pack = genericRows("top10",
       ["#", "AID", "Name", "Purchased", "Top Offer", "Price", "Frequent 30d", "Max Purchase 30D", "LTP", "Hold"],
@@ -90,9 +92,9 @@ export function exportCurrentViewCsv(): void {
       ["AID", "Email", "First Name", "Last Name", "Birthday", "Age", "Hold %", "30D Purchase", "LTP"],
       ["aid", "email", "firstName", "lastName", "birthday", "age", "holdPct", "purchase30d", "lifetimePurchase"]);
   } else if (app.view === "locks") {
-    pack = genericRows("locksMtd",
-      ["AID", "Name", "Email", "Lock Reason", "Locked Date", "LTP", "Hold %"],
-      ["aid", "name", "email", "lockReason", "created", "lifetimePurchase", "lifetimeHold"]);
+    pack = genericRows("locks",
+      ["AID", "Name", "Email", "Lock Reason", "Locked Date", "LTP", "Hold %", "Unlock"],
+      ["aid", "name", "email", "lockReason", "created", "lifetimePurchase", "lifetimeHold", "unlockDetail"]);
   }
 
   if (!pack || !pack.rows.length) {
@@ -104,5 +106,5 @@ export function exportCurrentViewCsv(): void {
 }
 
 export function viewSupportsCsvExport(viewId: string): boolean {
-  return ["top20", "top10", "tickets", "rd", "birthdays", "anniversary", "birthdayGift", "locks"].includes(viewId);
+  return ["top20", "top10", "trends", "tickets", "rd", "birthdays", "anniversary", "birthdayGift", "locks"].includes(viewId);
 }

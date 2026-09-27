@@ -1,29 +1,24 @@
-/** Locked & Take A Break — new locks, plus breaks due to end; Locked MTD stacked below.
- *
- * Rows sort by soonest unlock automatically, with no visible control: the
- * ordering is the point of the section, so it is deliberately not something an
- * AM can turn off. Windows live in config.py.
- */
-import { esc } from "./../format";
-import { aidHtml, unlockHtml } from "./../cells";
-import { sortBySoonestUnlock } from "./../filters";
+/** Locked & Take A Break — recent locks + Locked MTD (same columns on both). */
 import { rowsFor } from "./../selectors";
 import { app } from "./../state";
 import { tableCard } from "./../table";
-import { locksMtdTableCard } from "./locksMtd";
+import { sortBySoonestUnlock } from "./../filters";
+import {
+  LOCKS_TABLE_ALIGN,
+  LOCKS_TABLE_HEADERS,
+  lockTableRowCells,
+  locksMtdTableCard,
+} from "./locksMtd";
 
 function locksRecentTableCard(): string {
   return tableCard({
-    rows: rowsFor("locks"), stateKey: `lk_${app.agent}`, showSearch: false,
+    rows: rowsFor("locks"), stateKey: `lk_${app.agent}`, showSearch: true,
     sortFn: (rows) => sortBySoonestUnlock(rows),
     title: "Locked & Take A Break · Last 3 Days",
-    headers: ["AID", "Name", "Lock Reason", "Created", "Days Remaining / Unlock"],
-    align: ["left", "left", "left", "left", "left"], markerCol: 2,
+    headers: [...LOCKS_TABLE_HEADERS],
+    align: [...LOCKS_TABLE_ALIGN], markerCol: 3,
     empty: "No new locks or breaks due in the Last 3 Days.",
-    renderRow: (p) => [aidHtml(p), esc(p.name),
-      `<span class="t-${p.tone || "warning"}">${esc(p.lockReason)}</span>`,
-      `<span class="t-small">${esc(p.created || p.lockedAt || "—")}</span>`,
-      unlockHtml(p.unlockDetail, p.unlockRemainingDays)],
+    renderRow: (p) => lockTableRowCells(p),
   });
 }
 

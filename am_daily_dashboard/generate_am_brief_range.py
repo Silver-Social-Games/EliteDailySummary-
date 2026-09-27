@@ -165,6 +165,13 @@ def main() -> None:
         help="Pass --render-check to verify_brief (implies --verify)",
     )
     parser.add_argument(
+        "--max-days",
+        type=int,
+        default=None,
+        metavar="N",
+        help="Cap how many missing days to run (oldest first; scheduled default is 2)",
+    )
+    parser.add_argument(
         "--dry-run",
         action="store_true",
         help="Print dates that would run and exit",
@@ -208,6 +215,12 @@ def main() -> None:
         skip_existing=skip_existing,
         html_only=args.html_only,
     )
+    if args.max_days is not None and args.max_days > 0 and len(dates) > args.max_days:
+        extra = len(dates) - args.max_days
+        dates = dates[: args.max_days]
+        print(
+            f"Capped to {args.max_days} day(s) this run ({extra} older gap day(s) deferred)."
+        )
     if not dates:
         print(f"No dates to run between {start.isoformat()} and {end.isoformat()}.")
         return

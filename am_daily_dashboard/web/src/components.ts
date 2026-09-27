@@ -1,9 +1,12 @@
 /** Blocks reused by more than one view. */
 import type { Dict } from "./types";
-import { REPORT, day, dayShort, TEAM_GOALS } from "./payload";
-import { esc, icon, fmtCount, inlineBold, money, formatGoalPct } from "./format";
+import { REPORT, day, dayShort, TEAM_GOALS, HIDE_MANAGER } from "./payload";
+import { esc, icon, fmtCount, inlineBold, money, compactMoney, formatGoalPct } from "./format";
 import { wowHtml, wowPillHtml, teamProgressTone } from "./cells";
-import { donutChartHtml } from "./charts";
+import { sparklineSvg } from "./charts";
+import {
+  GOLD, MUTED, TREND, dailyDays, dayLabel, pctLabel, primarySeries, seriesById, windowStats,
+} from "./trend";
 import { logoImg } from "./logos";
 import { tableHtml } from "./table";
 import { app } from "./state";
@@ -62,13 +65,55 @@ function segmentPanel(
       </div>`;
 }
 
+/** Last 30 days of purchase — the hero's third panel, opens Purchase Trends.
+ *  Manager: Elite in gold over Jackpota. AM file: own book over Elite. */
+function trendHeroPanel(): string {
+  const days = dailyDays();
+  const primary = primarySeries();
+  const secondary = seriesById(HIDE_MANAGER ? "elite" : "jackpota");
+  if (!TREND || !primary) {
+    return `<div class="segment-panel">
+          <div class="segment-panel-head"><span class="segment-panel-title">Last ${days} Days Purchase</span></div>
+          <div class="segment-empty t-tertiary t-small">No trend data.</div>
+        </div>`;
+  }
+  const st = windowStats(primary.values, days);
+  const tail = (v: number[]) => v.slice(-days);
+  const lines = [
+    ...(secondary && secondary.id !== primary.id
+      ? [{ label: secondary.label, values: tail(secondary.values), color: MUTED, width: 1.25, dashed: true }]
+      : []),
+    { label: primary.label, values: tail(primary.values), color: GOLD, width: 2.25 },
+  ];
+  const legend = lines.slice().reverse().map((l) =>
+    `<span class="trend-legend-item"><span class="trend-dot" style="background:${l.color}"></span>${esc(l.label)}</span>`
+  ).join("");
+  return `<button type="button" class="segment-panel trend-hero" data-go="trends">
+        <div class="segment-panel-head">
+          <span class="segment-panel-title">Last ${days} Days Purchase</span>
+          <span class="spacer"></span>
+          <span class="trend-open">Open ${icon("chev-right", "ic-xs")}</span>
+        </div>
+        <div class="segment-metric-row">
+          <span class="segment-metric-value">${esc(compactMoney(st.total))}</span>
+          ${wowPillHtml(pctLabel(st.pct))}
+        </div>
+        <div class="segment-metric-foot t-tertiary t-small">${esc(primary.label)} · ${days}D total vs prior ${days}D</div>
+        <div class="trend-spark">${sparklineSvg(lines)}</div>
+        <div class="trend-hero-foot t-small">
+          <span class="trend-legend">${legend}</span>
+          <span class="spacer"></span>
+          <span><span class="t-tertiary">Best Day</span> <strong>${esc(dayLabel(st.bestIndex))} ${esc(compactMoney(st.bestValue))}</strong></span>
+        </div>
+      </button>`;
+}
+
 /** Elite & Jackpota WoW purchase hero — top of Morning Brief and Manager Dashboard. */
 export function segmentHero(): string {
   const segments: Dict[] = REPORT.segments || [];
   const title = REPORT.segmentTitle || "WoW Purchase";
   const jackpota = segmentByLabel(segments, "Jackpota") || segments[0];
   const elite = segmentByLabel(segments, "Elite") || segments[1];
-  const geo = REPORT.geoChart || null;
   return `<div class="segment-hero card gold-top">
         <div class="segment-hero-head">
           <div class="card-title">${esc(title)}</div>
@@ -76,7 +121,7 @@ export function segmentHero(): string {
         <div class="segment-hero-body segment-hero-body-3">
           ${segmentPanel(jackpota, "jackpota")}
           ${segmentPanel(elite, "elite", jackpota)}
-          ${donutChartHtml(geo)}
+          ${trendHeroPanel()}
         </div>
       </div>`;
 }
@@ -97,22 +142,27 @@ function snapshotCardsFromGoals(
   const activeDisplay = mtdActivePct != null
     ? formatGoalPct(mtdActivePct)
     : String(kpi("pct_active")?.actualDisplay || "—");
+  const mtdPurchase = Number(goals.mtdPurchase || 0);
+  const mtdNet = Number(goals.mtdNetPurchase || 0);
+  const holdDisplay = mtdPurchase > 0 ? formatGoalPct((mtdNet / mtdPurchase) * 100) : "—";
+  // Three rows of three: book, purchase, net. Render with cols: 3.
   return [
     { label: "Portfolio", value: portfolio.toLocaleString(), icon: "list",
       tone: neutral },
-    { label: "Yesterday Purchase", value: yesterday.purchase || "—", icon: "dollar",
-      tone: neutral },
-    { label: "MTD Purchase", value: money(Number(goals.mtdPurchase || 0)), icon: "dollar",
-      tone: neutral },
-    { label: "MTD Net Purchase", value: money(Number(goals.mtdNetPurchase || 0)), icon: "banknote",
-      tone: neutral },
     { label: "MTD Purchasers", value: String(purchasers?.actualDisplay || "—"),
       icon: "users", tone: neutral },
+    { label: "Active % of Portfolio", value: activeDisplay, icon: "pie", tone: neutral },
+    { label: "Yesterday Purchase", value: yesterday.purchase || "—", icon: "dollar",
+      tone: neutral },
+    { label: "MTD Purchase", value: money(mtdPurchase), icon: "dollar",
+      tone: neutral },
     { label: "Daily Avg Purchase", value: String(kpi("daily_avg_purchase")?.actualDisplay || "—"),
       icon: "trend-up", tone: neutral },
+    { label: "MTD Net Purchase", value: money(mtdNet), icon: "banknote",
+      tone: neutral },
     { label: "Daily Avg Net", value: String(kpi("daily_avg_net_purchase")?.actualDisplay || "—"),
       icon: "banknote", tone: neutral },
-    { label: "Active % of Portfolio", value: activeDisplay, icon: "pie", tone: neutral },
+    { label: "This Month Hold %", value: holdDisplay, icon: "pie", tone: neutral },
   ];
 }
 
@@ -205,10 +255,15 @@ export function statCard(o: Dict): string {
 /** Reference-style KPI band — one white card, metrics in a single row with dividers. */
 export function metricBand(title: string, items: Dict[], opts?: { subtitle?: string; cols?: number }): string {
   const cols = opts?.cols || items.length;
-  const cells = items.map((o) => {
+  const wraps = items.length > cols;
+  const lastRowStart = Math.floor((items.length - 1) / cols) * cols;
+  const cells = items.map((o, i) => {
     const tag = o.view ? "button" : "div";
     const typeAttr = o.view ? ' type="button"' : "";
-    return `<${tag}${typeAttr} class="metric-cell t-${o.tone || "neutral"}"${o.view ? ` data-go="${esc(o.view)}"` : ""}>
+    const pos = wraps
+      ? `${(i + 1) % cols === 0 ? " row-end" : ""}${i >= lastRowStart ? " last-row" : ""}`
+      : "";
+    return `<${tag}${typeAttr} class="metric-cell t-${o.tone || "neutral"}${pos}"${o.view ? ` data-go="${esc(o.view)}"` : ""}>
           <div class="metric-label">${esc(o.label)}</div>
           <div class="metric-value${o.small ? " sm" : ""}">${esc(o.value)}</div>
           ${o.foot ? `<div class="metric-foot">${o.foot}</div>` : ""}
@@ -219,7 +274,7 @@ export function metricBand(title: string, items: Dict[], opts?: { subtitle?: str
           <div class="card-title">${esc(title)}</div>
           ${opts?.subtitle ? `<div class="card-sub">${esc(opts.subtitle)}</div>` : ""}
         </div>
-        <div class="metric-band-grid" style="--metric-cols:${cols}">${cells}</div>
+        <div class="metric-band-grid${wraps ? " wrap" : ""}" style="--metric-cols:${cols}">${cells}</div>
       </div>`;
 }
 

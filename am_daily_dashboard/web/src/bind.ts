@@ -8,6 +8,7 @@ import { GATE_TOKEN, REPORT } from "./payload";
 import { CRM_BANDS, CRM_DAY_ORDER } from "./data/crmOffers";
 import { exportCurrentViewCsv } from "./exportCsv";
 import { agentBlock } from "./selectors";
+import { defaultSeriesIds, trendSeriesKey } from "./trend";
 import { app, gateToken, getState, go, putState, rememberGate, rerender, setPage, setState,
   takeFocusKey } from "./state";
 
@@ -108,6 +109,18 @@ export function bind(): void {
         if (!bands.length) bands = allBands.slice();
         setState("crm_bands", bands);
       }
+    };
+  });
+  document.querySelectorAll("[data-trend-mode]").forEach((el) => {
+    (el as HTMLElement).onclick = () => setState("trend_mode", el.getAttribute("data-trend-mode"));
+  });
+  document.querySelectorAll("[data-trend-series]").forEach((el) => {
+    (el as HTMLElement).onclick = () => {
+      const id = el.getAttribute("data-trend-series") || "";
+      const key = trendSeriesKey();
+      const ids: string[] = getState(key, defaultSeriesIds());
+      const next = ids.includes(id) ? ids.filter((x) => x !== id) : ids.concat(id);
+      if (next.length) setState(key, next);
     };
   });
   document.querySelectorAll("[data-crm-quick]").forEach((el) => {

@@ -82,9 +82,19 @@ LOCKS_REVIEW_WINDOW_DAYS = 3
 # calendar days before report_date (still locked but no longer actionable).
 LOCKS_TAB_EXPIRE_DAYS = 7
 
+# Timed self-exclusion (recent Lock & TAB table): show when unlock is within
+# this many days or already passed; no post-end expiry while still locked.
+LOCKS_SELF_EXCLUSION_LEAD_DAYS = 7
+
 # Locked MTD section: currently locked accounts whose lock started in the
 # report calendar month (all reasons). Rows drop on unlock at next regen.
 LOCKS_MTD_ENABLED = True
+
+# Purchase Trends: one query ending on report_date. 60 days = the Daily view's
+# last 30 plus the prior 30 for "vs Prior 30D", and covers the last 8 same
+# weekdays for the Same Weekday view.
+PURCHASE_TREND_DAYS = 60
+PURCHASE_TREND_DAILY_DAYS = 30
 
 # Churned, Active Decliners and Milestone Alerts were removed on 2026-08-18 at
 # the user's request — they had been built despite an earlier instruction to

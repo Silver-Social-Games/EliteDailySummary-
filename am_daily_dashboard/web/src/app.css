@@ -427,26 +427,52 @@
     .segment-empty { padding: 12px 0; }
 
     .segment-metric-foot { margin-top: 4px; line-height: 1.35; }
-    .geo-panel .geo-chart-body {
-      display: flex; flex-direction: column; gap: 8px; min-width: 0; flex: 1; padding: 4px 0 8px;
+    /* purchase trend — hero panel */
+    button.trend-hero {
+      display: flex; flex-direction: column; align-items: stretch; text-align: left;
+      width: 100%; min-width: 0; font: inherit; color: inherit; cursor: pointer;
+      background: transparent; border: none; border-right: none; transition: background .12s;
     }
-    .geo-bar-chart { display: flex; flex-direction: column; gap: 6px; width: 100%; min-width: 220px; }
-    .geo-bar-head, .geo-bar-row {
-      display: grid; grid-template-columns: 34px minmax(0, 1fr) 38px 44px; gap: 6px; align-items: center;
+    button.trend-hero:hover { background: var(--line-soft); }
+    .trend-hero .segment-panel-head { margin-bottom: 8px; }
+    .trend-open {
+      display: inline-flex; align-items: center; gap: 3px;
+      font-size: 11.5px; font-weight: 650; color: var(--brand);
     }
-    .geo-bar-row-other { margin-top: 2px; padding-top: 6px; border-top: 1px dashed var(--line-soft); }
-    .geo-bar-row-other .geo-bar-label { color: var(--ink-3); }
-    .geo-bar-head { padding: 0 2px 4px; }
-    .geo-bar-head span:not(:first-child) { text-align: right; }
-    .geo-bar-label { font-weight: 700; color: var(--ink-2); font-size: 12px; }
-    .geo-bar-track {
-      height: 10px; border-radius: 999px; background: var(--surface-2); overflow: hidden;
+    .trend-spark { margin: 8px 0 6px; height: 64px; }
+    .spark { display: block; width: 100%; height: 64px; }
+    .trend-hero-foot { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; color: var(--ink-2); }
+    .trend-legend { display: inline-flex; flex-wrap: wrap; gap: 4px 12px; font-size: 12px; color: var(--ink-2); }
+    .trend-legend-item { display: inline-flex; align-items: center; gap: 5px; }
+    .trend-dot { width: 8px; height: 8px; border-radius: 999px; display: inline-block; flex: none; }
+
+    /* purchase trend — view */
+    .trend-toolbar .toolbar { flex-wrap: wrap; gap: 10px 14px; }
+    .trend-modes { display: inline-flex; gap: 6px; }
+    .trend-series { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+    .trend-series-label {
+      font-size: 10.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+      color: var(--ink-3); margin-right: 2px;
     }
-    .geo-bar-fill { display: block; height: 100%; border-radius: 999px; min-width: 4px; }
-    .geo-bar-fill-muted { opacity: .55; }
-    .geo-bar-pct { font-weight: 700; font-size: 12px; color: var(--ink); text-align: right; font-variant-numeric: tabular-nums; }
-    .geo-bar-count { font-size: 11px; color: var(--ink-3); text-align: right; font-variant-numeric: tabular-nums; }
-    .geo-bar-foot, .geo-period { margin-top: 2px; line-height: 1.35; }
+    .trend-chip { display: inline-flex; align-items: center; gap: 6px; }
+    .trend-chart-card .trend-legend { margin-bottom: 8px; }
+    .line-chart { display: block; width: 100%; height: auto; }
+    .lc-grid { stroke: var(--line-soft); stroke-width: 1; }
+    .lc-axis { font-size: 11px; fill: var(--ink-4); font-variant-numeric: tabular-nums; }
+    .lc-hit { fill: transparent; }
+    .lc-hit:hover { fill: rgba(20,20,26,.05); }
+    .wk-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap: 18px; }
+    .wk-title { display: flex; align-items: center; gap: 7px; font-weight: 650; font-size: 13px; margin-bottom: 8px; }
+    .wk-bars { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 6px; align-items: end; }
+    .wk-col { display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 0; }
+    .wk-val { font-size: 11px; font-weight: 650; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+    .wk-track { width: 100%; max-width: 38px; height: 140px; display: flex; align-items: flex-end; }
+    .wk-bar { display: block; width: 100%; border-radius: 6px 6px 2px 2px; background: var(--ink-4); opacity: .4; }
+    .wk-col.latest .wk-bar { background: var(--gold); opacity: 1; }
+    .wk-col.latest .wk-val, .wk-col.latest .wk-label { color: var(--ink); font-weight: 700; }
+    .wk-label { font-size: 11px; color: var(--ink-3); white-space: nowrap; }
+    .wk-col .wow-pill { font-size: 10.5px; padding: 1px 6px; }
+    @media (max-width: 720px) { .wk-grid { grid-template-columns: 1fr; } }
     .ticket-when { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 14px; min-width: 210px; }
     .ticket-when-line { display: flex; flex-direction: column; gap: 1px; font-size: 11.5px; line-height: 1.25; min-width: 0; }
     .ticket-when-label { font-size: 10px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; color: var(--ink-4); }
@@ -578,10 +604,15 @@
     .metric-cell.t-warning .metric-value { color: var(--warning); }
     .metric-cell.t-info    .metric-value { color: var(--info); }
     .metric-cell.t-brand   .metric-value { color: var(--brand); }
+    .metric-band-grid.wrap .metric-cell { border-bottom: 1px solid var(--line-soft); }
+    .metric-band-grid.wrap .metric-cell.row-end { border-right: none; }
+    .metric-band-grid.wrap .metric-cell.last-row { border-bottom: none; }
     @media (max-width: 1100px) {
       .metric-band-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .metric-cell:nth-child(2n) { border-right: none; }
       .metric-cell { border-bottom: 1px solid var(--line-soft); }
+      .metric-band-grid.wrap .metric-cell.row-end:nth-child(2n+1) { border-right: 1px solid var(--line-soft); }
+      .metric-band-grid.wrap .metric-cell.last-row { border-bottom: 1px solid var(--line-soft); }
     }
 
     .hero {

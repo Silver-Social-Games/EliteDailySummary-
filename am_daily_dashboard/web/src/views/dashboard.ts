@@ -70,7 +70,7 @@ export function viewDashboard(): string {
 
   return `<div class="stack">
         ${segmentHero()}
-        ${metricBand("Elite Snapshot", eliteSnapshotCards(), { cols: 4 })}
+        ${metricBand("Elite Snapshot", eliteSnapshotCards(), { cols: 3 })}
         ${metricBand("Daily Triggers", triggerMetrics, { subtitle: "Cross-AM roll-up · click a metric to open the section", cols: 7 })}
 
         <div class="grid-2 goals-pair">

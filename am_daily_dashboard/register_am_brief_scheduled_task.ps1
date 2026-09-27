@@ -1,11 +1,11 @@
-# Register Windows Scheduled Task: Elite AM Brief Sun-Thu at 10:00 AM (Israel time)
+# Register Windows Scheduled Task: Elite AM Brief daily at 10:00 AM (Israel time, Sun-Sat)
 #
 # Prerequisite: Windows timezone = (UTC+02:00) Jerusalem (Israel Standard/Daylight).
 # Run once from project root:
 #   powershell -ExecutionPolicy Bypass -File am_daily_dashboard\register_am_brief_scheduled_task.ps1
 #
 # Generates yesterday's brief, verifies, and mirrors to Elite_Cursor (OneDrive).
-# Slack is OFF — pass -EnableAmBriefSlack to run_am_brief_scheduled.ps1 manually if needed.
+# Slack is OFF - pass -EnableAmBriefSlack to run_am_brief_scheduled.ps1 manually if needed.
 
 $ErrorActionPreference = 'Stop'
 
@@ -47,3 +47,7 @@ Write-Host "  Launcher: $Launcher"
 Write-Host '  Logs: am_daily_dashboard\logs\'
 Write-Host '  Output: Elite_Cursor\AM Brief\{Manager|Coral|Gabriel|Lee|Rachel}\'
 Write-Host '  Slack: disabled (manual only via run_am_brief_scheduled.ps1 -EnableAmBriefSlack)'
+Write-Host '  Catch-up: at most 2 missing days per run (full backfill: generate_am_brief_range.py --catch-up)'
+Write-Host ''
+Write-Host 'Windows power (plugged in): Settings > System > Power > Lid close = Do nothing'
+Write-Host '  (or enable Wake timers under Sleep) so 10:00 jobs can wake the PC.'

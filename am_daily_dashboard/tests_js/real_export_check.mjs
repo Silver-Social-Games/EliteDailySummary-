@@ -73,6 +73,19 @@ for (const id of navIds) {
   if (!ok) failures++;
 }
 
+const trendsBtn = doc.querySelector('[data-go="trends"]');
+if (trendsBtn) {
+  trendsBtn.onclick();
+  const daily = !!doc.querySelector(".content svg.line-chart path");
+  console.log(`  [${daily ? "PASS" : "FAIL"}] Purchase Trends daily chart draws a line`);
+  if (!daily) failures++;
+  const wkBtn = doc.querySelector('[data-trend-mode="weekday"]');
+  if (wkBtn) wkBtn.onclick();
+  const cols = doc.querySelectorAll(".content .wk-card:first-child .wk-col").length;
+  console.log(`  [${cols === 8 ? "PASS" : "FAIL"}] Same Weekday shows 8 weeks (got ${cols})`);
+  if (cols !== 8) failures++;
+}
+
 if (errors.length) {
   console.log(`  [FAIL] ${errors.length} uncaught JS error(s) during render`);
   for (const e of errors) console.log(`         ${e}`);
