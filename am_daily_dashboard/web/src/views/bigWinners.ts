@@ -1,8 +1,8 @@
-/** Big Winners ≥ $20K — players whose report-day GGR was ≤ −$20,000.
+/** Big Winners ≥ $20K · last TRIGGER_LOOKBACK_DAYS (3) ending report_date.
  *
  * GGR is house-side (profit − loss), so a player win is a *negative* GGR day.
- * win_ggr = −GGR on the peak qualifying day. SC Turnover / SC Won are for that
- * same day (bets / payout in Elite.MD terms).
+ * win_ggr = −GGR on the peak qualifying day in the window. SC Turnover / SC Won
+ * are for that same day (bets / payout in Elite.MD terms). Created = that day.
  *
  * Non-Elite players (isElite=false) appear in every AM's tab — this is the
  * only section that reaches outside the Elite book. Those rows carry a warning
@@ -15,13 +15,13 @@
 import { esc } from "./../format";
 import { aidHtml } from "./../cells";
 import { sortByNumKey } from "./../filters";
-import { rowsFor } from "./../selectors";
+import { bigWinnersRows } from "./../selectors";
 import { app } from "./../state";
 import { tableCard } from "./../table";
 
 export function viewBigWinners(): string {
   return tableCard({
-    rows: rowsFor("bigWinners"),
+    rows: bigWinnersRows(),
     stateKey: `bw_${app.agent}`,
     showSearch: false,
     sortOptions: [{ value: "win", label: "Sort: Win ↓" }],

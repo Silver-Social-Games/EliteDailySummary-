@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <!-- am-brief-build sources sha256:02f03263dafc09a2318786c842a2136e78c8c571bb1c46269ffd2ca7c4cf0efa output sha256:bf4e58813299461d330e13d0ff972efbd134c3d2a980d67adaec9dbef7ccec11 -->
+  <!-- am-brief-build sources sha256:d0de14b12469ae136344be606736a010635148a398430dca561ffaae40786d9d output sha256:41135eb6e265513fc941c3f39f628a75b58a46906f99a125de038f2aaa5c2b9c -->
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Elite Dashboard</title>
   <style>
@@ -1354,6 +1354,15 @@
     ).join("");
   }
 
+  // src/looker.ts
+  var ACCOUNT_PORTAL_BASE = "https://lookerpatrianna.cloud.looker.com/dashboards/5207";
+  var LOOKER_ACCOUNT_PORTAL_TIMEFRAME = "last+30+days";
+  function lookerAccountPortalUrl(aid) {
+    const id = String(aid != null ? aid : "").trim();
+    if (!id) return "";
+    return `${ACCOUNT_PORTAL_BASE}?Account+ID+=${encodeURIComponent(id)}&Timeframe=${LOOKER_ACCOUNT_PORTAL_TIMEFRAME}`;
+  }
+
   // src/cells.ts
   var LTP_HIGH_USD = 5e4;
   var PURCHASE_HIGH_USD = 1e4;
@@ -1506,7 +1515,8 @@
   }
   function aidHtml(p) {
     const aid = esc(p.aid);
-    return p.aidUrl ? `<a href="${esc(p.aidUrl)}" target="_blank" rel="noopener noreferrer">${aid}</a>` : aid;
+    const url = lookerAccountPortalUrl(p.aid);
+    return url ? `<a href="${esc(url)}" target="_blank" rel="noopener noreferrer">${aid}</a>` : aid;
   }
   function ticketHtml(p) {
     if (!p.ticketEnabled) {
@@ -2244,6 +2254,32 @@
       </div>`;
   }
 
+  // src/selectors.ts
+  function agentBlock() {
+    return AGENTS.find((a) => a.agentName === app.agent) || AGENTS[0] || {};
+  }
+  function rowsFor(key) {
+    return agentBlock()[key] || [];
+  }
+  function dedupeBigWinnersByAid(rows) {
+    var _a;
+    const byAid = /* @__PURE__ */ new Map();
+    for (const r of rows) {
+      const id = String((_a = r.aid) != null ? _a : "");
+      if (!byAid.has(id)) byAid.set(id, r);
+    }
+    return [...byAid.values()];
+  }
+  function bigWinnersRows() {
+    if (HIDE_MANAGER) return rowsFor("bigWinners");
+    const all = [];
+    for (const a of AGENTS) all.push(...a.bigWinners || []);
+    return dedupeBigWinnersByAid(all);
+  }
+  function uniqueBigWinnersCount() {
+    return bigWinnersRows().length;
+  }
+
   // src/views/team.ts
   function teamKpi(key) {
     return TEAM_GOALS && (TEAM_GOALS.kpis || []).find((k) => k.key === key) || null;
@@ -2351,6 +2387,7 @@
         out[k] = (Number(out[k]) || 0) + Number(v || 0);
       }
     }
+    out.bigWinners = uniqueBigWinnersCount();
     return out;
   }
   function viewDashboard() {
@@ -2434,14 +2471,6 @@
     )}
         </div>
       </div>`;
-  }
-
-  // src/selectors.ts
-  function agentBlock() {
-    return AGENTS.find((a) => a.agentName === app.agent) || AGENTS[0] || {};
-  }
-  function rowsFor(key) {
-    return agentBlock()[key] || [];
   }
 
   // src/views/goals.ts
@@ -3217,7 +3246,7 @@
   // src/views/bigWinners.ts
   function viewBigWinners() {
     return tableCard({
-      rows: rowsFor("bigWinners"),
+      rows: bigWinnersRows(),
       stateKey: `bw_${app.agent}`,
       showSearch: false,
       sortOptions: [{ value: "win", label: "Sort: Win \u2193" }],
@@ -4028,10 +4057,7 @@
         <div class="bonus-search-row">
           <input id="bonusAidInput" type="search" inputmode="numeric" placeholder="Search AID\u2026"
             value="${esc(aidRaw)}" data-state="bonus_aid" autocomplete="off">
-          ${row ? `<span class="bonus-aid-link">${aidHtml({
-      aid: String(row.aid),
-      aidUrl: `https://lookerpatrianna.cloud.looker.com/dashboards/5207?Account+ID+=${encodeURIComponent(String(row.aid))}`
-    })}${row.name ? ` \xB7 ${esc(String(row.name))}` : ""}</span>` : ""}
+          ${row ? `<span class="bonus-aid-link">${aidHtml({ aid: String(row.aid) })}${row.name ? ` \xB7 ${esc(String(row.name))}` : ""}</span>` : ""}
         </div>
       </div>
       ${offerBlock}

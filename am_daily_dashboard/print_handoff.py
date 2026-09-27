@@ -62,7 +62,10 @@ Locked this round (see @elite-am-brief SKILL.md):
 - After web/src edit: npx tsc --noEmit -> build.mjs -> --html-only -> verify_brief.py
 
 Plan + rollback: am_daily_dashboard/AM_BRIEF_EXPANSION_PLAN.md
-Daily catch-up: python am_daily_dashboard/generate_am_brief_range.py --catch-up --verify{verify_hint}
+Daily catch-up: python am_daily_dashboard/generate_am_brief_range.py --catch-up --verify
+
+Git: branch am-brief-expansion — expansion eae2fe0; follow-ups commit after Big Winners dedupe + Looker 30d (see git log -1).
+Looker UI: confirm Last 30 Days on 5207 via capture_looker_portal_url.py — LOOKER_ACCOUNT_PORTAL.md + data/looker_account_portal_query.tsv{verify_hint}
 """
     print(block)
     if EXPANSION_PLAN.exists():

@@ -5,6 +5,7 @@
  */
 import type { Dict } from "./types";
 import { esc, icon, toNum, formatGoalPct } from "./format";
+import { lookerAccountPortalUrl } from "./looker";
 
 /** USD / count coloring — high = green, critical low = red, else plain. */
 export type NumTone = "high" | "low" | "neutral";
@@ -218,11 +219,12 @@ export function urgencyHtml(u: unknown): string {
   return `<span class="t-quaternary">${esc(u || "—")}</span>`;
 }
 
-/** AID always links to Looker — every section, no exceptions. */
+/** AID always links to Looker — every section, no exceptions (Last 30 Days on 5207). */
 export function aidHtml(p: Dict): string {
   const aid = esc(p.aid);
-  return p.aidUrl
-    ? `<a href="${esc(p.aidUrl)}" target="_blank" rel="noopener noreferrer">${aid}</a>`
+  const url = lookerAccountPortalUrl(p.aid);
+  return url
+    ? `<a href="${esc(url)}" target="_blank" rel="noopener noreferrer">${aid}</a>`
     : aid;
 }
 

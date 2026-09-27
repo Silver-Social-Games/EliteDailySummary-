@@ -486,6 +486,7 @@ class BuildBigWinnersSectionTests(unittest.TestCase):
         out = build_big_winners_section([_bw_row(aid=123456)])
         self.assertIn("aidUrl", out[0])
         self.assertIn("123456", out[0]["aidUrl"])
+        self.assertIn("Timeframe=last+30+days", out[0]["aidUrl"])
 
 
 def _birthday_row(

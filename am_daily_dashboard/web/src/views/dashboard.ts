@@ -5,6 +5,7 @@ import { esc, icon } from "./../format";
 import { scoreMeterHtml, goalsKpiPoints, goalsScoreTone, amScoreDisplay } from "./../cells";
 import { dailyTriggerMetrics, eliteSnapshotCards, gateHtml, metricBand, segmentHero } from "./../components";
 import { app } from "./../state";
+import { uniqueBigWinnersCount } from "./../selectors";
 import { tableHtml } from "./../table";
 import { teamGoalsCard } from "./team";
 
@@ -16,6 +17,8 @@ function aggregateFocus(): Dict {
       out[k] = (Number(out[k]) || 0) + Number(v || 0);
     }
   }
+  // Non-Elite rows are duplicated on every AM tab; count unique players instead.
+  out.bigWinners = uniqueBigWinnersCount();
   return out;
 }
 

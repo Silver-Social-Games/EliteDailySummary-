@@ -10,9 +10,13 @@ from __future__ import annotations
 import os
 from datetime import date
 
-# S-Jackpota Account Portal (Looker dashboard 5207). Override via LOOKER_ACCOUNT_PORTAL_URL.
+# S-Jackpota Account Portal (Looker dashboard 5207). Override full template via
+# LOOKER_ACCOUNT_PORTAL_URL, or only the timeframe token via LOOKER_ACCOUNT_PORTAL_TIMEFRAME
+# (must match the dashboard filter label, e.g. Last+30+Days in the browser URL bar).
+DEFAULT_LOOKER_ACCOUNT_PORTAL_TIMEFRAME = "last+30+days"
 DEFAULT_LOOKER_ACCOUNT_PORTAL_URL = (
-    "https://lookerpatrianna.cloud.looker.com/dashboards/5207?Account+ID+={aid}"
+    "https://lookerpatrianna.cloud.looker.com/dashboards/5207?"
+    f"Account+ID+={{aid}}&Timeframe={DEFAULT_LOOKER_ACCOUNT_PORTAL_TIMEFRAME}"
 )
 DEFAULT_ZENDESK_AGENT_BASE = "https://jackpotahelp.zendesk.com"
 
@@ -48,7 +52,13 @@ def looker_account_portal_url(aid: object) -> str:
     aid_s = str(aid or "").strip()
     if not aid_s:
         return ""
-    template = os.environ.get("LOOKER_ACCOUNT_PORTAL_URL", DEFAULT_LOOKER_ACCOUNT_PORTAL_URL)
+    timeframe = os.environ.get(
+        "LOOKER_ACCOUNT_PORTAL_TIMEFRAME", DEFAULT_LOOKER_ACCOUNT_PORTAL_TIMEFRAME
+    )
+    template = os.environ.get("LOOKER_ACCOUNT_PORTAL_URL") or (
+        "https://lookerpatrianna.cloud.looker.com/dashboards/5207?"
+        f"Account+ID+={{aid}}&Timeframe={timeframe}"
+    )
     return template.format(aid=aid_s, account_id=aid_s)
 
 

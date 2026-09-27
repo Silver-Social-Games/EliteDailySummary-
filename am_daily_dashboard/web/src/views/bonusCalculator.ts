@@ -188,10 +188,7 @@ export function viewBonusCalculator(): string {
         <div class="bonus-search-row">
           <input id="bonusAidInput" type="search" inputmode="numeric" placeholder="Search AID…"
             value="${esc(aidRaw)}" data-state="bonus_aid" autocomplete="off">
-          ${row ? `<span class="bonus-aid-link">${aidHtml({
-            aid: String(row.aid),
-            aidUrl: `https://lookerpatrianna.cloud.looker.com/dashboards/5207?Account+ID+=${encodeURIComponent(String(row.aid))}`,
-          })}${row.name ? ` · ${esc(String(row.name))}` : ""}</span>` : ""}
+          ${row ? `<span class="bonus-aid-link">${aidHtml({ aid: String(row.aid) })}${row.name ? ` · ${esc(String(row.name))}` : ""}</span>` : ""}
         </div>
       </div>
       ${offerBlock}

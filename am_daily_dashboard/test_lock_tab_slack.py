@@ -73,7 +73,11 @@ class ThresholdTests(unittest.TestCase):
         row = alerts.filter_alert_rows([_row()])[0]
         text = alerts.format_alert_message(row)
         self.assertIn("• AID: 123456789", text)
-        self.assertIn("<https://lookerpatrianna.cloud.looker.com/dashboards/5207?Account+ID+=123456789|Jane Doe>", text)
+        self.assertIn(
+            "<https://lookerpatrianna.cloud.looker.com/dashboards/5207?"
+            "Account+ID+=123456789&Timeframe=last+30+days|Jane Doe>",
+            text,
+        )
         self.assertIn("• AM: Coral", text)
         self.assertIn("*Elite Lock Alert*", text)
         self.assertIn("• Lock Date:", text)

@@ -51,6 +51,7 @@ class LookerUrlTests(unittest.TestCase):
         url = looker_account_portal_url(12345)
         self.assertIn("12345", url)
         self.assertIn("lookerpatrianna.cloud.looker.com", url)
+        self.assertIn("Timeframe=last+30+days", url)
 
     def test_format_aid_markdown_wraps_link(self) -> None:
         md = format_aid_markdown(12345)

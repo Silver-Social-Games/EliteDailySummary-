@@ -25,7 +25,7 @@ Workflow: edit `web/src/*.ts` (+ Python payload/SQL if needed) →
 
 Key definitions locked this session:
 - **Big Losers** = house GGR ≥ **$5K** (`BIG_LOSER_SECTION_MIN` in `config.py`)
-- **Big Winners** = player win ≥ **$20K** (`BIG_WINNER_SECTION_MIN`)
+- **Big Winners** = player win ≥ **$20K** in last **3 days** (`BIG_WINNER_SECTION_MIN`, `TRIGGER_LOOKBACK_DAYS`) — counting rules: [`BIG_WINNERS_DAILY_TRIGGERS.md`](BIG_WINNERS_DAILY_TRIGGERS.md)
 - State chart = bar chart from `data/elite_players_by_state.json`; UNKNOWN → Other
 - Manager dashboard = Elite Snapshot + Daily Triggers (not Team snapshot)
 
@@ -1899,15 +1899,16 @@ inverts both big-winner features.
  sort: Won Yesterday ↓. Big Winner outranks the ageing highlight for row tone. The
  all-clear docs case renders **blank** by the user's choice — see *Pending
  Redemptions big winner and docs* below for why that is the honest reading.
-3. [x] **Big Winners ≥ $20K — new section.** Done 2026-08-19. Risk group, payload
- key `bigWinners`. Non-Elite players included and shown in every AM's tab —
- the only section outside the Elite book. Non-Elite rows carry a "Non-Elite" badge.
- Columns: AID · Name · Elite/AM · Win (GGR) · SC Turnover · SC Won · Game
- (most spins on report_date from `fact_gameplay_daily`) · Pending RD.
- Config keys: `BIG_WINNER_SECTION_MIN = 20_000` (section threshold),
- `BIG_WINNER_MIN_PLAYER_WIN = 5_000` (RD flag — separate). GGR sign: player
- win = negative GGR day; SQL uses `SUM(profit − loss) ≤ −BIG_WINNER_SECTION_MIN`.
- All three implementations updated; 175 tests passed at ship.
+3. [x] **Big Winners ≥ $20K — new section.** Done 2026-08-19. Daily Triggers group,
+ payload key `bigWinners`. **3-day lookback** (`TRIGGER_LOOKBACK_DAYS`); one row
+ per AID (peak win day); **Created** = that day. Non-Elite players included and
+ shown in every AM's tab — the only section outside the Elite book. **Manager
+ dashboard (2026-09-27):** dedupe by AID for tile + section; do not sum per-AM
+ `focus.bigWinners`. Full rules: [`BIG_WINNERS_DAILY_TRIGGERS.md`](BIG_WINNERS_DAILY_TRIGGERS.md).
+ Columns: AID · Name · Elite/AM · Win (GGR) · SC Turnover · SC Won · Game ·
+ Created · Pending RD. Config: `BIG_WINNER_SECTION_MIN = 20_000`,
+ `BIG_WINNER_MIN_PLAYER_WIN = 5_000` (RD flag only). GGR sign: player win =
+ negative GGR day; SQL uses `SUM(profit − loss) ≤ −BIG_WINNER_SECTION_MIN`.
 
 4. **Last win above 1K SC — date plus redeemed yes/no.** *Parked 2026-08-19.
  Design locked — build in a fresh chat with no re-discussion needed.*
