@@ -36,15 +36,25 @@ function lineAttrs(l: ChartLine, fallbackWidth: number): string {
     (l.dashed ? ` stroke-dasharray="3 3"` : "");
 }
 
-/** Axis-free sparkline. Each line is scaled to its own range, so a book and
- *  the whole platform can share one panel and both show their shape. */
-export function sparklineSvg(lines: ChartLine[], w = 300, h = 64): string {
+export interface SparklineOptions {
+  w?: number;
+  h?: number;
+  /** One scale from $0 to the highest value of any line, so a subset series
+   *  (Elite inside Jackpota, a book inside Elite) never draws above its parent. */
+  shared?: boolean;
+}
+
+/** Axis-free sparkline. By default each line is scaled to its own range, so
+ *  lines of very different size each show their shape; `shared` is proportional. */
+export function sparklineSvg(lines: ChartLine[], opts: SparklineOptions = {}): string {
+  const { w = 300, h = 64, shared = false } = opts;
   const pad = 3;
+  const sharedHi = Math.max(0, ...lines.flatMap((l) => l.values));
   const paths = lines.map((l) => {
     const vals = l.values;
     if (!vals.length) return "";
-    const lo = Math.min(...vals);
-    const hi = Math.max(...vals);
+    const lo = shared ? 0 : Math.min(...vals);
+    const hi = shared ? sharedHi : Math.max(...vals);
     const span = hi - lo || 1;
     const x = (i: number) => (vals.length <= 1 ? w / 2 : (i * w) / (vals.length - 1));
     const y = (v: number) => pad + (h - 2 * pad) * (1 - (v - lo) / span);

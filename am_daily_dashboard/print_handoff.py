@@ -50,13 +50,16 @@ def main() -> None:
     block = f"""@elite-am-brief — continue on branch am-brief-expansion.
 
 Last verify PASS: {last_verified} (newest export: {last_good}). Do not read exports/ JSON.
-Test baseline: python -m unittest discover -s am_daily_dashboard (291 tests; any failure is new).
+Test baseline: python -m unittest discover -s am_daily_dashboard (293 tests, 29 jsdom; any failure is new).
 
 Open manager: VIP\\Elite_Cursor\\AM Brief\\elite_am_brief.html
 
 Locked this round (see @elite-am-brief SKILL.md):
-- Purchase Trends: purchase_trend_sql (60d), trends.ts + trend.ts; hero 3rd panel = Last 30 Days;
+- Purchase Trends: purchase_trend_sql (60d), trends.ts + trend.ts; hero 3rd panel = Last 30 Days
+  on one shared $0-based scale (sparklineSvg shared) so Elite never draws above Jackpota;
   State chart removed — do not re-add. Same Weekday = last 8 weekdays.
+- Daily chart: one proportional left $ axis, Elite + Jackpota default, values on hover only.
+- Goals History: Jul 2026 = 100% for every AM + team, entered by hand (source manual-100) — do not regenerate 2026-07-31.
 - Snapshot bands 3x3; 9th tile This Month Hold % = MTD Net / MTD Purchase.
 - Lock & TAB: two tables, 8 columns; self-exclusion 7-day rule (LOCKS_SELF_EXCLUSION_LEAD_DAYS).
 - After web/src edit: npx tsc --noEmit -> build.mjs -> --html-only -> verify_brief.py
@@ -64,7 +67,8 @@ Locked this round (see @elite-am-brief SKILL.md):
 Plan + rollback: am_daily_dashboard/AM_BRIEF_EXPANSION_PLAN.md
 Daily catch-up: python am_daily_dashboard/generate_am_brief_range.py --catch-up --verify
 
-Git: am-brief-expansion — eae2fe0 (expansion), cc9a99b (Big Winners dedupe + Looker 30d wiring).
+Git: am-brief-expansion — ca42ac1 (AM colours, MTD Hold %, run-date labels), 64bc940 + f205024 (trend chart),
+  0983cfd (Team Goals subtitle + AM Overview removed), then the hero sparkline + Jul history commit.
 Looker 5207: Purchase+filter+date=30+day (calibrated 2026-09-27) — capture_looker_portal_url.py <AID>.{verify_hint}
 """
     print(block)

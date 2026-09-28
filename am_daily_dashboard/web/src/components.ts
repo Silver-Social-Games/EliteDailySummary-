@@ -107,7 +107,7 @@ function trendHeroPanel(): string {
           ${wowPillHtml(pctLabel(st.pct))}
         </div>
         <div class="segment-metric-foot t-tertiary t-small">${esc(primary.label)} · ${days}D total vs prior ${days}D</div>
-        <div class="trend-spark">${sparklineSvg(lines)}</div>
+        <div class="trend-spark">${sparklineSvg(lines, { shared: true })}</div>
         <div class="trend-hero-foot t-small">
           <span class="trend-legend">${legend}</span>
           <span class="spacer"></span>

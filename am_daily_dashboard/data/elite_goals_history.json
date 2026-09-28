@@ -1,5 +1,473 @@
 {
   "months": {
+    "2026-07": {
+      "monthKey": "2026-07",
+      "monthLabel": "Jul 2026",
+      "closedAsOf": "2026-07-31",
+      "source": "manual-100",
+      "agents": {
+        "Coral": {
+          "agent": "coral_s",
+          "agentName": "Coral",
+          "monthLabel": "Jul 2026",
+          "kpiPoints": 80.0,
+          "kpiPointsMax": 80.0,
+          "kpiPct": 100.0,
+          "weightedTrackedPct": 100.0,
+          "portfolioSize": null,
+          "activePlayers": null,
+          "mtdPurchase": null,
+          "mtdNetPurchase": null,
+          "kpis": [
+            {
+              "key": "daily_avg_purchase",
+              "label": "Daily Avg Purchase",
+              "weightLabel": "15%",
+              "goalDisplay": "$49,000",
+              "actualDisplay": "$49,000",
+              "paceDisplay": "$49,000",
+              "gapDisplay": "$0",
+              "status": "On track",
+              "statusTone": "success"
+            },
+            {
+              "key": "daily_avg_net_purchase",
+              "label": "Daily Avg Net Purchase",
+              "weightLabel": "15%",
+              "goalDisplay": "$28,000",
+              "actualDisplay": "$28,000",
+              "paceDisplay": "$28,000",
+              "gapDisplay": "$0",
+              "status": "On track",
+              "statusTone": "success"
+            },
+            {
+              "key": "monthly_purchasers",
+              "label": "Monthly Purchasers",
+              "weightLabel": "15%",
+              "goalDisplay": "509",
+              "actualDisplay": "509",
+              "paceDisplay": "509",
+              "gapDisplay": "+0",
+              "status": "On track",
+              "statusTone": "success"
+            },
+            {
+              "key": "arppu",
+              "label": "ARPPU",
+              "weightLabel": "15%",
+              "goalDisplay": "$2,952",
+              "actualDisplay": "$2,952",
+              "paceDisplay": "$2,952",
+              "gapDisplay": "$0",
+              "status": "On track",
+              "statusTone": "success"
+            },
+            {
+              "key": "reactivations",
+              "label": "# Reactivation",
+              "weightLabel": "8%",
+              "goalDisplay": "49",
+              "actualDisplay": "49",
+              "paceDisplay": "49",
+              "gapDisplay": "+0",
+              "status": "On track",
+              "statusTone": "success"
+            },
+            {
+              "key": "upgrades",
+              "label": "Upgrade to Elite",
+              "weightLabel": "5%",
+              "goalDisplay": "49",
+              "actualDisplay": "49",
+              "paceDisplay": "49",
+              "gapDisplay": "+0",
+              "status": "On track",
+              "statusTone": "success"
+            },
+            {
+              "key": "pct_active",
+              "label": "% Active from portfolio",
+              "weightLabel": "7%",
+              "goalDisplay": "95.0%",
+              "actualDisplay": "95.0%",
+              "paceDisplay": "95.0%",
+              "gapDisplay": "+0.0pp",
+              "status": "On track",
+              "statusTone": "success"
+            }
+          ]
+        },
+        "Gabriel": {
+          "agent": "gabriel_e",
+          "agentName": "Gabriel",
+          "monthLabel": "Jul 2026",
+          "kpiPoints": 80.0,
+          "kpiPointsMax": 80.0,
+          "kpiPct": 100.0,
+          "weightedTrackedPct": 100.0,
+          "portfolioSize": null,
+          "activePlayers": null,
+          "mtdPurchase": null,
+          "mtdNetPurchase": null,
+          "kpis": [
+            {
+              "key": "daily_avg_purchase",
+              "label": "Daily Avg Purchase",
+              "weightLabel": "15%",
+              "goalDisplay": "$49,000",
+              "actualDisplay": "$49,000",
+              "paceDisplay": "$49,000",
+              "gapDisplay": "$0",
+              "status": "On track",
+              "statusTone": "success"
+            },
+            {
+              "key": "daily_avg_net_purchase",
+              "label": "Daily Avg Net Purchase",
+              "weightLabel": "15%",
+              "goalDisplay": "$28,000",
+              "actualDisplay": "$28,000",
+              "paceDisplay": "$28,000",
+              "gapDisplay": "$0",
+              "status": "On track",
+              "statusTone": "success"
+            },
+            {
+              "key": "monthly_purchasers",
+              "label": "Monthly Purchasers",
+              "weightLabel": "15%",
+              "goalDisplay": "509",
+              "actualDisplay": "509",
+              "paceDisplay": "509",
+              "gapDisplay": "+0",
+              "status": "On track",
+              "statusTone": "success"
+            },
+            {
+              "key": "arppu",
+              "label": "ARPPU",
+              "weightLabel": "15%",
+              "goalDisplay": "$2,952",
+              "actualDisplay": "$2,952",
+              "paceDisplay": "$2,952",
+              "gapDisplay": "$0",
+              "status": "On track",
+              "statusTone": "success"
+            },
+            {
+              "key": "reactivations",
+              "label": "# Reactivation",
+              "weightLabel": "8%",
+              "goalDisplay": "49",
+              "actualDisplay": "49",
+              "paceDisplay": "49",
+              "gapDisplay": "+0",
+              "status": "On track",
+              "statusTone": "success"
+            },
+            {
+              "key": "upgrades",
+              "label": "Upgrade to Elite",
+              "weightLabel": "5%",
+              "goalDisplay": "49",
+              "actualDisplay": "49",
+              "paceDisplay": "49",
+              "gapDisplay": "+0",
+              "status": "On track",
+              "statusTone": "success"
+            },
+            {
+              "key": "pct_active",
+              "label": "% Active from portfolio",
+              "weightLabel": "7%",
+              "goalDisplay": "95.0%",
+              "actualDisplay": "95.0%",
+              "paceDisplay": "95.0%",
+              "gapDisplay": "+0.0pp",
+              "status": "On track",
+              "statusTone": "success"
+            }
+          ]
+        },
+        "Lee": {
+          "agent": "lee_t",
+          "agentName": "Lee",
+          "monthLabel": "Jul 2026",
+          "kpiPoints": 80.0,
+          "kpiPointsMax": 80.0,
+          "kpiPct": 100.0,
+          "weightedTrackedPct": 100.0,
+          "portfolioSize": null,
+          "activePlayers": null,
+          "mtdPurchase": null,
+          "mtdNetPurchase": null,
+          "kpis": [
+            {
+              "key": "daily_avg_purchase",
+              "label": "Daily Avg Purchase",
+              "weightLabel": "15%",
+              "goalDisplay": "$49,000",
+              "actualDisplay": "$49,000",
+              "paceDisplay": "$49,000",
+              "gapDisplay": "$0",
+              "status": "On track",
+              "statusTone": "success"
+            },
+            {
+              "key": "daily_avg_net_purchase",
+              "label": "Daily Avg Net Purchase",
+              "weightLabel": "15%",
+              "goalDisplay": "$28,000",
+              "actualDisplay": "$28,000",
+              "paceDisplay": "$28,000",
+              "gapDisplay": "$0",
+              "status": "On track",
+              "statusTone": "success"
+            },
+            {
+              "key": "monthly_purchasers",
+              "label": "Monthly Purchasers",
+              "weightLabel": "15%",
+              "goalDisplay": "509",
+              "actualDisplay": "509",
+              "paceDisplay": "509",
+              "gapDisplay": "+0",
+              "status": "On track",
+              "statusTone": "success"
+            },
+            {
+              "key": "arppu",
+              "label": "ARPPU",
+              "weightLabel": "15%",
+              "goalDisplay": "$2,952",
+              "actualDisplay": "$2,952",
+              "paceDisplay": "$2,952",
+              "gapDisplay": "$0",
+              "status": "On track",
+              "statusTone": "success"
+            },
+            {
+              "key": "reactivations",
+              "label": "# Reactivation",
+              "weightLabel": "8%",
+              "goalDisplay": "49",
+              "actualDisplay": "49",
+              "paceDisplay": "49",
+              "gapDisplay": "+0",
+              "status": "On track",
+              "statusTone": "success"
+            },
+            {
+              "key": "upgrades",
+              "label": "Upgrade to Elite",
+              "weightLabel": "5%",
+              "goalDisplay": "49",
+              "actualDisplay": "49",
+              "paceDisplay": "49",
+              "gapDisplay": "+0",
+              "status": "On track",
+              "statusTone": "success"
+            },
+            {
+              "key": "pct_active",
+              "label": "% Active from portfolio",
+              "weightLabel": "7%",
+              "goalDisplay": "95.0%",
+              "actualDisplay": "95.0%",
+              "paceDisplay": "95.0%",
+              "gapDisplay": "+0.0pp",
+              "status": "On track",
+              "statusTone": "success"
+            }
+          ]
+        },
+        "Rachel": {
+          "agent": "rachel_a",
+          "agentName": "Rachel",
+          "monthLabel": "Jul 2026",
+          "kpiPoints": 80.0,
+          "kpiPointsMax": 80.0,
+          "kpiPct": 100.0,
+          "weightedTrackedPct": 100.0,
+          "portfolioSize": null,
+          "activePlayers": null,
+          "mtdPurchase": null,
+          "mtdNetPurchase": null,
+          "kpis": [
+            {
+              "key": "daily_avg_purchase",
+              "label": "Daily Avg Purchase",
+              "weightLabel": "15%",
+              "goalDisplay": "$49,000",
+              "actualDisplay": "$49,000",
+              "paceDisplay": "$49,000",
+              "gapDisplay": "$0",
+              "status": "On track",
+              "statusTone": "success"
+            },
+            {
+              "key": "daily_avg_net_purchase",
+              "label": "Daily Avg Net Purchase",
+              "weightLabel": "15%",
+              "goalDisplay": "$28,000",
+              "actualDisplay": "$28,000",
+              "paceDisplay": "$28,000",
+              "gapDisplay": "$0",
+              "status": "On track",
+              "statusTone": "success"
+            },
+            {
+              "key": "monthly_purchasers",
+              "label": "Monthly Purchasers",
+              "weightLabel": "15%",
+              "goalDisplay": "509",
+              "actualDisplay": "509",
+              "paceDisplay": "509",
+              "gapDisplay": "+0",
+              "status": "On track",
+              "statusTone": "success"
+            },
+            {
+              "key": "arppu",
+              "label": "ARPPU",
+              "weightLabel": "15%",
+              "goalDisplay": "$2,952",
+              "actualDisplay": "$2,952",
+              "paceDisplay": "$2,952",
+              "gapDisplay": "$0",
+              "status": "On track",
+              "statusTone": "success"
+            },
+            {
+              "key": "reactivations",
+              "label": "# Reactivation",
+              "weightLabel": "8%",
+              "goalDisplay": "49",
+              "actualDisplay": "49",
+              "paceDisplay": "49",
+              "gapDisplay": "+0",
+              "status": "On track",
+              "statusTone": "success"
+            },
+            {
+              "key": "upgrades",
+              "label": "Upgrade to Elite",
+              "weightLabel": "5%",
+              "goalDisplay": "49",
+              "actualDisplay": "49",
+              "paceDisplay": "49",
+              "gapDisplay": "+0",
+              "status": "On track",
+              "statusTone": "success"
+            },
+            {
+              "key": "pct_active",
+              "label": "% Active from portfolio",
+              "weightLabel": "7%",
+              "goalDisplay": "95.0%",
+              "actualDisplay": "95.0%",
+              "paceDisplay": "95.0%",
+              "gapDisplay": "+0.0pp",
+              "status": "On track",
+              "statusTone": "success"
+            }
+          ]
+        }
+      },
+      "team": {
+        "agent": "team",
+        "agentName": "Team",
+        "monthLabel": "Jul 2026",
+        "kpiPoints": 80.0,
+        "kpiPointsMax": 80.0,
+        "kpiPct": 100.0,
+        "weightedTrackedPct": 100.0,
+        "portfolioSize": null,
+        "activePlayers": null,
+        "mtdPurchase": null,
+        "mtdNetPurchase": null,
+        "kpis": [
+          {
+            "key": "daily_avg_purchase",
+            "label": "Daily Avg Purchase",
+            "weightLabel": "15%",
+            "goalDisplay": "$200,000",
+            "actualDisplay": "$200,000",
+            "paceDisplay": "$200,000",
+            "gapDisplay": "$0",
+            "status": "On track",
+            "statusTone": "success"
+          },
+          {
+            "key": "daily_avg_net_purchase",
+            "label": "Daily Avg Net Purchase",
+            "weightLabel": "15%",
+            "goalDisplay": "$116,000",
+            "actualDisplay": "$116,000",
+            "paceDisplay": "$116,000",
+            "gapDisplay": "$0",
+            "status": "On track",
+            "statusTone": "success"
+          },
+          {
+            "key": "monthly_purchasers",
+            "label": "Monthly Purchasers",
+            "weightLabel": "15%",
+            "goalDisplay": "2,100",
+            "actualDisplay": "2,100",
+            "paceDisplay": "2,100",
+            "gapDisplay": "+0",
+            "status": "On track",
+            "statusTone": "success"
+          },
+          {
+            "key": "arppu",
+            "label": "ARPPU",
+            "weightLabel": "15%",
+            "goalDisplay": "$2,952",
+            "actualDisplay": "$2,952",
+            "paceDisplay": "$2,952",
+            "gapDisplay": "$0",
+            "status": "On track",
+            "statusTone": "success"
+          },
+          {
+            "key": "reactivations",
+            "label": "# Reactivation",
+            "weightLabel": "8%",
+            "goalDisplay": "200",
+            "actualDisplay": "200",
+            "paceDisplay": "200",
+            "gapDisplay": "+0",
+            "status": "On track",
+            "statusTone": "success"
+          },
+          {
+            "key": "upgrades",
+            "label": "Upgrade to Elite",
+            "weightLabel": "5%",
+            "goalDisplay": "200",
+            "actualDisplay": "200",
+            "paceDisplay": "200",
+            "gapDisplay": "+0",
+            "status": "On track",
+            "statusTone": "success"
+          },
+          {
+            "key": "pct_active",
+            "label": "% Active from portfolio",
+            "weightLabel": "7%",
+            "goalDisplay": "95.0%",
+            "actualDisplay": "95.0%",
+            "paceDisplay": "95.0%",
+            "gapDisplay": "+0.0pp",
+            "status": "On track",
+            "statusTone": "success"
+          }
+        ]
+      }
+    },
     "2026-08": {
       "monthKey": "2026-08",
       "monthLabel": "Aug 2026",

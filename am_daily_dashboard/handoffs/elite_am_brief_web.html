@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <!-- am-brief-build sources sha256:16e81bc315ee6fba59c3c432e51bf0e4fb443d88a2dc2e5feac6ded808aa57f3 output sha256:7785bc2e71234e5655751577e0700dd1b957e5306546611ed7e8891285596890 -->
+  <!-- am-brief-build sources sha256:8cb0082462420482a54c0d7154c6d17981fc4fd5b94a4dd73f36d0f34f70a0e8 output sha256:d18cc8bdff5b3b59c93912fd5ad32f924b6df39b19c6a7e75485321c41b84ea0 -->
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Elite Dashboard</title>
   <style>
@@ -1586,13 +1586,15 @@
     var _a;
     return `fill="none" stroke="${esc(l.color)}" stroke-width="${(_a = l.width) != null ? _a : fallbackWidth}" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"` + (l.dashed ? ` stroke-dasharray="3 3"` : "");
   }
-  function sparklineSvg(lines, w = 300, h = 64) {
+  function sparklineSvg(lines, opts = {}) {
+    const { w = 300, h = 64, shared = false } = opts;
     const pad = 3;
+    const sharedHi = Math.max(0, ...lines.flatMap((l) => l.values));
     const paths = lines.map((l) => {
       const vals = l.values;
       if (!vals.length) return "";
-      const lo = Math.min(...vals);
-      const hi = Math.max(...vals);
+      const lo = shared ? 0 : Math.min(...vals);
+      const hi = shared ? sharedHi : Math.max(...vals);
       const span = hi - lo || 1;
       const x = (i) => vals.length <= 1 ? w / 2 : i * w / (vals.length - 1);
       const y = (v) => pad + (h - 2 * pad) * (1 - (v - lo) / span);
@@ -2088,7 +2090,7 @@
           ${wowPillHtml(pctLabel(st.pct))}
         </div>
         <div class="segment-metric-foot t-tertiary t-small">${esc(primary.label)} \xB7 ${days}D total vs prior ${days}D</div>
-        <div class="trend-spark">${sparklineSvg(lines)}</div>
+        <div class="trend-spark">${sparklineSvg(lines, { shared: true })}</div>
         <div class="trend-hero-foot t-small">
           <span class="trend-legend">${legend}</span>
           <span class="spacer"></span>

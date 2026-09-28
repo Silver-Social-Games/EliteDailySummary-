@@ -150,7 +150,7 @@ Ship B → C → D → E before F. Enable F + H together for AM rollout.
 
 ---
 
-## New-chat handoff (paste this)
+## Original expansion handoff (superseded — use "Session 2026-09-28" below)
 
 ```
 @elite-am-brief — execute AM Brief expansion plan (7 features).
@@ -178,6 +178,43 @@ Flags: PEER_BOOK_MODE=False until F is QA'd
 Model: Thinking for Phase 0 + B (see plan "Model choice — per phase")
 
 Do not read exports/ JSON in agent tools — use verify_brief.py only.
+```
+
+---
+
+## Session 2026-09-28 — shipped + open (current handoff)
+
+**Shipped on `am-brief-expansion` (not pushed):**
+
+- `ca42ac1` — fixed AM trend colours (Coral red, Gabriel blue, Lee green, Rachel purple, Alon orange); **1 Month Anniversary · Last 3 Days** label; **This Month Hold %** on the Jackpota / Elite WoW panels (`purchase_trend_sql` `net` → `report.purchaseTrend.holdMtd`); **run-date labels** (board shows the data date + 1; files, queries and archive keys stay on the data date); Slack header shows the run date.
+- `64bc940` + `f205024` — Purchase Trends daily chart: **one left $ axis for every series, heights proportional, never a second axis**; default **Elite + Jackpota for every audience**; 280px; no axis title or legend; a dot on every day; **values on hover only** in a readout strip above the plot (CSS `:hover`, no JS); small end labels with leader lines. Static per-day labels and a split axis were both tried and rejected.
+- `0983cfd` — no subtitle on Team Goals ("Your targets, Elite Portfolio" removed); **AM Overview** table removed from the Manager Dashboard (`overview` still built, do not re-add); calendar button shows only the date, bold black.
+- Every saved brief refreshed via `--html-only --date 2026-09-27 --cursor-audience manager`. Coral / Gabriel / Lee / Rachel copies in `Elite_Cursor\AM Brief\<AM>\` carry the new shell.
+
+**Last verify PASS:** 2026-09-27 with `--render-check` (2026-09-26 also PASS after a full regen with `holdMtd`). **Tests:** 293 Python + 29 jsdom, all green.
+
+- Follow-up commit (same day) — **hero sparkline on one shared $0 scale** (`sparklineSvg(lines, { shared: true })`; jsdom test asserts the smaller series never draws above its parent and its peak sits below); **Jul 2026 Goals History = 100%** for Coral / Gabriel / Lee / Rachel + team in `data/elite_goals_history.json` (`source: manual-100`, goals from the July TSV rows, actual = pace = goal); SKILL Manager Dashboard line; `print_handoff.py` baseline. Verify 2026-09-27 `--render-check` PASS after `--html-only`.
+
+**Not done (skipped by user):** keeping or hiding the "Monday" archive entry. It is Sunday 27 Sep's full data shown on the run date. Leave it.
+
+### Open work — done 2026-09-28 (kept for reference)
+
+No open items from this session. Next feature work: see **Build order** above.
+
+1. **Hero sparkline never crosses.** In `web/src/charts.ts` `sparklineSvg`, add a `shared` option: `lo = 0` and one common `hi` across all lines. Today each line is scaled to its own min–max, so Elite can draw above Jackpota. `components.ts::trendHeroPanel` passes `{ shared: true }` (manager: Jackpota over Elite; AM file: Elite over own book). Add a jsdom test that Elite's y is at or below Jackpota's at every point of the hero `svg.spark`.
+2. **July 2026 Goals History = 100% (user decision, no BigQuery).** The `exports/2026-07-31` JSON predates Goals, so `goals_history.py --close` writes nothing. Instead, write a `2026-07` entry into `data/elite_goals_history.json` with a one-off snippet, same shape as `2026-08`: `monthLabel "Jul 2026"`, `closedAsOf "2026-07-31"`, `source "manual-100"`; agents Coral / Gabriel / Lee / Rachel (tags `coral_s` / `gabriel_e` / `lee_t` / `rachel_a`) plus `team`, each `kpiPoints 80`, `kpiPointsMax 80`, `kpiPct 100`, `weightedTrackedPct 100`, and `portfolioSize` / `activePlayers` / `mtd*` null. The 7 KPI rows use August's keys, labels and weights; goals come from the `elite_goals.tsv` July rows (AM: $49,000 · $28,000 · 509 · $2,952 · 49 · 49 · 95.0%; team: $200,000 · $116,000 · 2,100 · $2,952 · 200 · 200 · 95.0%); actual = pace = goal, gap 0, `On track` / `success`. If the user pastes real July actuals, use them for Actual only.
+3. Ship: `npx tsc --noEmit` → `node am_daily_dashboard/web/build.mjs` → `npm test` (tests_js) → `python -m unittest discover -s am_daily_dashboard` → `--html-only --date 2026-09-27 --cursor-audience manager` → `verify_brief.py --date 2026-09-27 --render-check`. Update the SKILL hero line and `print_handoff.py` (test baseline 293, the commits above). Commit on `am-brief-expansion`, with no push.
+
+### New-chat handoff (paste this)
+
+```
+@elite-am-brief — branch am-brief-expansion.
+Read am_daily_dashboard/AM_BRIEF_EXPANSION_PLAN.md section "Session 2026-09-28" (all open work done).
+Last verify PASS: 2026-09-27 (--render-check). Tests: 293 Python + 29 jsdom green.
+Do not read exports/ JSON or HTML — use verify_brief.py. PowerShell: chain with ; not &&.
+July Goals History = 100% for every AM + team, entered by hand — do not regenerate 2026-07-31.
+Commit on am-brief-expansion, do not push.
+Open: VIP\Elite_Cursor\AM Brief\elite_am_brief.html
 ```
 
 For feature specs (SQL, views, peer mode, calculator): read sections **Phase 0** through **7** in [`AM_DAILY_DASHBOARD.md`](AM_DAILY_DASHBOARD.md) after implementation updates, and the planning chat; this file holds rollback, build order, and handoff.

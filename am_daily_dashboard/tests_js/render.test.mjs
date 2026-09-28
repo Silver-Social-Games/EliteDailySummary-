@@ -496,6 +496,27 @@ describe("purchase trends + hold tile", () => {
     assert.ok(!doc.querySelector(".geo-panel"), "state chart must be gone");
   });
 
+  for (const [fixture, opts, parent, child] of [
+    ["manager", { seedGate: null }, "Jackpota", "Elite"],
+    ["single_am_coral", {}, "Elite", "own book"],
+  ]) {
+    test(`${fixture} hero sparkline: ${child} never draws above ${parent}`, () => {
+      const { dom, errors } = loadBoard(fixture, opts);
+      clickNav(dom, "home");
+      const paths = [...dom.window.document.querySelectorAll(".content button.trend-hero svg.spark path")];
+      assert.equal(paths.length, 2, "hero sparkline carries two lines");
+      const ys = (p) => [...p.getAttribute("d").matchAll(/[ML][\d.]+,([\d.]+)/g)].map((m) => Number(m[1]));
+      const [parentY, childY] = paths.map(ys);
+      assert.equal(parentY.length, childY.length);
+      assert.ok(parentY.length > 1, "expected a multi-day sparkline");
+      childY.forEach((y, i) => assert.ok(y >= parentY[i] - 0.05,
+        `day ${i}: ${child} y=${y} above ${parent} y=${parentY[i]}`));
+      assert.ok(Math.min(...childY) > Math.min(...parentY) + 5,
+        `${child}'s peak must sit below ${parent}'s on one shared scale, not be stretched to the top`);
+      assert.deepEqual(errors, []);
+    });
+  }
+
   test("manager view: daily line chart, weekday bars, AM overlay toggle", () => {
     const { dom, meta, errors } = loadBoard("manager", { seedGate: null });
     const doc = dom.window.document;
