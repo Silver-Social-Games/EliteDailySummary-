@@ -18,6 +18,7 @@ from elite_lib import render_html_shell  # noqa: E402
 from elite_lib.export_paths import mirror_to_cursor  # noqa: E402
 from mirror_am_brief import mirror_am_brief_to_cursor  # noqa: E402
 from payload_builders import strip_bonus_lookup_for_payload  # noqa: E402
+from goals_history import attach_history_to_payload  # noqa: E402
 
 SHELL = PACKAGE_DIR / "handoffs" / "elite_am_brief_web.html"
 OUT_DIR = PACKAGE_DIR / "exports"
@@ -105,6 +106,11 @@ def _load_bonus_lookup_for_date(report_date: str) -> dict | None:
         return None
 
 
+def _goals_histories(payload: dict) -> list:
+    agents = [(a.get("goals") or {}).get("history") for a in payload.get("agents") or []]
+    return agents + [(payload.get("teamGoals") or {}).get("history")]
+
+
 def refresh_all_brief_archives(*, mirror: bool = False) -> list[Path]:
     """Re-embed archive lists in saved briefs whose calendar is stale.
 
@@ -125,13 +131,17 @@ def refresh_all_brief_archives(*, mirror: bool = False) -> list[Path]:
             continue
         slug = m.group(2) or ""
         payload = json.loads(json_path.read_text(encoding="utf-8"))
+        history_before = _goals_histories(payload)
+        attach_history_to_payload(payload)
+        json_changed = _goals_histories(payload) != history_before
         report_date = str((payload.get("report") or {}).get("date") or m.group(1))
         report = dict(payload.get("report") or {})
         new_archive = archive_entries(slug, report_date)
-        json_changed = (report.get("archive") or []) != new_archive
-        if json_changed:
+        if (report.get("archive") or []) != new_archive:
             report["archive"] = new_archive
             payload = {**payload, "report": report}
+            json_changed = True
+        if json_changed:
             json_path.write_text(
                 json.dumps(payload, indent=2, default=str),
                 encoding="utf-8",

@@ -197,6 +197,21 @@ def _verify_pct_active(block: dict, label: str, report: Report) -> None:
     )
 
 
+def _expected_history_months(report_date: str) -> dict[str, list[str]]:
+    from datetime import date
+
+    from goals_history import agent_history, load_history, team_history
+
+    try:
+        d = date.fromisoformat(report_date)
+    except ValueError:
+        return {}
+    h = load_history()
+    out = {n: [m["monthKey"] for m in agent_history(h, n, d)] for n in GOALS_AM_ORDER}
+    out["team"] = [m["monthKey"] for m in team_history(h, d)]
+    return {k: v for k, v in out.items() if v}
+
+
 def verify_goals_history(payload: dict, report: Report) -> None:
     """Phase B: final-month Goals history — skip gracefully when none closed."""
     agents = payload.get("agents") or []
@@ -207,10 +222,22 @@ def verify_goals_history(payload: dict, report: Report) -> None:
         if (a.get("goals") or {}).get("history")
     }
     team_hist = team.get("history")
-    if not agent_hist and not team_hist:
+    report_date = str((payload.get("report") or {}).get("date") or "")
+    expected = _expected_history_months(report_date)
+    if not agent_hist and not team_hist and not expected:
         return
     print("\nGoals history (prior closed months)")
-    current_month = str((payload.get("report") or {}).get("date") or "")[:7]
+    current_month = report_date[:7]
+    for name in GOALS_AM_ORDER:
+        block = next((a.get("goals") for a in agents if a.get("agentName") == name), None)
+        if block and block.get("available"):
+            got = [m.get("monthKey") for m in agent_hist.get(name) or []]
+            report.check(got == expected.get(name, []), f"{name} history matches goals history file",
+                         f"got {got}, expected {expected.get(name, [])}")
+    if team.get("available"):
+        got = [m.get("monthKey") for m in team_hist or []]
+        report.check(got == expected.get("team", []), "Team history matches goals history file",
+                     f"got {got}, expected {expected.get('team', [])}")
     for name, hist in agent_hist.items():
         report.check(isinstance(hist, list), f"{name} history is a list")
         for m in hist or []:
