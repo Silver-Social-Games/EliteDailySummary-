@@ -1,18 +1,20 @@
 ---
-description: Elite morning report + Slack send schedule (Sun–Thu only)
+description: Elite morning schedule (AM Brief scheduled; daily summary manual)
 alwaysApply: true
 ---
 
 # Elite morning send schedule
 
-Reports and Slack posts run **Sunday through Thursday only** (10:00 AM Israel).
-**Never** generate, publish, or Slack-post on **Friday** or **Saturday**.
+**AM Brief** runs **every day** (Sun–Sat) at **10:00 AM Israel** via
+`Elite_AMBrief_10AM_Israel` (WakeToRun, StartWhenAvailable).
 
-| Run day | Report | Slack |
-|---------|--------|-------|
-| **Sunday** | Weekend summary — prior **Thu–Sat** compiled | Weekend link only |
-| **Monday–Thursday** | Daily summary — **yesterday** | Daily link only |
-| **Friday / Saturday** | Skip | No send |
+| Run day | Report |
+|---------|--------|
+| **Every day (scheduled)** | AM Brief — catch-up through yesterday (max **2** missing days per run) |
+| **Daily summary** | **Never scheduled** — do not enable `Elite_DailySummary_10AM_Israel`; run only when the user explicitly asks (Cursor / manual) |
+| **Weekend bundle (manual)** | `generate_morning_elite.py --force weekend` — prior Thu–Sat |
 
-Slack follows the same calendar: Sun–Thu only; Fri/Sat silent.
-Order when sending: generate → git Pages publish → Slack.
+After a **manual** daily/weekend summary, run `publish_pages_git.py` for GitHub Pages.
+
+AM Brief is **not** on the daily summary task. Full AM backfill:
+`generate_am_brief_range.py --catch-up --verify`.

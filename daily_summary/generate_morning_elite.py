@@ -1,5 +1,5 @@
 """
-Elite morning reports — weekday router (Sun–Thu at 10:00 Israel).
+Elite morning reports — daily router (Sun–Sat at 10:00 Israel).
 
 Run from repo root:
   python daily_summary/generate_morning_elite.py
@@ -7,7 +7,7 @@ Run from repo root:
   python daily_summary/generate_morning_elite.py --force weekend
 
 Schedule: daily_summary/register_daily_summary_task.ps1 (10:00 Israel time).
-Sun=weekend (prior Thu–Sat), Mon–Thu=daily (yesterday), Fri/Sat=skip.
+Default every day: daily summary for yesterday. Use --force weekend for Thu–Sat bundle.
 """
 
 from __future__ import annotations
@@ -49,12 +49,7 @@ def _resolve_mode(today: date, force: str | None) -> str | None:
         return "daily"
     if force == "weekend":
         return "weekend"
-    wd = today.weekday()  # Mon=0 … Sun=6
-    if wd == 6:
-        return "weekend"
-    if wd in (0, 1, 2, 3):
-        return "daily"
-    return None
+    return "daily"
 
 
 def _check_daily_format(canvas_path: Path) -> list[str]:
@@ -109,7 +104,7 @@ def _validate_output(mode: str, report_date: date | None, weekend_dates: list[da
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Elite Sun-Thu morning report router")
+    parser = argparse.ArgumentParser(description="Elite daily morning report router (Sun–Sat)")
     parser.add_argument(
         "--force",
         choices=["daily", "weekend"],
@@ -132,10 +127,6 @@ def main() -> None:
 
     today = date.today()
     mode = _resolve_mode(today, args.force)
-
-    if mode is None:
-        print(f"Skipped - no Elite morning report on {today.strftime('%A')} (Fri/Sat).")
-        return
 
     if mode == "daily":
         report_date = args.date or (today - timedelta(days=1)).isoformat()

@@ -18,14 +18,13 @@ Live site: https://silver-social-games.github.io/EliteDailySummary-/
 
 ## Required after every daily / weekend summary
 
-When generating a daily or weekend Elite summary (scheduled task, Cursor skill,
-or manual router run), **always** finish with the git publish step unless the
-user explicitly says to keep it local. Then confirm the new report appears on
-the live site (index / `reports.json` / report URL).
+When generating a daily or weekend Elite summary (Cursor skill or manual run),
+**always** finish with the git publish step unless the user explicitly says to
+keep it local. Then confirm the new report appears on the live site (index /
+`reports.json` / report URL).
 
-Scheduled path already opts in via
-`run_morning_elite_scheduled.ps1 -EnablePagesAutoPublish`. Cursor / ad hoc runs
-must still run `publish_pages_git.py` themselves.
+Daily summary is **not** on Task Scheduler; run `publish_pages_git.py` after
+each generate (use `--skip-pull` if unstaged workshop files block pull).
 
 Dry-run: `python daily_summary/publish_pages_git.py --dry-run`
 

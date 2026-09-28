@@ -76,6 +76,14 @@ Write-Log "Running: $Python $PublishGit"
     $_
 }
 $publishCode = if ($null -ne $LASTEXITCODE) { $LASTEXITCODE } else { 0 }
+if ($publishCode -ne 0) {
+    Write-Log "Docs git publish failed; retrying with --skip-pull (unstaged workshop files)"
+    & $Python $PublishGit --skip-pull 2>&1 | ForEach-Object {
+        Write-Log $_
+        $_
+    }
+    $publishCode = if ($null -ne $LASTEXITCODE) { $LASTEXITCODE } else { 0 }
+}
 Write-Log "Docs git publish exit code: $publishCode"
 if ($publishCode -ne 0) {
     exit $publishCode

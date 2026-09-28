@@ -3,7 +3,7 @@ name: daily-elite-summary
 description: Generates the Elite Sun–Thu morning report through the weekday router, including same-weekday comparison and the Top 20 Same Day Comparison, then publishes to GitHub Pages. Use when the user asks for an Elite daily summary, morning Elite report, weekend summary, or the 10:00 AM Israel workflow.
 ---
 
-# Elite Morning Flow (Sun–Thu, 10:00 AM Israel)
+# Elite Daily Summary (Manual Only — Never Scheduled)
 
 **Canonical workflow:** [`daily_summary/DAILY_SUMMARY.md`](../../../daily_summary/DAILY_SUMMARY.md)
 
@@ -15,10 +15,9 @@ decline reasons**.
 
 | Generation day | Action |
 |----------------|--------|
-| **Sunday 10:00 AM Israel** | `python daily_summary/generate_morning_elite.py` → weekend (prior Thu–Sat) |
-| **Mon–Thu 10:00 AM Israel** | Same router → daily (yesterday) |
-| **Fri/Sat** | Skip — no scheduled run |
-| **On request** | `--force daily\|weekend` or `--date YYYY-MM-DD` |
+| **On request / Cursor** | Router → daily (yesterday); not on Task Scheduler |
+| **Weekend bundle (manual)** | `python daily_summary/generate_morning_elite.py --force weekend` |
+| **Flags** | `--force daily\|weekend` or `--date YYYY-MM-DD` |
 | **Sunday, Saturday daily only** | Router defaults to weekend (Thu–Sat). For one Saturday daily: `--force daily --date YYYY-MM-DD` (e.g. `--date 2026-08-22`) |
 | **In Cursor** | `@daily-elite-summary` or "run morning elite" |
 

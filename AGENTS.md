@@ -42,7 +42,7 @@ The complete definitions and examples live in `Elite.MD` and the focused rules.
 
 - Morning report: `python daily_summary/generate_morning_elite.py`
 - After every daily/weekend summary (Cursor or manual): `python daily_summary/publish_pages_git.py` → live site [EliteDailySummary-](https://silver-social-games.github.io/EliteDailySummary-/)
-- Schedule: Sun–Thu at 10:00 AM Israel time (task passes `-EnablePagesAutoPublish`)
+- Daily summary **not** on Task Scheduler (manual / `@daily-elite-summary` only). AM Brief: `Elite_AMBrief_10AM_Israel` Sun–Sat 10:00 IL.
 - Daily Skill: `@daily-elite-summary`
 - AM Brief board: `@elite-am-brief` · `python am_daily_dashboard/generate_am_daily_dashboard.py` · open from `VIP\Elite_Cursor\AM Brief` (not Pages)
 - CRM offer playbook board: `python crm_offer_calendar/generate_crm_offer_playbook.py` — edit `crm_offer_calendar/data/current_offers.json` for a new month (local handoff; not Pages)
@@ -50,6 +50,7 @@ The complete definitions and examples live in `Elite.MD` and the focused rules.
 - Elite roster by AM (unlocked, no Take a break): `python exports/generate_elite_roster_by_am.py` → `VIP\Elite_Cursor\Roster and Drop Lists` (AID, email, phone when present, first name; exclude `uam`/`elite_users` locked and lock text containing take a break — TAB is not always already locked)
 - Purchase lookup: `@purchase-lookup`
 - WoW drop investigation: `@wow-drop-reason-analysis`
+- Elite roundtable prep + company recap email: [`elite_roundtable/ELITE_ROUNDTABLE.md`](elite_roundtable/ELITE_ROUNDTABLE.md) · `python elite_roundtable/generate_company_recap_doc.py`
 - Feedback CRO: `@elite-feedback-cro`
 - Birthday gift AID summary: `@birthday-gift-activity`
 - After a finished project or successful multi-step task: `@collaboration-wrap`

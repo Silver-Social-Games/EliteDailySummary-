@@ -33,6 +33,7 @@ In chat, give the **Elite_Cursor** path as the place to open the file.
 | `new_elite_players` | New Elite Players |
 | `purchase_lookup` | Purchase Lookup |
 | `roster` | Roster and Drop Lists |
+| `roundtable` | Elite Roundtable |
 | `vip_event` | VIP Event |
 | `wow_drop` | WoW Drop Analysis |
 
