@@ -55,15 +55,14 @@ export function sparklineSvg(lines: ChartLine[], w = 300, h = 64): string {
 
 export interface LineChartOptions {
   height?: number;
-  /** Rotated left-axis title. */
-  axisTitle?: string;
   /** Name + latest value at each line's right end. */
   endLabels?: boolean;
-  /** A value label on every point; only drawn for 1–2 lines. */
-  pointValues?: boolean;
+  /** Per-day labels for the readout strip above the plot ("Sat 13 Sep"); on
+   *  hover the strip shows that day's values, at rest the latest day's. */
+  readoutLabels?: string[];
 }
 
-const END_LABEL_GAP = 14;
+const END_LABEL_GAP = 12;
 
 /** Spread label y's at least `gap` apart inside [lo, hi], keeping their order. */
 function spreadLabels(ys: number[], gap: number, lo: number, hi: number): number[] {
@@ -79,21 +78,27 @@ function spreadLabels(ys: number[], gap: number, lo: number, hi: number): number
   return res;
 }
 
-function shortValue(v: number): string {
-  return compactMoney(v).replace(/^\$/, "");
+/** One readout line: the day, then every series high to low with its colour dot. */
+function readoutText(cls: string, x0: number, yy: number, day: string, lines: ChartLine[], i: number): string {
+  const rows = lines.slice().sort((a, b) => (b.values[i] || 0) - (a.values[i] || 0));
+  const parts = rows.map((l) =>
+    `<tspan dx="14" fill="${esc(l.color)}">●</tspan><tspan class="lc-read-row" dx="4">${esc(l.label)} ` +
+    `<tspan class="lc-read-v">${esc(compactMoney(l.values[i] || 0))}</tspan></tspan>`
+  ).join("");
+  return `<text class="lc-read ${cls}" x="${x0}" y="${yy}"><tspan class="lc-read-day">${esc(day)}</tspan>${parts}</text>`;
 }
 
 /** Multi-series line chart on ONE linear $ axis from 0, so every line's
- *  height is proportional to its dollars — never add a second axis. One hover
- *  column per point whose native tooltip lists every series. */
+ *  height is proportional to its dollars — never add a second axis. Values
+ *  show on hover only, in a readout strip above the plot (CSS, no JS). */
 export function lineChartSvg(lines: ChartLine[], labels: string[], opts: LineChartOptions = {}): string {
   const W = 960;
-  const H = opts.height ?? 340;
-  const showValues = !!opts.pointValues && lines.length > 0 && lines.length <= 2;
-  const pl = opts.axisTitle ? 78 : 62;
-  const pr = opts.endLabels ? 132 : 18;
-  const pt = showValues ? 22 : 14;
-  const pb = showValues ? 44 : 30;
+  const H = opts.height ?? 280;
+  const readout = opts.readoutLabels;
+  const pl = 62;
+  const pr = opts.endLabels ? 104 : 18;
+  const pt = readout ? 34 : 14;
+  const pb = 30;
   const iw = W - pl - pr;
   const ih = H - pt - pb;
   const base = pt + ih;
@@ -108,10 +113,6 @@ export function lineChartSvg(lines: ChartLine[], labels: string[], opts: LineCha
     const yy = base - (k / ticks) * ih;
     grid += `<line class="lc-grid" x1="${pl}" x2="${W - pr}" y1="${yy}" y2="${yy}"></line>`;
     grid += `<text class="lc-axis lc-tick" x="${pl - 8}" y="${yy + 4}" text-anchor="end">${esc(compactMoney(tick * k))}</text>`;
-  }
-  if (opts.axisTitle) {
-    grid += `<text class="lc-axis-title" x="14" y="${pt + ih / 2}" text-anchor="middle"` +
-      ` transform="rotate(-90 14 ${pt + ih / 2})">${esc(opts.axisTitle)}</text>`;
   }
   const step = Math.max(1, Math.ceil(n / 8));
   let xl = "";
@@ -131,19 +132,9 @@ export function lineChartSvg(lines: ChartLine[], labels: string[], opts: LineCha
       ` data-v="${v}"></circle>`;
   }).join("");
 
-  let values = "";
-  if (showValues) {
-    lines.forEach((l, li) => {
-      const other = lines[1 - li];
-      l.values.forEach((v, i) => {
-        const above = !other || (v || 0) >= (other.values[i] || 0);
-        const cy = y(v || 0);
-        values += `<circle class="lc-dot" cx="${x(i).toFixed(1)}" cy="${cy.toFixed(1)}" r="2" fill="${esc(l.color)}"></circle>` +
-          `<text class="lc-val" x="${x(i).toFixed(1)}" y="${(above ? cy - 8 : cy + 15).toFixed(1)}"` +
-          ` text-anchor="middle" fill="${esc(l.color)}">${esc(shortValue(v || 0))}</text>`;
-      });
-    });
-  }
+  const dots = lines.map((l) => l.values.map((v, i) =>
+    `<circle class="lc-dot" cx="${x(i).toFixed(1)}" cy="${y(v || 0).toFixed(1)}" r="2" fill="${esc(l.color)}"></circle>`
+  ).join("")).join("");
 
   let ends = "";
   if (opts.endLabels) {
@@ -163,16 +154,25 @@ export function lineChartSvg(lines: ChartLine[], labels: string[], opts: LineCha
   }
 
   const colW = n > 1 ? iw / (n - 1) : iw;
-  const hits = labels.map((lab, i) => {
-    const rows = lines.slice().sort((a, b) => (b.values[i] || 0) - (a.values[i] || 0))
-      .map((l) => `${l.label}: ${money(l.values[i] || 0)}`);
-    const tip = [lab, ...rows].join("\n");
-    return `<rect class="lc-hit" x="${(x(i) - colW / 2).toFixed(1)}" y="${pt}" width="${colW.toFixed(1)}" height="${ih}">` +
-      `<title>${esc(tip)}</title></rect>`;
+  const readY = 16;
+  const rest = readout && n ? readoutText("lc-rest", pl, readY, readout[n - 1] || labels[n - 1], lines, n - 1) : "";
+  const cols = labels.map((lab, i) => {
+    const hit = `<rect class="lc-hit" x="${(x(i) - colW / 2).toFixed(1)}" y="${pt}" width="${colW.toFixed(1)}" height="${ih}"></rect>`;
+    if (!readout) {
+      const tip = [lab, ...lines.slice().sort((a, b) => (b.values[i] || 0) - (a.values[i] || 0))
+        .map((l) => `${l.label}: ${money(l.values[i] || 0)}`)].join("\n");
+      return hit.replace("></rect>", `><title>${esc(tip)}</title></rect>`);
+    }
+    const big = lines.map((l) =>
+      `<circle class="lc-hov" cx="${x(i).toFixed(1)}" cy="${y(l.values[i] || 0).toFixed(1)}" r="4" fill="${esc(l.color)}"></circle>`
+    ).join("");
+    return `<g class="lc-col">` +
+      `<line class="lc-guide lc-hov" x1="${x(i).toFixed(1)}" x2="${x(i).toFixed(1)}" y1="${pt}" y2="${base.toFixed(1)}"></line>` +
+      big + readoutText("lc-hov", pl, readY, readout[i] || lab, lines, i) + hit + `</g>`;
   }).join("");
 
   return `<svg class="line-chart" viewBox="0 0 ${W} ${H}" data-base="${base.toFixed(1)}" role="img" aria-label="Purchase trend chart">
-        ${grid}${xl}${paths}${values}${ends}${hits}
+        ${grid}${xl}${paths}${dots}${ends}${rest}${cols}
       </svg>`;
 }
 

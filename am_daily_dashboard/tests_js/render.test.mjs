@@ -549,18 +549,29 @@ describe("purchase trends + hold tile", () => {
     assert.ok(ticks.length >= 3 && ticks.every((t) => t.getAttribute("text-anchor") === "end"),
       "ticks sit on the left axis only");
     assert.equal(svg.querySelectorAll("text.lc-end").length, 4, "an end label per shown series");
-    assert.equal(svg.querySelectorAll("text.lc-val").length, 0, "no per-day values with 3+ series");
+    const col = svg.querySelector("g.lc-col text.lc-read");
+    const vals = [...col.querySelectorAll("tspan.lc-read-v")].map((t) => {
+      const s = t.textContent.replace(/[$,]/g, "");
+      return Number(s.replace(/[KM]$/, "")) * (s.endsWith("M") ? 1e6 : s.endsWith("K") ? 1e3 : 1);
+    });
+    assert.equal(vals.length, 4, "hover readout lists every shown series");
+    assert.deepEqual(vals, [...vals].sort((a, b) => b - a), "hover readout sorted high to low");
     assert.ok(doc.querySelector(".content .trend-hint"), "hint to hide Jackpota");
     assert.deepEqual(errors, []);
   });
 
-  test("default two-series view shows a value on every day and $ ticks", () => {
+  test("default view: dots every day, values on hover only, $ ticks, no axis title", () => {
     const { dom } = loadBoard("single_am_coral");
     clickNav(dom, "trends");
     const svg = dom.window.document.querySelector(".content svg.line-chart");
-    assert.equal(svg.querySelectorAll("text.lc-val").length, 60, "30 days x 2 series");
+    const days = svg.querySelectorAll("g.lc-col").length;
+    assert.ok(days >= 28, `one hover column per day, got ${days}`);
+    assert.equal(svg.querySelectorAll("circle.lc-dot").length, days * 2, "a dot per day per series");
+    assert.equal(svg.querySelectorAll("text.lc-val").length, 0, "no static value labels");
+    assert.equal(svg.querySelectorAll("text.lc-read.lc-rest").length, 1, "latest-day readout at rest");
     assert.ok([...svg.querySelectorAll("text.lc-tick")].some((t) => t.textContent.includes("$")),
       "left ticks carry $ amounts");
-    assert.ok(svg.querySelector("text.lc-axis-title"), "rotated axis title");
+    assert.ok(!svg.querySelector(".lc-axis-title"), "no axis title");
+    assert.equal(svg.getAttribute("viewBox"), "0 0 960 280", "compact 280px chart");
   });
 });

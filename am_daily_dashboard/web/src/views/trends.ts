@@ -112,19 +112,15 @@ function chart(m: Mode, shown: TrendSeries[]): string {
       width: s.id === "elite" || isAm(s) ? 2.5 : 2,
       dashed: s.id === "jackpota",
     }));
-    const legend = shown.map((s) =>
-      `<span class="trend-legend-item"><span class="trend-dot" style="background:${s.color}"></span>${esc(s.label)}</span>`
-    ).join("");
     return `<div class="card gold-top trend-chart-card">
           <div class="card-head">
             <span class="card-icon">${icon("trend-up", "ic-sm")}</span>
             <div><div class="card-title">Last ${idx.length} Days · Daily Purchase</div>
-            <div class="card-sub">Hover a day for every series</div></div>
+            <div class="card-sub">Hover a day to see its values</div></div>
           </div>
           <div class="card-body">
-            <div class="trend-legend">${legend}</div>
             ${lineChartSvg(lines, idx.map((i) => dayLabel(i, false)), {
-              height: anyAm ? 400 : 340, axisTitle: "Daily Purchase", endLabels: true, pointValues: true,
+              height: 280, endLabels: true, readoutLabels: idx.map((i) => dayLabel(i)),
             })}
             ${hint}
           </div>
