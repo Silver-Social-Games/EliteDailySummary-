@@ -66,7 +66,7 @@ export function trendSeriesKey(): string {
 }
 
 export function defaultSeriesIds(): string[] {
-  return HIDE_MANAGER ? [`am:${app.agent}`, "elite"] : ["elite", "jackpota"];
+  return ["elite", "jackpota"];
 }
 
 export function sum(values: number[]): number {

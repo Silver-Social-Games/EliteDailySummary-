@@ -101,19 +101,19 @@ function chart(m: Mode, shown: TrendSeries[]): string {
     const idx = lastIndices();
     const isAm = (s: TrendSeries) => s.id.startsWith("am:");
     const anyAm = shown.some(isAm);
-    const mixed = shown.some((s) => s.id === "jackpota") && shown.some((s) => s.id !== "jackpota");
-    const onRight = (s: TrendSeries) => (anyAm ? !isAm(s) && shown.length > 1 : mixed && s.id === "jackpota");
-    const lines: ChartLine[] = shown.map((s) => ({
+    const hint = anyAm && shown.some((s) => s.id === "jackpota")
+      ? `<div class="trend-hint t-tertiary t-small">Hide Jackpota to spread the AM lines</div>`
+      : "";
+    const drawOrder = [...shown.filter((s) => s.id !== "elite"), ...shown.filter((s) => s.id === "elite")];
+    const lines: ChartLine[] = drawOrder.map((s) => ({
       label: s.label,
       values: idx.map((i) => s.values[i] || 0),
       color: s.color,
-      axis: onRight(s) ? "right" : "left",
       width: s.id === "elite" || isAm(s) ? 2.5 : 2,
       dashed: s.id === "jackpota",
     }));
     const legend = shown.map((s) =>
-      `<span class="trend-legend-item"><span class="trend-dot" style="background:${s.color}"></span>${esc(s.label)}` +
-      `${onRight(s) ? ` <span class="t-tertiary">(right axis)</span>` : ""}</span>`
+      `<span class="trend-legend-item"><span class="trend-dot" style="background:${s.color}"></span>${esc(s.label)}</span>`
     ).join("");
     return `<div class="card gold-top trend-chart-card">
           <div class="card-head">
@@ -123,7 +123,10 @@ function chart(m: Mode, shown: TrendSeries[]): string {
           </div>
           <div class="card-body">
             <div class="trend-legend">${legend}</div>
-            ${lineChartSvg(lines, idx.map((i) => dayLabel(i, false)))}
+            ${lineChartSvg(lines, idx.map((i) => dayLabel(i, false)), {
+              height: anyAm ? 400 : 340, axisTitle: "Daily Purchase", endLabels: true, pointValues: true,
+            })}
+            ${hint}
           </div>
         </div>`;
   }

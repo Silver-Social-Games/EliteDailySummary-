@@ -459,6 +459,12 @@
     .line-chart { display: block; width: 100%; height: auto; }
     .lc-grid { stroke: var(--line-soft); stroke-width: 1; }
     .lc-axis { font-size: 11px; fill: var(--ink-4); font-variant-numeric: tabular-nums; }
+    .lc-axis-title { font-size: 11px; font-weight: 650; fill: var(--ink-3); letter-spacing: .02em; }
+    .lc-val { font-size: 9.5px; font-weight: 600; opacity: .8; font-variant-numeric: tabular-nums; }
+    .lc-end { font-size: 11.5px; font-weight: 650; }
+    .lc-end-v { font-weight: 500; fill: var(--ink-3); font-variant-numeric: tabular-nums; }
+    .lc-leader { fill: none; stroke-width: 1; opacity: .55; }
+    .trend-hint { margin-top: 6px; text-align: right; }
     .lc-hit { fill: transparent; }
     .lc-hit:hover { fill: rgba(20,20,26,.05); }
     .wk-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap: 18px; }

@@ -524,6 +524,43 @@ describe("purchase trends + hold tile", () => {
     assert.deepEqual(ids, ["elite", "jackpota", "am:Coral"]);
     const on = [...dom.window.document.querySelectorAll("[data-trend-series][aria-pressed='true']")]
       .map((b) => b.getAttribute("data-trend-series"));
-    assert.deepEqual(on.sort(), ["am:Coral", "elite"]);
+    assert.deepEqual(on.sort(), ["elite", "jackpota"], "every audience opens on Elite + Jackpota");
+  });
+
+  test("one linear axis: heights are proportional to dollars across every series", () => {
+    const { dom, errors } = loadBoard("manager", { seedGate: null });
+    const doc = dom.window.document;
+    clickNav(dom, "trends");
+    doc.querySelector('[data-trend-series="am:Coral"]').onclick();
+    doc.querySelector('[data-trend-series="am:Gabriel"]').onclick();
+    const svg = doc.querySelector(".content svg.line-chart");
+    const base = Number(svg.getAttribute("data-base"));
+    const ratios = [...svg.querySelectorAll("circle.lc-last")]
+      .map((c) => ({ v: Number(c.getAttribute("data-v")), cy: Number(c.getAttribute("cy")) }))
+      .filter((p) => p.v > 0)
+      .map((p) => (base - p.cy) / p.v);
+    assert.ok(ratios.length >= 3, `expected >=3 series with a last value, got ${ratios.length}`);
+    const lo = Math.min(...ratios);
+    const hi = Math.max(...ratios);
+    assert.ok((hi - lo) / hi < 0.01, `pixels per dollar must match across series (${lo} vs ${hi})`);
+    assert.ok(!svg.textContent.includes("right axis") && !doc.querySelector(".content").textContent.includes("(right axis)"),
+      "no second axis");
+    const ticks = [...svg.querySelectorAll("text.lc-tick")];
+    assert.ok(ticks.length >= 3 && ticks.every((t) => t.getAttribute("text-anchor") === "end"),
+      "ticks sit on the left axis only");
+    assert.equal(svg.querySelectorAll("text.lc-end").length, 4, "an end label per shown series");
+    assert.equal(svg.querySelectorAll("text.lc-val").length, 0, "no per-day values with 3+ series");
+    assert.ok(doc.querySelector(".content .trend-hint"), "hint to hide Jackpota");
+    assert.deepEqual(errors, []);
+  });
+
+  test("default two-series view shows a value on every day and $ ticks", () => {
+    const { dom } = loadBoard("single_am_coral");
+    clickNav(dom, "trends");
+    const svg = dom.window.document.querySelector(".content svg.line-chart");
+    assert.equal(svg.querySelectorAll("text.lc-val").length, 60, "30 days x 2 series");
+    assert.ok([...svg.querySelectorAll("text.lc-tick")].some((t) => t.textContent.includes("$")),
+      "left ticks carry $ amounts");
+    assert.ok(svg.querySelector("text.lc-axis-title"), "rotated axis title");
   });
 });

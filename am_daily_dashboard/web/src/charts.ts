@@ -11,18 +11,19 @@ export interface ChartLine {
   label: string;
   values: number[];
   color: string;
-  /** Right axis carries a series on a different scale (Jackpota vs a book). */
-  axis?: "left" | "right";
   width?: number;
   dashed?: boolean;
 }
 
-function niceMax(v: number): number {
-  if (!(v > 0)) return 1;
-  const p = Math.pow(10, Math.floor(Math.log10(v)));
-  const m = v / p;
-  const nice = m <= 1 ? 1 : m <= 2 ? 2 : m <= 2.5 ? 2.5 : m <= 5 ? 5 : 10;
-  return nice * p;
+/** Round tick step for ~5 intervals, and the smallest multiple of it that
+ *  holds `v` — a tight top, so small series keep their share of the height. */
+function niceScale(v: number): { max: number; step: number } {
+  if (!(v > 0)) return { max: 1, step: 0.25 };
+  const raw = v / 5;
+  const p = Math.pow(10, Math.floor(Math.log10(raw)));
+  const m = raw / p;
+  const step = (m <= 1 ? 1 : m <= 2 ? 2 : m <= 2.5 ? 2.5 : m <= 5 ? 5 : 10) * p;
+  return { max: Math.ceil(v / step) * step, step };
 }
 
 function pathD(values: number[], x: (i: number) => number, y: (v: number) => number): string {
@@ -52,31 +53,65 @@ export function sparklineSvg(lines: ChartLine[], w = 300, h = 64): string {
   return `<svg class="spark" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" aria-hidden="true">${paths}</svg>`;
 }
 
-/** Multi-series line chart with a $ left axis, optional right axis, and one
- *  hover column per point whose native tooltip lists every series. */
-export function lineChartSvg(lines: ChartLine[], labels: string[], height = 340): string {
+export interface LineChartOptions {
+  height?: number;
+  /** Rotated left-axis title. */
+  axisTitle?: string;
+  /** Name + latest value at each line's right end. */
+  endLabels?: boolean;
+  /** A value label on every point; only drawn for 1–2 lines. */
+  pointValues?: boolean;
+}
+
+const END_LABEL_GAP = 14;
+
+/** Spread label y's at least `gap` apart inside [lo, hi], keeping their order. */
+function spreadLabels(ys: number[], gap: number, lo: number, hi: number): number[] {
+  const order = ys.map((y, i) => ({ y, i })).sort((a, b) => a.y - b.y);
+  const out = order.map((o) => Math.min(hi, Math.max(lo, o.y)));
+  for (let k = 1; k < out.length; k++) out[k] = Math.max(out[k], out[k - 1] + gap);
+  if (out.length && out[out.length - 1] > hi) {
+    out[out.length - 1] = hi;
+    for (let k = out.length - 2; k >= 0; k--) out[k] = Math.min(out[k], out[k + 1] - gap);
+  }
+  const res: number[] = new Array(ys.length);
+  order.forEach((o, k) => { res[o.i] = out[k]; });
+  return res;
+}
+
+function shortValue(v: number): string {
+  return compactMoney(v).replace(/^\$/, "");
+}
+
+/** Multi-series line chart on ONE linear $ axis from 0, so every line's
+ *  height is proportional to its dollars — never add a second axis. One hover
+ *  column per point whose native tooltip lists every series. */
+export function lineChartSvg(lines: ChartLine[], labels: string[], opts: LineChartOptions = {}): string {
   const W = 960;
-  const H = height;
-  const hasRight = lines.some((l) => l.axis === "right");
-  const pl = 62, pr = hasRight ? 62 : 18, pt = 14, pb = 30;
+  const H = opts.height ?? 340;
+  const showValues = !!opts.pointValues && lines.length > 0 && lines.length <= 2;
+  const pl = opts.axisTitle ? 78 : 62;
+  const pr = opts.endLabels ? 132 : 18;
+  const pt = showValues ? 22 : 14;
+  const pb = showValues ? 44 : 30;
   const iw = W - pl - pr;
   const ih = H - pt - pb;
+  const base = pt + ih;
   const n = labels.length;
   const x = (i: number) => pl + (n <= 1 ? iw / 2 : (i * iw) / (n - 1));
-  const axisMax = (axis: "left" | "right") =>
-    niceMax(Math.max(0, ...lines.filter((l) => (l.axis || "left") === axis).flatMap((l) => l.values)));
-  const lMax = axisMax("left");
-  const rMax = axisMax("right");
-  const yFor = (max: number) => (v: number) => pt + ih - (max > 0 ? (v / max) * ih : 0);
+  const { max, step: tick } = niceScale(Math.max(0, ...lines.flatMap((l) => l.values)));
+  const y = (v: number) => base - (max > 0 ? (Math.max(0, v) / max) * ih : 0);
 
   let grid = "";
-  for (let k = 0; k <= 4; k++) {
-    const yy = pt + ih - (k / 4) * ih;
+  const ticks = Math.round(max / tick);
+  for (let k = 0; k <= ticks; k++) {
+    const yy = base - (k / ticks) * ih;
     grid += `<line class="lc-grid" x1="${pl}" x2="${W - pr}" y1="${yy}" y2="${yy}"></line>`;
-    grid += `<text class="lc-axis" x="${pl - 8}" y="${yy + 4}" text-anchor="end">${esc(compactMoney((lMax * k) / 4))}</text>`;
-    if (hasRight) {
-      grid += `<text class="lc-axis" x="${W - pr + 8}" y="${yy + 4}" text-anchor="start">${esc(compactMoney((rMax * k) / 4))}</text>`;
-    }
+    grid += `<text class="lc-axis lc-tick" x="${pl - 8}" y="${yy + 4}" text-anchor="end">${esc(compactMoney(tick * k))}</text>`;
+  }
+  if (opts.axisTitle) {
+    grid += `<text class="lc-axis-title" x="14" y="${pt + ih / 2}" text-anchor="middle"` +
+      ` transform="rotate(-90 14 ${pt + ih / 2})">${esc(opts.axisTitle)}</text>`;
   }
   const step = Math.max(1, Math.ceil(n / 8));
   let xl = "";
@@ -89,21 +124,55 @@ export function lineChartSvg(lines: ChartLine[], labels: string[], height = 340)
 
   const paths = lines.map((l) => {
     if (!l.values.length) return "";
-    const y = yFor(l.axis === "right" ? rMax : lMax);
     const lastI = l.values.length - 1;
+    const v = l.values[lastI] || 0;
     return `<path d="${pathD(l.values, x, y)}" ${lineAttrs(l, 2)}></path>` +
-      `<circle cx="${x(lastI)}" cy="${y(l.values[lastI])}" r="3.5" fill="${esc(l.color)}"></circle>`;
+      `<circle class="lc-last" cx="${x(lastI).toFixed(1)}" cy="${y(v).toFixed(1)}" r="3.5" fill="${esc(l.color)}"` +
+      ` data-v="${v}"></circle>`;
   }).join("");
+
+  let values = "";
+  if (showValues) {
+    lines.forEach((l, li) => {
+      const other = lines[1 - li];
+      l.values.forEach((v, i) => {
+        const above = !other || (v || 0) >= (other.values[i] || 0);
+        const cy = y(v || 0);
+        values += `<circle class="lc-dot" cx="${x(i).toFixed(1)}" cy="${cy.toFixed(1)}" r="2" fill="${esc(l.color)}"></circle>` +
+          `<text class="lc-val" x="${x(i).toFixed(1)}" y="${(above ? cy - 8 : cy + 15).toFixed(1)}"` +
+          ` text-anchor="middle" fill="${esc(l.color)}">${esc(shortValue(v || 0))}</text>`;
+      });
+    });
+  }
+
+  let ends = "";
+  if (opts.endLabels) {
+    const lastY = lines.map((l) => y(l.values[l.values.length - 1] || 0));
+    const ly = spreadLabels(lastY, END_LABEL_GAP, pt + 4, base);
+    const lx = W - pr + 14;
+    lines.forEach((l, i) => {
+      if (!l.values.length) return;
+      const px = x(l.values.length - 1);
+      if (Math.abs(ly[i] - lastY[i]) > 1) {
+        ends += `<polyline class="lc-leader" points="${(px + 5).toFixed(1)},${lastY[i].toFixed(1)} ${(lx - 8).toFixed(1)},${lastY[i].toFixed(1)} ${(lx - 3).toFixed(1)},${ly[i].toFixed(1)}"` +
+          ` stroke="${esc(l.color)}"></polyline>`;
+      }
+      ends += `<text class="lc-end" x="${lx}" y="${(ly[i] + 4).toFixed(1)}" fill="${esc(l.color)}">` +
+        `${esc(l.label)} <tspan class="lc-end-v">${esc(compactMoney(l.values[l.values.length - 1] || 0))}</tspan></text>`;
+    });
+  }
 
   const colW = n > 1 ? iw / (n - 1) : iw;
   const hits = labels.map((lab, i) => {
-    const tip = [lab, ...lines.map((l) => `${l.label}: ${money(l.values[i] || 0)}`)].join("\n");
+    const rows = lines.slice().sort((a, b) => (b.values[i] || 0) - (a.values[i] || 0))
+      .map((l) => `${l.label}: ${money(l.values[i] || 0)}`);
+    const tip = [lab, ...rows].join("\n");
     return `<rect class="lc-hit" x="${(x(i) - colW / 2).toFixed(1)}" y="${pt}" width="${colW.toFixed(1)}" height="${ih}">` +
       `<title>${esc(tip)}</title></rect>`;
   }).join("");
 
-  return `<svg class="line-chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Purchase trend chart">
-        ${grid}${xl}${paths}${hits}
+  return `<svg class="line-chart" viewBox="0 0 ${W} ${H}" data-base="${base.toFixed(1)}" role="img" aria-label="Purchase trend chart">
+        ${grid}${xl}${paths}${values}${ends}${hits}
       </svg>`;
 }
 
