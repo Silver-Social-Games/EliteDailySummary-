@@ -30,8 +30,7 @@ export function teamGoalsCard(): string {
   return `<div class="card gold-top goals-team-card">
         <div class="card-head">
           <span class="card-icon ${meterTone}">${icon("target", "ic-sm")}</span>
-          <div><div class="card-title">Team Goals</div>
-          <div class="card-sub">Your targets, Elite Portfolio · ${esc(TEAM_GOALS.monthLabel || "")}</div></div>
+          <div><div class="card-title">Team Goals</div></div>
           <div class="spacer"></div>
           <button type="button" class="btn" data-go="team">Open ${icon("chev-right", "ic-xs")}</button>
         </div>
@@ -84,8 +83,7 @@ export function viewTeamGoals(): string {
         <div class="card gold-top">
           <div class="card-head">
             <span class="card-icon ${meterTone}">${icon("target", "ic-sm")}</span>
-            <div><div class="card-title">Elite Goals · Team</div>
-            <div class="card-sub">Your targets, Elite Portfolio · ${esc(g.monthLabel || "")}</div></div>
+            <div><div class="card-title">Elite Goals · Team</div></div>
             <div class="spacer"></div>
             <span class="badge">${esc(subtitle)}</span>
           </div>

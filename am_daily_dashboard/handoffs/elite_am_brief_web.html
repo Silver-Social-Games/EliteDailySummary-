@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <!-- am-brief-build sources sha256:ec5d6ffbee074b5efe0603728c356f4d203215964f0c88fcdc7be03e1cff701f output sha256:8c7b2f163f1596a9ce6e4ea1924b749216a4ddea2ca2f3be8f6013e3435903a5 -->
+  <!-- am-brief-build sources sha256:16e81bc315ee6fba59c3c432e51bf0e4fb443d88a2dc2e5feac6ded808aa57f3 output sha256:7785bc2e71234e5655751577e0700dd1b957e5306546611ed7e8891285596890 -->
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Elite Dashboard</title>
   <style>
@@ -907,10 +907,7 @@
       color: var(--ink-2); cursor: pointer; font: inherit; transition: all .12s;
     }
     .cal-btn-text { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; line-height: 1.1; text-align: left; }
-    .cal-btn-kicker { font-size: 9px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-4); }
-    .cal-btn-value { font-size: 12px; font-weight: 650; color: var(--ink); white-space: nowrap; }
-    .cal-btn-data { font-size: 9.5px; color: var(--ink-4); white-space: nowrap; }
-    .cal-chev { color: var(--ink-4); flex: none; }
+    .cal-btn-value { font-size: 13px; font-weight: 700; color: #000; white-space: nowrap; }    .cal-chev { color: var(--ink-4); flex: none; }
     .cal-btn:hover { color: var(--ink); border-color: var(--ink-4); box-shadow: var(--shadow-sm); }
     .cal-pop {
       position: absolute; right: 0; top: calc(100% + 6px); z-index: 60; width: 276px;
@@ -2389,8 +2386,7 @@
     return `<div class="card gold-top goals-team-card">
         <div class="card-head">
           <span class="card-icon ${meterTone}">${icon("target", "ic-sm")}</span>
-          <div><div class="card-title">Team Goals</div>
-          <div class="card-sub">Your targets, Elite Portfolio \xB7 ${esc(TEAM_GOALS.monthLabel || "")}</div></div>
+          <div><div class="card-title">Team Goals</div></div>
           <div class="spacer"></div>
           <button type="button" class="btn" data-go="team">Open ${icon("chev-right", "ic-xs")}</button>
         </div>
@@ -2451,8 +2447,7 @@
         <div class="card gold-top">
           <div class="card-head">
             <span class="card-icon ${meterTone}">${icon("target", "ic-sm")}</span>
-            <div><div class="card-title">Elite Goals \xB7 Team</div>
-            <div class="card-sub">Your targets, Elite Portfolio \xB7 ${esc(g.monthLabel || "")}</div></div>
+            <div><div class="card-title">Elite Goals \xB7 Team</div></div>
             <div class="spacer"></div>
             <span class="badge">${esc(subtitle)}</span>
           </div>
@@ -2512,16 +2507,6 @@
         `<div style="min-width:150px">${scoreMeterHtml(s.score, tone)}</div>`
       ];
     });
-    const ovRows = OVERVIEW.map((r) => [
-      `<button type="button" class="chip" data-agent="${esc(r.agentName)}">${esc(r.agentName)}</button>`,
-      `<span class="t-success w-semibold">${esc(r.purchase)}</span>`,
-      esc(r.openZd),
-      esc(r.takeABreak),
-      esc(r.locked),
-      esc(r.rdOver5k),
-      `<span class="t-success">${esc(r.birthdays)}</span>`,
-      esc(r.declineCount)
-    ]);
     const leaderboard = scored.length ? `<div class="card gold-top goals-leaderboard">
           <div class="card-head">
             <span class="card-icon">${icon("target", "ic-sm")}</span>
@@ -2543,30 +2528,6 @@
         <div class="grid-2 goals-pair">
           ${teamGoalsCard()}
           ${leaderboard}
-        </div>
-
-        <div class="card gold-top">
-          <div class="card-head">
-            <span class="card-icon info">${icon("list", "ic-sm")}</span>
-            <div><div class="card-title">AM Overview</div>
-            <div class="card-sub">Click an AM to open their board</div></div>
-          </div>
-          ${tableHtml(
-      [
-        "AM",
-        "Purchase $",
-        "Open Tickets",
-        "Take A Break",
-        "Locked",
-        "Pending RD",
-        "Birthdays",
-        "Top 20 Decline"
-      ],
-      ovRows,
-      ["left", "right", "right", "right", "right", "right", "right", "right"],
-      OVERVIEW.map(() => "success"),
-      { markerCol: 1 }
-    )}
         </div>
       </div>`;
   }
@@ -4835,9 +4796,7 @@
             <button type="button" class="cal-btn" id="calBtn" title="Switch report date">
               ${icon("calendar", "ic-sm")}
               <span class="cal-btn-text">
-                <span class="cal-btn-kicker">Brief Date</span>
                 <span class="cal-btn-value">${esc(briefSubtitle || REPORT.date || "")}</span>
-                ${BRIEF_DATE ? `<span class="cal-btn-data">Data: ${esc(isoDateLabel(REPORT.date, false))}</span>` : ""}
               </span>
               ${icon("chev-down", "ic-xs cal-chev")}
             </button>

@@ -1,6 +1,6 @@
 /** Manager Dashboard — cross-AM roll-up. Gated; never in a per-AM file. */
 import type { Dict } from "./../types";
-import { AGENTS, OVERVIEW } from "./../payload";
+import { AGENTS } from "./../payload";
 import { esc, icon } from "./../format";
 import { scoreMeterHtml, goalsKpiPoints, goalsScoreTone, amScoreDisplay } from "./../cells";
 import { dailyTriggerMetrics, eliteSnapshotCards, gateHtml, metricBand, segmentHero } from "./../components";
@@ -53,13 +53,6 @@ export function viewDashboard(): string {
     ];
   });
 
-  const ovRows = OVERVIEW.map((r) => [
-    `<button type="button" class="chip" data-agent="${esc(r.agentName)}">${esc(r.agentName)}</button>`,
-    `<span class="t-success w-semibold">${esc(r.purchase)}</span>`,
-    esc(r.openZd), esc(r.takeABreak), esc(r.locked), esc(r.rdOver5k),
-    `<span class="t-success">${esc(r.birthdays)}</span>`, esc(r.declineCount),
-  ]);
-
   const leaderboard = scored.length ? `<div class="card gold-top goals-leaderboard">
           <div class="card-head">
             <span class="card-icon">${icon("target", "ic-sm")}</span>
@@ -79,19 +72,6 @@ export function viewDashboard(): string {
         <div class="grid-2 goals-pair">
           ${teamGoalsCard()}
           ${leaderboard}
-        </div>
-
-        <div class="card gold-top">
-          <div class="card-head">
-            <span class="card-icon info">${icon("list", "ic-sm")}</span>
-            <div><div class="card-title">AM Overview</div>
-            <div class="card-sub">Click an AM to open their board</div></div>
-          </div>
-          ${tableHtml(
-            ["AM", "Purchase $", "Open Tickets", "Take A Break",
-             "Locked", "Pending RD", "Birthdays", "Top 20 Decline"],
-            ovRows, ["left", "right", "right", "right", "right", "right", "right", "right"],
-            OVERVIEW.map(() => "success"), { markerCol: 1 })}
         </div>
       </div>`;
 }

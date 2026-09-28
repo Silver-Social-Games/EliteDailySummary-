@@ -1,5 +1,5 @@
 /** Topbar — breadcrumb, archive calendar, CSV download, and the "who" badge. */
-import { BRIEF_DATE, REPORT, briefSubtitle, isoDateLabel } from "./payload";
+import { REPORT, briefSubtitle } from "./payload";
 import { esc, icon, initials } from "./format";
 import { viewSupportsCsvExport } from "./exportCsv";
 import { app } from "./state";
@@ -27,9 +27,7 @@ export function topbar(): string {
             <button type="button" class="cal-btn" id="calBtn" title="Switch report date">
               ${icon("calendar", "ic-sm")}
               <span class="cal-btn-text">
-                <span class="cal-btn-kicker">Brief Date</span>
                 <span class="cal-btn-value">${esc(briefSubtitle || REPORT.date || "")}</span>
-                ${BRIEF_DATE ? `<span class="cal-btn-data">Data: ${esc(isoDateLabel(REPORT.date, false))}</span>` : ""}
               </span>
               ${icon("chev-down", "ic-xs cal-chev")}
             </button>
