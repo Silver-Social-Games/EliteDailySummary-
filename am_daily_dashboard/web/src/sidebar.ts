@@ -1,5 +1,5 @@
 /** Left navigation rail — groups, nav badges, and the AM switcher. */
-import { AM_ORDER, HIDE_MANAGER, HOME_AM, PEER_MODE, REPORT, SINGLE_AM } from "./payload";
+import { AM_ORDER, BRIEF_DATE, HIDE_MANAGER, HOME_AM, PEER_MODE, REPORT, SINGLE_AM, briefSubtitle } from "./payload";
 import { esc, icon } from "./format";
 import { agentBlock, rowsFor } from "./selectors";
 import { app } from "./state";
@@ -68,7 +68,7 @@ export function sidebar(): string {
           <span class="brand-mark">${logoImg("elite", 32, "Elite Club")}</span>
           <div class="brand-text">
             <div class="brand-title">${esc(REPORT.title || "Elite Dashboard")}</div>
-            <div class="brand-sub">${esc(REPORT.subtitle || "")}</div>
+            <div class="brand-sub">${esc(briefSubtitle)}</div>
           </div>
         </div>
         <div class="brand-rule"></div>
@@ -80,7 +80,7 @@ export function sidebar(): string {
             : PEER_MODE
               ? esc(HOME_AM) + " · coverage board"
               : "Manager view · all AMs"}<br>
-          Report date ${esc(REPORT.date || "")}
+          Brief date ${esc(BRIEF_DATE || REPORT.date || "")} · data ${esc(REPORT.date || "")}
         </div>
       </aside>`;
 }

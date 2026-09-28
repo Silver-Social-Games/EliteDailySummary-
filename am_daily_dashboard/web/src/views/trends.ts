@@ -99,18 +99,21 @@ function chart(m: Mode, shown: TrendSeries[]): string {
   }
   if (m === "daily") {
     const idx = lastIndices();
+    const isAm = (s: TrendSeries) => s.id.startsWith("am:");
+    const anyAm = shown.some(isAm);
     const mixed = shown.some((s) => s.id === "jackpota") && shown.some((s) => s.id !== "jackpota");
+    const onRight = (s: TrendSeries) => (anyAm ? !isAm(s) && shown.length > 1 : mixed && s.id === "jackpota");
     const lines: ChartLine[] = shown.map((s) => ({
       label: s.label,
       values: idx.map((i) => s.values[i] || 0),
       color: s.color,
-      axis: mixed && s.id === "jackpota" ? "right" : "left",
-      width: s.id === "elite" ? 2.5 : 2,
+      axis: onRight(s) ? "right" : "left",
+      width: s.id === "elite" || isAm(s) ? 2.5 : 2,
       dashed: s.id === "jackpota",
     }));
     const legend = shown.map((s) =>
       `<span class="trend-legend-item"><span class="trend-dot" style="background:${s.color}"></span>${esc(s.label)}` +
-      `${mixed && s.id === "jackpota" ? ` <span class="t-tertiary">(right axis)</span>` : ""}</span>`
+      `${onRight(s) ? ` <span class="t-tertiary">(right axis)</span>` : ""}</span>`
     ).join("");
     return `<div class="card gold-top trend-chart-card">
           <div class="card-head">

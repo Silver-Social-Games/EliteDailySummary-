@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import sys
 import unittest
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 
 PACKAGE_DIR = Path(__file__).resolve().parent
@@ -1531,8 +1531,31 @@ class BuildPurchaseTrendTests(unittest.TestCase):
     def test_report_block_carries_no_per_am_series(self):
         report, _ = build_purchase_trend([], REPORT_DATE, self.AMS)
         self.assertEqual(
-            set(report), {"dates", "weekdays", "dailyDays", "jackpota", "elite"}
+            set(report),
+            {"dates", "weekdays", "dailyDays", "jackpota", "elite", "holdMtd"},
         )
+        self.assertEqual(set(report["holdMtd"]), {"jackpota", "elite"})
+
+    def test_hold_mtd_sums_month_to_date_only(self):
+        month_start = REPORT_DATE.replace(day=1)
+        rows = [
+            {"date": REPORT_DATE, "series": "elite", "purchased": 1000.0, "net": 300.0},
+            {"date": month_start, "series": "elite", "purchased": 1000.0, "net": 100.0},
+            # Prior month: inside the 60-day window, outside MTD.
+            {"date": month_start - timedelta(days=1), "series": "elite",
+             "purchased": 5000.0, "net": -5000.0},
+            {"date": REPORT_DATE, "series": "jackpota", "purchased": 4000.0, "net": 1000.0},
+            {"date": REPORT_DATE, "series": "coral_s", "purchased": 999.0, "net": 999.0},
+        ]
+        report, _ = build_purchase_trend(rows, REPORT_DATE, self.AMS)
+        self.assertEqual(report["holdMtd"]["elite"], 20.0)
+        self.assertEqual(report["holdMtd"]["jackpota"], 25.0)
+
+    def test_hold_mtd_is_none_when_no_purchase(self):
+        rows = [{"date": REPORT_DATE, "series": "elite", "purchased": 0.0, "net": -50.0}]
+        report, _ = build_purchase_trend(rows, REPORT_DATE, self.AMS)
+        self.assertIsNone(report["holdMtd"]["elite"])
+        self.assertIsNone(report["holdMtd"]["jackpota"])
 
 
 class QueriesIsoTests(unittest.TestCase):

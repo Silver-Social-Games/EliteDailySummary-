@@ -18,7 +18,7 @@
 
  */
 
-import { AUDIENCE_SLUG, REPORT } from "./payload";
+import { AUDIENCE_SLUG, BRIEF_DATE, REPORT, shiftIsoDate } from "./payload";
 
 import { esc, icon } from "./format";
 
@@ -30,7 +30,14 @@ const ARCHIVE: { d: string; f: string }[] = REPORT.archive || [];
 
 const ARCHIVE_BY_DATE = new Map(ARCHIVE.map((a) => [a.d, a.f]));
 
-const ARCHIVE_MONTHS = [...new Set(ARCHIVE.map((a) => a.d.slice(0, 7)))].sort();
+/* Days are shown on the run date (data date + 1); files stay keyed by data date. */
+const runDate = (dataIso: string) => shiftIsoDate(dataIso, 1) || dataIso;
+
+const dataDate = (runIso: string) => shiftIsoDate(runIso, -1) || runIso;
+
+const CURRENT_RUN = BRIEF_DATE || REPORT.date || "";
+
+const ARCHIVE_MONTHS = [...new Set(ARCHIVE.map((a) => runDate(a.d).slice(0, 7)))].sort();
 
 const MONTH_NAMES = ["January", "February", "March", "April", "May", "June",
 
@@ -71,7 +78,7 @@ function shiftMonth(ym: string, delta: number): string {
 
 export function calendarPopHtml(): string {
 
-  const ym = app.calMonth || (REPORT.date || "").slice(0, 7);
+  const ym = app.calMonth || CURRENT_RUN.slice(0, 7);
 
   const year = Number(ym.slice(0, 4));
 
@@ -99,15 +106,15 @@ export function calendarPopHtml(): string {
 
     const iso = `${ym}-${String(d).padStart(2, "0")}`;
 
-    const file = archiveFileForDate(iso);
+    const file = archiveFileForDate(dataDate(iso));
 
-    const isCurrent = iso === REPORT.date;
+    const isCurrent = iso === CURRENT_RUN;
 
     if (file) {
 
       cells += `<button type="button" class="cal-day has${isCurrent ? " today" : ""}"
 
-            data-cal-open="${esc(file)}" title="Open the brief for ${esc(iso)}">${d}</button>`;
+            data-cal-open="${esc(file)}" title="Open the brief for ${esc(iso)} (data ${esc(dataDate(iso))})">${d}</button>`;
 
     } else {
 
@@ -125,7 +132,7 @@ export function calendarPopHtml(): string {
 
       ? `<button type="button" class="cal-recent-btn brand" data-cal-open="${esc(datelessBriefFile())}"
 
-            title="Open latest brief (${esc(latestArchive.d)})">Latest · ${esc(latestArchive.d.slice(5))}</button>`
+            title="Open latest brief (${esc(runDate(latestArchive.d))})">Latest · ${esc(runDate(latestArchive.d).slice(5))}</button>`
 
       : "";
 
@@ -139,7 +146,7 @@ export function calendarPopHtml(): string {
 
         <div class="cal-recent-row">${latestHtml}${recent.map((a) => {
           const f = archiveFileForDate(a.d) || a.f;
-          return `<button type="button" class="cal-recent-btn" data-cal-open="${esc(f)}" title="${esc(a.d)}">${esc(a.d.slice(5))}</button>`;
+          return `<button type="button" class="cal-recent-btn" data-cal-open="${esc(f)}" title="${esc(runDate(a.d))}">${esc(runDate(a.d).slice(5))}</button>`;
         }).join("")}</div>
 
       </div>`

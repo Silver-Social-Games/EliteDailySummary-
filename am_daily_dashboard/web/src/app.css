@@ -891,6 +891,7 @@
     .cal-btn-text { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; line-height: 1.1; text-align: left; }
     .cal-btn-kicker { font-size: 9px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-4); }
     .cal-btn-value { font-size: 12px; font-weight: 650; color: var(--ink); white-space: nowrap; }
+    .cal-btn-data { font-size: 9.5px; color: var(--ink-4); white-space: nowrap; }
     .cal-chev { color: var(--ink-4); flex: none; }
     .cal-btn:hover { color: var(--ink); border-color: var(--ink-4); box-shadow: var(--shadow-sm); }
     .cal-pop {

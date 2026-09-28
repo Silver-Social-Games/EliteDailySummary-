@@ -113,10 +113,12 @@ def save_bootstrap_state(state: dict[str, bool]) -> None:
 
 
 def build_daily_message(agent: str, slug: str, report_date: date) -> str:
-    subtitle = report_date.strftime("%A %d %b %Y")
+    run_date = report_date + timedelta(days=1)
+    subtitle = f"{run_date:%a} {run_date.day} {run_date:%b %Y}"
+    data_label = f"{report_date:%a} {report_date.day} {report_date:%b}"
     return "\n".join(
         [
-            f"*Elite AM Brief* — {subtitle}",
+            f"*Elite AM Brief* — {subtitle} (Data: {data_label})",
             "",
             f"Hi {agent} — your morning board is attached.",
             "",

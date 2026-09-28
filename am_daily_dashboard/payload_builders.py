@@ -1163,6 +1163,8 @@ def build_purchase_trend(
     jackpota = [0.0] * len(dates)
     elite = [0.0] * len(dates)
     by_am: dict[str, list[float]] = {name: [0.0] * len(dates) for name in am_names}
+    month_start = report_date.replace(day=1)
+    mtd = {"jackpota": [0.0, 0.0], "elite": [0.0, 0.0]}
     for r in raw_rows:
         d = parse_date_val(r.get("date"))
         i = index.get(d) if d else None
@@ -1170,6 +1172,9 @@ def build_purchase_trend(
             continue
         amount = float(r.get("purchased") or 0)
         series = str(r.get("series") or "")
+        if series in mtd and d >= month_start:
+            mtd[series][0] += amount
+            mtd[series][1] += float(r.get("net") or 0)
         if series == "jackpota":
             jackpota[i] += amount
         elif series == "elite":
@@ -1184,6 +1189,10 @@ def build_purchase_trend(
         "dailyDays": PURCHASE_TREND_DAILY_DAYS,
         "jackpota": [round(v, 2) for v in jackpota],
         "elite": [round(v, 2) for v in elite],
+        "holdMtd": {
+            key: round(net / purchased * 100, 2) if purchased > 0 else None
+            for key, (purchased, net) in mtd.items()
+        },
     }
     agent_blocks = {
         name: {"values": [round(v, 2) for v in values]}

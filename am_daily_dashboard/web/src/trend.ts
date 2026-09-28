@@ -15,6 +15,19 @@ export interface TrendSeries {
 export const GOLD = "#D4AF37";
 export const MUTED = "#9490A0";
 
+/** Fixed per AM so a line keeps its colour whatever the order; clear of GOLD and MUTED. */
+const AM_COLORS: Record<string, string> = {
+  coral: "#E11D48",
+  gabriel: "#2563EB",
+  lee: "#059669",
+  rachel: "#7C3AED",
+  alon: "#EA580C",
+};
+
+export function amColor(name: string, i: number): string {
+  return AM_COLORS[String(name).trim().toLowerCase()] || BAR_COLORS[i % BAR_COLORS.length];
+}
+
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 /** Absent from briefs generated before Purchase Trends shipped. */
@@ -33,7 +46,7 @@ export function trendSeries(): TrendSeries[] {
     const values = a.purchaseTrend?.values;
     if (Array.isArray(values)) {
       out.push({ id: `am:${a.agentName}`, label: a.agentName, values,
-        color: BAR_COLORS[i % BAR_COLORS.length] });
+        color: amColor(a.agentName, i) });
     }
   });
   return out;

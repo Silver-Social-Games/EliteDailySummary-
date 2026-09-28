@@ -331,11 +331,18 @@ describe("archive calendar", () => {
     const clickableDays = [
       ...dom.window.document.querySelectorAll(".cal-day.has"),
     ];
-    // The popup renders one month at a time (defaults to the report's own
+    // The popup renders one month at a time (defaults to the run date's
     // month), so only archive dates that fall in that month should show as
-    // clickable — the rest need month navigation, not a day click.
-    const openMonth = meta.reportDate.slice(0, 7);
-    const expected = meta.archiveDates.filter((d) => d.startsWith(openMonth));
+    // clickable — the rest need month navigation, not a day click. Days are
+    // labelled on the run date, one day after each file's data date.
+    const runDate = (iso) => {
+      const d = new Date(`${iso}T00:00:00Z`);
+      d.setUTCDate(d.getUTCDate() + 1);
+      return d.toISOString().slice(0, 10);
+    };
+    const openMonth = runDate(meta.reportDate).slice(0, 7);
+    const runDates = meta.archiveDates.map(runDate);
+    const expected = runDates.filter((d) => d.startsWith(openMonth));
     assert.equal(
       clickableDays.length,
       expected.length,
@@ -351,7 +358,7 @@ describe("archive calendar", () => {
 
     // The one archive date outside the open month must not be clickable
     // here — it needs the prev-month control, not a day click.
-    const outOfMonth = meta.archiveDates.find((d) => !d.startsWith(openMonth));
+    const outOfMonth = runDates.find((d) => !d.startsWith(openMonth));
     if (outOfMonth) {
       const day = String(Number(outOfMonth.slice(8, 10)));
       const deadCell = [...dom.window.document.querySelectorAll(".cal-day")].find(

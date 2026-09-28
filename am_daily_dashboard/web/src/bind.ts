@@ -4,7 +4,7 @@
  * the same import-cycle reasoning applies here since `render.ts` imports this
  * module to bind the page it just drew.
  */
-import { GATE_TOKEN, REPORT } from "./payload";
+import { BRIEF_DATE, GATE_TOKEN, REPORT } from "./payload";
 import { CRM_BANDS, CRM_DAY_ORDER } from "./data/crmOffers";
 import { exportCurrentViewCsv } from "./exportCsv";
 import { agentBlock } from "./selectors";
@@ -17,7 +17,7 @@ export function bind(): void {
   if (calBtn) calBtn.onclick = (e) => {
     e.stopPropagation();
     app.calOpen = !app.calOpen;
-    if (app.calOpen && !app.calMonth) app.calMonth = (REPORT.date || "").slice(0, 7);
+    if (app.calOpen && !app.calMonth) app.calMonth = (BRIEF_DATE || REPORT.date || "").slice(0, 7);
     rerender();
   };
   document.querySelectorAll("[data-cal-month]").forEach((el) => {

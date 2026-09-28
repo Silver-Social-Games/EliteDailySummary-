@@ -1118,21 +1118,31 @@ elite_ids AS (
   SELECT DISTINCT account_id FROM trend_elite_live
 ),
 day_kpi AS (
-  SELECT account_id, date, SUM(CAST(purchased AS FLOAT64)) AS purchased
+  SELECT
+    account_id,
+    date,
+    SUM(CAST(purchased AS FLOAT64)) AS purchased,
+    -- Goals Net Purchase (by requested redeem), for the MTD Hold % row.
+    SUM(
+      CAST(purchased AS FLOAT64)
+      - CAST(COALESCE(redeemed_amt_confirmed_locked_pre, 0) AS FLOAT64)
+      - CAST(COALESCE(chargeback, 0) AS FLOAT64)
+      - CAST(COALESCE(refunds, 0) AS FLOAT64)
+    ) AS net
   FROM `{PROJECT_ID}.jackpota_agg.daily_player_revenue_kpis`
   WHERE date BETWEEN DATE '{start}' AND DATE '{d}'
   GROUP BY account_id, date
 )
-SELECT date, 'jackpota' AS series, SUM(purchased) AS purchased
+SELECT date, 'jackpota' AS series, SUM(purchased) AS purchased, SUM(net) AS net
 FROM day_kpi
 GROUP BY date
 UNION ALL
-SELECT k.date, 'elite' AS series, SUM(k.purchased) AS purchased
+SELECT k.date, 'elite' AS series, SUM(k.purchased) AS purchased, SUM(k.net) AS net
 FROM day_kpi k
 INNER JOIN elite_ids e ON e.account_id = k.account_id
 GROUP BY k.date
 UNION ALL
-SELECT k.date, e.agent AS series, SUM(k.purchased) AS purchased
+SELECT k.date, e.agent AS series, SUM(k.purchased) AS purchased, SUM(k.net) AS net
 FROM day_kpi k
 INNER JOIN elite_am e ON e.account_id = k.account_id
 GROUP BY k.date, e.agent

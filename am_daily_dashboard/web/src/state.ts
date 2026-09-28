@@ -7,7 +7,7 @@
  * an import cycle whose evaluation order depends on esbuild.
  */
 import type { AppState, Dict } from "./types";
-import { AGENTS, AM_ORDER, DATA, GATE_TOKEN, HIDE_MANAGER, HOME_AM, PEER_MODE, REPORT } from "./payload";
+import { AGENTS, AM_ORDER, BRIEF_DATE, DATA, GATE_TOKEN, HIDE_MANAGER, HOME_AM, PEER_MODE, REPORT } from "./payload";
 import { VIEWS } from "./registry";
 
 /* ---------------- manager gate ---------------- */
@@ -55,7 +55,7 @@ export const app: AppState = {
   mobileOpen: false,
   ticket: null,
   calOpen: false,
-  calMonth: (REPORT.date || "").slice(0, 7),
+  calMonth: (BRIEF_DATE || REPORT.date || "").slice(0, 7),
 };
 
 /* ---------------- render hook ---------------- */

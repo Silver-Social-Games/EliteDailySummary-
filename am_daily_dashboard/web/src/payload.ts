@@ -35,6 +35,31 @@ export const TEAM_GOALS: Dict | null = DATA.teamGoals || null;
    before the gate existed still open the Dashboard. */
 export const GATE_TOKEN: string = DATA.managerGate || "09dcfdd4";
 
+const WD_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const MON_SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+/** ISO date plus `days`, in UTC so no local timezone can shift the day. */
+export function shiftIsoDate(iso: string, days: number): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(iso || ""));
+  if (!m) return "";
+  const d = new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]) + days));
+  return d.toISOString().slice(0, 10);
+}
+
+/** "Sun 27 Sep 2026" (or "Sun 27 Sep" without the year) from an ISO date. */
+export function isoDateLabel(iso: string, withYear = true): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(iso || ""));
+  if (!m) return "";
+  const wd = WD_SHORT[new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]))).getUTCDay()];
+  const body = `${wd} ${Number(m[3])} ${MON_SHORT[Number(m[2]) - 1]}`;
+  return withYear ? `${body} ${m[1]}` : body;
+}
+
+/* The brief is read the morning after its data: REPORT.date stays the data
+   date (files, queries, archive keys); the board is labelled with the run date. */
+export const BRIEF_DATE: string = shiftIsoDate(REPORT.date || "", 1);
+export const briefSubtitle: string = BRIEF_DATE ? isoDateLabel(BRIEF_DATE) : String(REPORT.subtitle || "");
+
 export const day: string = REPORT.weekday || "";
 export const dayShort: string = REPORT.dayShort || day.slice(0, 3);
 

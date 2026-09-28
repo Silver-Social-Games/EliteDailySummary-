@@ -126,7 +126,7 @@ export const VIEWS: Record<string, ViewDef> = {
                  comingSoon: true, sub: "Habitual games and momentum" },
   gamesNew:    { label: "New Games", icon: "sparkles", group: "Games",
                  comingSoon: true, sub: "Titles gaining traction" },
-  anniversary: { label: "1 Month Anniversary", short: "1M Anniversary", icon: "gift",
+  anniversary: { label: "1 Month Anniversary · Last 3 Days", short: "1M Anniversary", icon: "gift",
                  group: "Daily Triggers", key: "anniversary",
                  sub: "30-day managed milestone outreach" },
   birthdayGift: { label: "Monthly Birthday Gifts", short: "Monthly Birthday Gifts", icon: "gift",

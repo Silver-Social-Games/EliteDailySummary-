@@ -54,7 +54,7 @@ export function sparklineSvg(lines: ChartLine[], w = 300, h = 64): string {
 
 /** Multi-series line chart with a $ left axis, optional right axis, and one
  *  hover column per point whose native tooltip lists every series. */
-export function lineChartSvg(lines: ChartLine[], labels: string[], height = 280): string {
+export function lineChartSvg(lines: ChartLine[], labels: string[], height = 340): string {
   const W = 960;
   const H = height;
   const hasRight = lines.some((l) => l.axis === "right");

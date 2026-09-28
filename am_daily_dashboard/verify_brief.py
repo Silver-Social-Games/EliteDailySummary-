@@ -281,10 +281,19 @@ def verify_purchase_trend(payload: dict, report: Report) -> None:
     for key in ("jackpota", "elite", "weekdays"):
         report.check(len(trend.get(key) or []) == n, f"trend {key} aligned to dates")
     report.check(
-        set(trend) <= {"dates", "weekdays", "dailyDays", "jackpota", "elite"},
+        set(trend) <= {"dates", "weekdays", "dailyDays", "jackpota", "elite", "holdMtd"},
         "report trend carries no per-AM series",
         str(sorted(set(trend))),
     )
+    hold = trend.get("holdMtd")
+    if report.check(isinstance(hold, dict), "trend holdMtd present"):
+        for key in ("jackpota", "elite"):
+            v = hold.get(key)
+            report.check(
+                isinstance(v, (int, float)) and -100 <= v <= 100,
+                f"holdMtd {key} within -100%..100%",
+                f"{v}",
+            )
     for agent in payload.get("agents") or []:
         values = (agent.get("purchaseTrend") or {}).get("values") or []
         report.check(len(values) == n, f"{agent.get('agentName')} trend aligned", f"{len(values)}")

@@ -43,6 +43,14 @@ function segmentPanel(
   }
   const revFoot = kind === "elite" ? eliteShareFoot(seg, jackpota, "rev") : "";
   const plyFoot = kind === "elite" ? eliteShareFoot(seg, jackpota, "ply") : "";
+  const hold = TREND?.holdMtd?.[kind];
+  const holdRow = hold == null || !Number.isFinite(Number(hold)) ? "" : `
+        <div class="segment-metric">
+          <div class="segment-metric-label">This Month Hold %</div>
+          <div class="segment-metric-row">
+            <span class="segment-metric-value sm">${esc(`${Number(hold).toFixed(1)}%`)}</span>
+          </div>
+        </div>`;
   return `<div class="segment-panel">
         <div class="segment-panel-head">${logoImg(kind, 24, kind === "jackpota" ? "Jackpota" : "Elite Club")}
           <span class="segment-panel-title">${esc(seg.label)}</span></div>
@@ -61,7 +69,7 @@ function segmentPanel(
             ${wowPillHtml(seg.plyWow)}
           </div>
           ${plyFoot ? `<div class="segment-metric-foot t-tertiary t-small">${esc(plyFoot)}</div>` : ""}
-        </div>
+        </div>${holdRow}
       </div>`;
 }
 

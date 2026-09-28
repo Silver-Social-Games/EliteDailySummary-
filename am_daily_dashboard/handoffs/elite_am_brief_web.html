@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <!-- am-brief-build sources sha256:0b4e7f2dcda2ea828e3bc73b5296a3668638516c20124cfab879026c8c403d2f output sha256:f913b321ff106df7eeaa44cccc0a1aab9e2e0d7fe05e44099647b904e491c4af -->
+  <!-- am-brief-build sources sha256:07d757208f5ad972f4f1ab43e25e1f9a652ff21219c47c0df12b95cdbe4ce3b9 output sha256:ad67ceca1fea6be185687d0ded838ea64e8f3fa867c734e5f86c4e41bfdac606 -->
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Elite Dashboard</title>
   <style>
@@ -898,6 +898,7 @@
     .cal-btn-text { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; line-height: 1.1; text-align: left; }
     .cal-btn-kicker { font-size: 9px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-4); }
     .cal-btn-value { font-size: 12px; font-weight: 650; color: var(--ink); white-space: nowrap; }
+    .cal-btn-data { font-size: 9.5px; color: var(--ink-4); white-space: nowrap; }
     .cal-chev { color: var(--ink-4); flex: none; }
     .cal-btn:hover { color: var(--ink); border-color: var(--ink-4); box-shadow: var(--shadow-sm); }
     .cal-pop {
@@ -1280,6 +1281,23 @@
   );
   var TEAM_GOALS = DATA.teamGoals || null;
   var GATE_TOKEN = DATA.managerGate || "09dcfdd4";
+  var WD_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  var MON_SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  function shiftIsoDate(iso, days) {
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(iso || ""));
+    if (!m) return "";
+    const d = new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]) + days));
+    return d.toISOString().slice(0, 10);
+  }
+  function isoDateLabel(iso, withYear = true) {
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(iso || ""));
+    if (!m) return "";
+    const wd = WD_SHORT[new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]))).getUTCDay()];
+    const body = `${wd} ${Number(m[3])} ${MON_SHORT[Number(m[2]) - 1]}`;
+    return withYear ? `${body} ${m[1]}` : body;
+  }
+  var BRIEF_DATE = shiftIsoDate(REPORT.date || "", 1);
+  var briefSubtitle = BRIEF_DATE ? isoDateLabel(BRIEF_DATE) : String(REPORT.subtitle || "");
   var day = REPORT.weekday || "";
   var dayShort = REPORT.dayShort || day.slice(0, 3);
   var TITLES = {
@@ -1573,7 +1591,7 @@
     }).join("");
     return `<svg class="spark" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" aria-hidden="true">${paths}</svg>`;
   }
-  function lineChartSvg(lines, labels, height = 280) {
+  function lineChartSvg(lines, labels, height = 340) {
     const W = 960;
     const H = height;
     const hasRight = lines.some((l) => l.axis === "right");
@@ -1642,6 +1660,16 @@
   // src/trend.ts
   var GOLD = "#D4AF37";
   var MUTED = "#9490A0";
+  var AM_COLORS = {
+    coral: "#E11D48",
+    gabriel: "#2563EB",
+    lee: "#059669",
+    rachel: "#7C3AED",
+    alon: "#EA580C"
+  };
+  function amColor(name, i) {
+    return AM_COLORS[String(name).trim().toLowerCase()] || BAR_COLORS[i % BAR_COLORS.length];
+  }
   var MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
   var TREND = REPORT.purchaseTrend && Array.isArray(REPORT.purchaseTrend.dates) && REPORT.purchaseTrend.dates.length ? REPORT.purchaseTrend : null;
   function trendSeries() {
@@ -1658,7 +1686,7 @@
           id: `am:${a.agentName}`,
           label: a.agentName,
           values,
-          color: BAR_COLORS[i % BAR_COLORS.length]
+          color: amColor(a.agentName, i)
         });
       }
     });
@@ -1933,6 +1961,7 @@
     return jp > 0 ? `${(el2 / jp * 100).toFixed(1)}% of Jackpota purchased players` : "";
   }
   function segmentPanel(seg, kind, jackpota) {
+    var _a, _b;
     if (!seg) {
       return `<div class="segment-panel">
           <div class="segment-panel-head">${logoImg(kind, 24, kind === "jackpota" ? "Jackpota" : "Elite Club")}
@@ -1942,6 +1971,14 @@
     }
     const revFoot = kind === "elite" ? eliteShareFoot(seg, jackpota, "rev") : "";
     const plyFoot = kind === "elite" ? eliteShareFoot(seg, jackpota, "ply") : "";
+    const hold = (_b = (_a = TREND) == null ? void 0 : _a.holdMtd) == null ? void 0 : _b[kind];
+    const holdRow = hold == null || !Number.isFinite(Number(hold)) ? "" : `
+        <div class="segment-metric">
+          <div class="segment-metric-label">This Month Hold %</div>
+          <div class="segment-metric-row">
+            <span class="segment-metric-value sm">${esc(`${Number(hold).toFixed(1)}%`)}</span>
+          </div>
+        </div>`;
     return `<div class="segment-panel">
         <div class="segment-panel-head">${logoImg(kind, 24, kind === "jackpota" ? "Jackpota" : "Elite Club")}
           <span class="segment-panel-title">${esc(seg.label)}</span></div>
@@ -1960,7 +1997,7 @@
             ${wowPillHtml(seg.plyWow)}
           </div>
           ${plyFoot ? `<div class="segment-metric-foot t-tertiary t-small">${esc(plyFoot)}</div>` : ""}
-        </div>
+        </div>${holdRow}
       </div>`;
   }
   function trendHeroPanel() {
@@ -2949,17 +2986,20 @@
     }
     if (m === "daily") {
       const idx2 = lastIndices();
+      const isAm = (s) => s.id.startsWith("am:");
+      const anyAm = shown.some(isAm);
       const mixed = shown.some((s) => s.id === "jackpota") && shown.some((s) => s.id !== "jackpota");
+      const onRight = (s) => anyAm ? !isAm(s) && shown.length > 1 : mixed && s.id === "jackpota";
       const lines = shown.map((s) => ({
         label: s.label,
         values: idx2.map((i) => s.values[i] || 0),
         color: s.color,
-        axis: mixed && s.id === "jackpota" ? "right" : "left",
-        width: s.id === "elite" ? 2.5 : 2,
+        axis: onRight(s) ? "right" : "left",
+        width: s.id === "elite" || isAm(s) ? 2.5 : 2,
         dashed: s.id === "jackpota"
       }));
       const legend = shown.map(
-        (s) => `<span class="trend-legend-item"><span class="trend-dot" style="background:${s.color}"></span>${esc(s.label)}${mixed && s.id === "jackpota" ? ` <span class="t-tertiary">(right axis)</span>` : ""}</span>`
+        (s) => `<span class="trend-legend-item"><span class="trend-dot" style="background:${s.color}"></span>${esc(s.label)}${onRight(s) ? ` <span class="t-tertiary">(right axis)</span>` : ""}</span>`
       ).join("");
       return `<div class="card gold-top trend-chart-card">
           <div class="card-head">
@@ -4275,7 +4315,7 @@
       sub: "Titles gaining traction"
     },
     anniversary: {
-      label: "1 Month Anniversary",
+      label: "1 Month Anniversary \xB7 Last 3 Days",
       short: "1M Anniversary",
       icon: "gift",
       group: "Daily Triggers",
@@ -4349,7 +4389,7 @@
     mobileOpen: false,
     ticket: null,
     calOpen: false,
-    calMonth: (REPORT.date || "").slice(0, 7)
+    calMonth: (BRIEF_DATE || REPORT.date || "").slice(0, 7)
   };
   var renderHook = () => {
   };
@@ -4454,7 +4494,7 @@
           <span class="brand-mark">${logoImg("elite", 32, "Elite Club")}</span>
           <div class="brand-text">
             <div class="brand-title">${esc(REPORT.title || "Elite Dashboard")}</div>
-            <div class="brand-sub">${esc(REPORT.subtitle || "")}</div>
+            <div class="brand-sub">${esc(briefSubtitle)}</div>
           </div>
         </div>
         <div class="brand-rule"></div>
@@ -4462,7 +4502,7 @@
         <nav class="side-nav">${nav}</nav>
         <div class="side-foot">
           ${SINGLE_AM ? esc(app.agent) + " \xB7 personal board" : PEER_MODE ? esc(HOME_AM) + " \xB7 coverage board" : "Manager view \xB7 all AMs"}<br>
-          Report date ${esc(REPORT.date || "")}
+          Brief date ${esc(BRIEF_DATE || REPORT.date || "")} \xB7 data ${esc(REPORT.date || "")}
         </div>
       </aside>`;
   }
@@ -4608,7 +4648,10 @@
   // src/calendar.ts
   var ARCHIVE = REPORT.archive || [];
   var ARCHIVE_BY_DATE = new Map(ARCHIVE.map((a) => [a.d, a.f]));
-  var ARCHIVE_MONTHS = [...new Set(ARCHIVE.map((a) => a.d.slice(0, 7)))].sort();
+  var runDate = (dataIso) => shiftIsoDate(dataIso, 1) || dataIso;
+  var dataDate = (runIso) => shiftIsoDate(runIso, -1) || runIso;
+  var CURRENT_RUN = BRIEF_DATE || REPORT.date || "";
+  var ARCHIVE_MONTHS = [...new Set(ARCHIVE.map((a) => runDate(a.d).slice(0, 7)))].sort();
   var MONTH_NAMES = [
     "January",
     "February",
@@ -4642,7 +4685,7 @@
     return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
   }
   function calendarPopHtml() {
-    const ym = app.calMonth || (REPORT.date || "").slice(0, 7);
+    const ym = app.calMonth || CURRENT_RUN.slice(0, 7);
     const year = Number(ym.slice(0, 4));
     const month = Number(ym.slice(5, 7));
     const firstDow = new Date(Date.UTC(year, month - 1, 1)).getUTCDay();
@@ -4655,26 +4698,26 @@
     for (let i = 0; i < firstDow; i++) cells += `<span class="cal-day empty"></span>`;
     for (let d = 1; d <= daysInMonth; d++) {
       const iso = `${ym}-${String(d).padStart(2, "0")}`;
-      const file = archiveFileForDate(iso);
-      const isCurrent = iso === REPORT.date;
+      const file = archiveFileForDate(dataDate(iso));
+      const isCurrent = iso === CURRENT_RUN;
       if (file) {
         cells += `<button type="button" class="cal-day has${isCurrent ? " today" : ""}"
 
-            data-cal-open="${esc(file)}" title="Open the brief for ${esc(iso)}">${d}</button>`;
+            data-cal-open="${esc(file)}" title="Open the brief for ${esc(iso)} (data ${esc(dataDate(iso))})">${d}</button>`;
       } else {
         cells += `<span class="cal-day" title="No brief for ${esc(iso)}">${d}</span>`;
       }
     }
     const latestHtml = latestArchive && latestArchive.d !== REPORT.date ? `<button type="button" class="cal-recent-btn brand" data-cal-open="${esc(datelessBriefFile())}"
 
-            title="Open latest brief (${esc(latestArchive.d)})">Latest \xB7 ${esc(latestArchive.d.slice(5))}</button>` : "";
+            title="Open latest brief (${esc(runDate(latestArchive.d))})">Latest \xB7 ${esc(runDate(latestArchive.d).slice(5))}</button>` : "";
     const recentHtml = recent.length || latestHtml ? `<div class="cal-recent">
 
         <div class="cal-recent-label">Recent</div>
 
         <div class="cal-recent-row">${latestHtml}${recent.map((a) => {
       const f = archiveFileForDate(a.d) || a.f;
-      return `<button type="button" class="cal-recent-btn" data-cal-open="${esc(f)}" title="${esc(a.d)}">${esc(a.d.slice(5))}</button>`;
+      return `<button type="button" class="cal-recent-btn" data-cal-open="${esc(f)}" title="${esc(runDate(a.d))}">${esc(runDate(a.d).slice(5))}</button>`;
     }).join("")}</div>
 
       </div>` : "";
@@ -4731,8 +4774,9 @@
             <button type="button" class="cal-btn" id="calBtn" title="Switch report date">
               ${icon("calendar", "ic-sm")}
               <span class="cal-btn-text">
-                <span class="cal-btn-kicker">Report date</span>
-                <span class="cal-btn-value">${esc(REPORT.subtitle || REPORT.date || "")}</span>
+                <span class="cal-btn-kicker">Brief Date</span>
+                <span class="cal-btn-value">${esc(briefSubtitle || REPORT.date || "")}</span>
+                ${BRIEF_DATE ? `<span class="cal-btn-data">Data: ${esc(isoDateLabel(REPORT.date, false))}</span>` : ""}
               </span>
               ${icon("chev-down", "ic-xs cal-chev")}
             </button>
@@ -4766,7 +4810,7 @@
     if (calBtn) calBtn.onclick = (e) => {
       e.stopPropagation();
       app.calOpen = !app.calOpen;
-      if (app.calOpen && !app.calMonth) app.calMonth = (REPORT.date || "").slice(0, 7);
+      if (app.calOpen && !app.calMonth) app.calMonth = (BRIEF_DATE || REPORT.date || "").slice(0, 7);
       rerender();
     };
     document.querySelectorAll("[data-cal-month]").forEach((el2) => {
@@ -4978,7 +5022,7 @@ ${val("tBody")}`, "Subject + message");
           <div class="content">${body}</div>
         </div>
       </div>`;
-    document.title = `${REPORT.title || "Elite Dashboard"} \xB7 ${REPORT.date || ""}`;
+    document.title = `${REPORT.title || "Elite Dashboard"} \xB7 ${BRIEF_DATE || REPORT.date || ""}`;
     bind();
     renderModal();
   }

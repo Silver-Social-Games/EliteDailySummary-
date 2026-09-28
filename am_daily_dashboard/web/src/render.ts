@@ -5,7 +5,7 @@
  * once, at bootstrap. Importing `render.ts` from either of them would make an
  * import cycle whose evaluation order depends on esbuild.
  */
-import { HIDE_MANAGER, REPORT } from "./payload";
+import { BRIEF_DATE, HIDE_MANAGER, REPORT } from "./payload";
 import { agentBlock } from "./selectors";
 import { app } from "./state";
 import { VIEWS, VIEW_FN } from "./registry";
@@ -27,7 +27,7 @@ export function render(): void {
           <div class="content">${body}</div>
         </div>
       </div>`;
-  document.title = `${REPORT.title || "Elite Dashboard"} · ${REPORT.date || ""}`;
+  document.title = `${REPORT.title || "Elite Dashboard"} · ${BRIEF_DATE || REPORT.date || ""}`;
   bind();
   renderModal();
 }
